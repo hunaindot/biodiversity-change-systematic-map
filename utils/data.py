@@ -1,5 +1,7 @@
 import os
 import pandas as pd
+import random
+import textwrap
 
 def load_data(
     csv_path: str = "data/curated_data.csv",
@@ -45,3 +47,18 @@ def load_data(
     print(f" {len(null_cols)} Columns with null values:\n{null_cols}")
 
     return df, df_sample
+
+
+def print_random_record(df):
+    idx = random.randint(0, len(df) - 1)
+    row = df.iloc[idx]
+    fields = [
+        ("UT (Unique WOS ID)", row.get("UT (Unique WOS ID)", "")),
+        ("Article Title", row.get("Article Title", "")),
+        ("Abstract", row.get("Abstract", "")),
+        ("message.content", row.get("message.content", ""))
+    ]
+    for label, value in fields:
+        print(f"{label}:")
+        print(textwrap.fill(str(value), width=80))
+        print("-" * 40)

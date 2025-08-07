@@ -1,4 +1,6 @@
 venv/
+myenv/
+.venv
 env/
 local_files/
 dataset/
@@ -7,3 +9,7 @@ __pycache__/
 dataset.zip
 gbif_taxonomy
 data
+test.ipynb
+*.jsonl
+.env
+results/
