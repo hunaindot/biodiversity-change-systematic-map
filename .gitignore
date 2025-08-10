@@ -13,3 +13,5 @@ test.ipynb
 *.jsonl
 .env
 results/
+setup_archive.ipynb
+notes/
