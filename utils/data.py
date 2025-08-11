@@ -2,21 +2,8 @@ import os
 import pandas as pd
 import random
 import textwrap
-from typing import Optional, Iterable
-
-def _get_bool_env(name: str, default: bool = False) -> bool:
-    v = os.getenv(name)
-    if v is None: return default
-    return str(v).strip().lower() in {"1","true","yes","y","on"}
-
-def _get_int_env(name: str, default: Optional[int]) -> Optional[int]:
-    v = os.getenv(name)
-    if v is None or str(v).strip()=="":
-        return default
-    try:
-        return int(v)
-    except ValueError:
-        return default
+from typing import Optional
+from osfclient import OSF
 
 def print_random_record(df):
     idx = random.randint(0, len(df) - 1)
@@ -33,55 +20,72 @@ def print_random_record(df):
         print("-" * 40)
 
 def load_data(
-    csv_path: Optional[str] = None,
-    sample_n: Optional[int] = None,
-    sample: Optional[bool] = None,
-    required_text_col: Optional[str] = None,
-    allow_download: Optional[bool] = True,
-    download_url: Optional[str] = None,
-    random_seed: Optional[int] = None,
-    drop_duplicates: Optional[bool] = None,
-    verbose: Optional[bool] = None,
+    csv_path: str = "osf-data/data.csv",
+    sample_n: int = 1000,
+    sample: bool = True,
+    required_text_col: str = "Abstract",
+    random_seed: int = 42,
+    drop_duplicates: bool = True,
+    verbose: bool = True,
 ) -> tuple[pd.DataFrame, Optional[pd.DataFrame]]:
     """
-    Load the curated dataset from local CSV; if missing and allowed, download and cache.
-
-    Env-backed defaults:
-      DATA_CSV_PATH, DATA_DOWNLOAD_URL, DATA_ALLOW_DOWNLOAD
-      DATA_REQUIRED_TEXT_COL, DATA_DROP_DUPLICATES
-      DATA_SAMPLE, DATA_SAMPLE_N, DATA_RANDOM_SEED, DATA_VERBOSE
+    Load the curated dataset from local CSV at osf-data/data.csv (by default).
+    If the file is missing, download it from OSF and cache locally.
     """
-    # Resolve defaults from env
-    csv_path         = csv_path or os.getenv("DATA_CSV_PATH", "data/curated_data.csv")
-    download_url     = download_url or os.getenv("DATA_DOWNLOAD_URL",
-                         "https://huggingface.co/datasets/Hunain505/biodiversity-research-text/resolve/main/dataset/curated_data/data.csv")
-    allow_download   = allow_download if allow_download is not None else _get_bool_env("DATA_ALLOW_DOWNLOAD", True)
-    required_text_col= required_text_col or os.getenv("DATA_REQUIRED_TEXT_COL", "Abstract")
-    drop_duplicates  = drop_duplicates if drop_duplicates is not None else _get_bool_env("DATA_DROP_DUPLICATES", True)
-    sample           = sample if sample is not None else _get_bool_env("DATA_SAMPLE", True)
-    sample_n         = sample_n if sample_n is not None else _get_int_env("DATA_SAMPLE_N", 1000)
-    random_seed      = random_seed if random_seed is not None else _get_int_env("DATA_RANDOM_SEED", 42)
-    verbose          = verbose if verbose is not None else _get_bool_env("DATA_VERBOSE", True)
-
+    
     # Ensure directory exists
     os.makedirs(os.path.dirname(csv_path) or ".", exist_ok=True)
 
-    # Load (or download+cache)
+    # Load (or OSF download + cache)
     if os.path.exists(csv_path):
         if verbose: print(f"Loading dataset from local file: {csv_path}")
         df = pd.read_csv(csv_path, low_memory=False)
     else:
-        if not allow_download:
-            raise FileNotFoundError(
-                f"Local file not found at {csv_path} and DATA_ALLOW_DOWNLOAD=false. "
-                f"Either place the file locally or enable download."
-            )
         if verbose:
-            print("Local file not found. Downloading dataset…")
-            print(f"Source: {download_url}")
-        df = pd.read_csv(download_url, low_memory=False)
-        df.to_csv(csv_path, index=False)
+            print("Local file not found. Downloading dataset from OSF…")
+
+        # OSF setup
+        try:
+            from osfclient import OSF
+        except Exception as e:
+            raise ImportError(
+                "The 'osfclient' package is required for OSF downloads. "
+                "Install it with: pip install osfclient"
+            ) from e
+
+        token = os.getenv("OSF_TOKEN", None)
+        project_id = os.getenv("OSF_PROJECT", "sna2g")
+        if verbose:
+            print(f"OSF project: {project_id} (auth={'token' if token else 'anonymous'})")
+
+        osf = OSF(token=token) if token else OSF()
+        project = osf.project(project_id)
+        store = project.storage("osfstorage")
+
+        target_osf_path = "/web-of-science/curated/data.csv"
+
+        # Find the CSV in OSF and write directly to csv_path
+        csv_node = None
+        for f in store.files:
+            if f.path == target_osf_path:
+                csv_node = f
+                break
+
+        if csv_node is None:
+            raise FileNotFoundError(
+                f"Couldn't find '{target_osf_path}' in OSF project '{project_id}'. "
+                "Verify the path or project id."
+            )
+
+        if verbose:
+            size = getattr(csv_node, "size", None)
+            print(f"Downloading: {target_osf_path} ({size or 'unknown'} bytes)")
+
+        with open(csv_path, "wb") as out:
+            csv_node.write_to(out)
+
         if verbose: print(f"Dataset saved to {csv_path}")
+        df = pd.read_csv(csv_path, low_memory=False)
 
     # Quick summary (robust to missing column)
     wos_col = "UT (Unique WOS ID)"

@@ -8,6 +8,7 @@ __pycache__/
 .DS_Store
 dataset.zip
 gbif_taxonomy
+gbif_taxonomy_archive/
 data
 test.ipynb
 *.jsonl
@@ -15,3 +16,6 @@ test.ipynb
 results/
 setup_archive.ipynb
 notes/
+osf-data/
+utils/data-copy.py
+sample_records.ipynb

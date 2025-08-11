@@ -75,6 +75,7 @@ numba==0.61.2
 numpy==2.2.6
 openai==1.99.5
 openpyxl==3.1.5
+osfclient==0.0.5
 packaging==25.0
 pandas==2.2.3
 parso==0.8.4

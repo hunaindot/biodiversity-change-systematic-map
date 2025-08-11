@@ -7,49 +7,22 @@ import numpy as np
 import pandas as pd
 import requests
 
-def _env():
-    defaults = {
-        "OUT_DIR": os.getenv("OUT_DIR", "./local_embedding_db"),
-        "ID_COLUMN": os.getenv("EMBED_ID_COLUMN", "species_id"),
-        "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
-        "OPENAI_BASE_URL": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/"),
-        "OPENAI_EMBED_MODEL": os.getenv("OPENAI_EMBED_MODEL", "text-embedding-3-small"),
-        "TEXT_FIELDS": [t.strip() for t in os.getenv(
-            "TEXT_FIELDS", "species_name,species,genus,family,order,class,phylum,kingdom"
-        ).split(",") if t.strip()],
-        "FIELD_WEIGHTS": json.loads(os.getenv("FIELD_WEIGHTS_JSON", "{}") or "{}") or {
-            "species_name": 1.3, "species": 1.3, "genus": 1.15, "family": 1.0,
-            "order": 1.0, "class": 0.95, "phylum": 0.95, "kingdom": 0.9
-        },
-        "STAGING_BATCH_SIZE": int(os.getenv("STAGING_BATCH_SIZE", "512")),
-        "API_BATCH_SIZE": int(os.getenv("API_BATCH_SIZE", "256")),
-    }
-    return defaults
-
-
 # ----------------------------
 # Minimal OpenAI client
 # ----------------------------
 def embed_texts_batch(
-    texts: Union[str, Sequence[str]],
-    *,
-    model: Optional[str] = None,
-    api_key: Optional[str] = None,
-    base_url: Optional[str] = None,
-    timeout: int = 60,
+    texts: Union[str, Sequence[str]]
 ) -> List[List[float]]:
     
-    env = _env()
     items = [texts] if isinstance(texts, str) else list(texts)
-    url = f"{(base_url or env['OPENAI_BASE_URL']).rstrip('/')}/embeddings"
+    url = f"{(os.getenv('OPENAI_BASE_URL')).rstrip('/')}/embeddings"
     r = requests.post(
         url,
         headers={
-            "Authorization": f"Bearer {(api_key or env['OPENAI_API_KEY'])}",
+            "Authorization": f"Bearer {(os.getenv('OPENAI_API_KEY'))}",
             "Content-Type": "application/json",
         },
-        json={"model": (model or env["OPENAI_EMBED_MODEL"]), "input": items},
-        timeout=timeout,
+        json={"model": (os.getenv('OPENAI_EMBED_MODEL')), "input": items}
     )
     r.raise_for_status()
     data = r.json()
@@ -75,25 +48,19 @@ def _batch_hash(row_keys: Sequence[str]) -> str:
 # ----------------------------
 def stage_batches_from_df(
     df: pd.DataFrame,
-    *,
-    out_dir: Optional[str] = None,
-    id_col: Optional[str] = None,
-    text_fields: Optional[List[str]] = None,
-    field_weights: Optional[dict] = None,
+    text_fields: List[str],
+    field_weights: dict,
+    out_dir: str = "osf-data/gbif-taxonomy-backbone/database/embedding_db",
+    id_col: str = "species_id",
     include_labels: bool = True,
-    batch_size: Optional[int] = None,
+    batch_size: int = 512,
     skip_existing: bool = True,
 ) -> pathlib.Path:
     
-    env = _env()
-    out = pathlib.Path(out_dir or env["OUT_DIR"])
+    cnt= 0
+    out = pathlib.Path(out_dir)
     batches_dir = out / "batches"
     batches_dir.mkdir(parents=True, exist_ok=True)
-
-    id_col = id_col or env["ID_COLUMN"]
-    text_fields = text_fields or env["TEXT_FIELDS"]
-    field_weights = field_weights or env["FIELD_WEIGHTS"]
-    batch_size = batch_size or env["STAGING_BATCH_SIZE"]
 
     long_df = _longify_df_for_embeddings(
         df, id_col=id_col, text_fields=text_fields,
@@ -109,9 +76,12 @@ def stage_batches_from_df(
         part["batch"] = b_hash
         dest = batches_dir / f"batch-{b_hash}.parquet"
         if skip_existing and dest.exists():
+            print('Skipping batch ', dest)
+            cnt = cnt + 1
             continue
         part.to_parquet(dest, index=False)
 
+    print('Skipped batches = ', cnt)
     return batches_dir
 
 
@@ -119,27 +89,23 @@ def stage_batches_from_df(
 # PHASE 2: Embed staged batches (skips ones already embedded)
 # ----------------------------
 def embed_staged_batches(
-    *,
-    out_dir: Optional[str] = None,
-    openai_model: Optional[str] = None,
-    openai_api_key: Optional[str] = None,
-    openai_base_url: Optional[str] = None,
-    api_batch_size: Optional[int] = None,
+    out_dir: str = "osf-data/gbif-taxonomy-backbone/database/embedding_db",
+    api_batch_size: int = 256,
     force: bool = False,
 ) -> pathlib.Path:
     
-    env = _env()
-    out = pathlib.Path(out_dir or env["OUT_DIR"])
+    cnt=0
+    out = pathlib.Path(out_dir)
     batches_dir = out / "batches"
     results_dir = out / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
-
-    api_batch_size = api_batch_size or env["API_BATCH_SIZE"]
 
     for bf in sorted(batches_dir.glob("batch-*.parquet")):
         b_hash = bf.stem.split("batch-")[-1]
         dest = results_dir / f"emb-{b_hash}.parquet"
         if dest.exists() and not force:
+            print('Skipping batch: ', dest)
+            cnt = cnt + 1
             continue
 
         part = pd.read_parquet(bf)
@@ -149,35 +115,27 @@ def embed_staged_batches(
         for chunk in _batched(texts, api_batch_size):
             all_vecs.extend(
                 embed_texts_batch(
-                    chunk,
-                    model=openai_model or env["OPENAI_EMBED_MODEL"],
-                    api_key=openai_api_key or env["OPENAI_API_KEY"],
-                    base_url=openai_base_url or env["OPENAI_BASE_URL"],
+                    chunk
                 )
             )
-
         out_df = part.copy()
         out_df["embedding"] = all_vecs
         out_df.to_parquet(dest, index=False)
-
+    print('Skipped batches = ', cnt)
     return results_dir
 
 # ----------------------------
 # PHASE 3: Build DB from results
 # ----------------------------
 def finalize_database_from_results(
-    *,
-    out_dir: Optional[str] = None,
-    id_col: Optional[str] = None,
+    out_dir: str = "osf-data/gbif-taxonomy-backbone/database/embedding_db",
+    id_col: str = "species_id",
     build_faiss: bool = True,
     rows_df: Optional[pd.DataFrame] = None,
     deduplicate: bool = True,
 ) -> Tuple[pathlib.Path, Optional[pathlib.Path]]:
     
-    env = _env()
-    out = pathlib.Path(out_dir or env["OUT_DIR"])
-    id_col = id_col or env["ID_COLUMN"]
-
+    out = pathlib.Path(out_dir)
     parts = sorted((out / "results").glob("emb-*.parquet"))
     dfs = [pd.read_parquet(p) for p in parts]
     all_df = pd.concat(dfs, ignore_index=True)
@@ -199,7 +157,7 @@ def finalize_database_from_results(
     with open(index_meta_path, "w") as f:
         json.dump(
             {"dimension": int(embeddings.shape[1]),
-             "model": env["OPENAI_EMBED_MODEL"],
+             "model": os.getenv('OPENAI_EMBED_MODEL'),
              "created": datetime.utcnow().isoformat() + "Z",
              "vectors": int(embeddings.shape[0])},
             f, indent=2,
@@ -225,26 +183,19 @@ def finalize_database_from_results(
 # ----------------------------
 def search(
     query_text: str,
-    *,
-    out_dir: Optional[str] = None,
+    id_col: str = "species_id",
+    out_dir: str = "osf-data/gbif-taxonomy-backdone/database/embedding_db",
     k_rows: int = 5,
-    knn_candidates: int = 200,
-    openai_model: Optional[str] = None,
-    openai_api_key: Optional[str] = None,
-    openai_base_url: Optional[str] = None,
-    id_col: Optional[str] = None,
+    knn_candidates: int = 200
 ) -> pd.DataFrame:
     
-    env = _env()
-    out = pathlib.Path(out_dir or env["OUT_DIR"])
-    id_col = id_col or env["ID_COLUMN"]
-
+    out = pathlib.Path(out_dir)
     q = np.asarray(
         embed_texts_batch(
             query_text,
-            model=openai_model or env["OPENAI_EMBED_MODEL"],
-            api_key=openai_api_key or env["OPENAI_API_KEY"],
-            base_url=openai_base_url or env["OPENAI_BASE_URL"],
+            model=os.getenv('OPENAI_EMBED_MODEL'),
+            api_key=os.getenv('OPENAI_API_KEY'),
+            base_url=os.getenv('OPENAI_BASE_URL'),
         )[0],
         dtype=np.float32,
     )
@@ -302,97 +253,3 @@ def _longify_df_for_embeddings(
             w = (field_weights or {}).get(f, 1.0)
             rows.append((sid, f, text, float(w)))
     return pd.DataFrame(rows, columns=[id_col, "field", "text", "weight"])
-
-
-# ----------------------------
-# Compatibility function for legacy notebooks
-# ----------------------------
-def build_local_embedding_db_from_df(
-    df,
-    out_dir=None,
-    batch_size=None,
-    build_faiss=None,
-    id_col=None,
-    text_fields=None,
-    field_weights=None,
-    openai_model=None,
-    openai_api_key=None,
-    openai_base_url=None,
-    host=None,
-    model=None,
-    **kwargs
-):
-    """
-    Compatibility function for legacy notebooks that expect the old API.
-    
-    This function combines the three-phase embedding pipeline:
-    1. stage_batches_from_df
-    2. embed_staged_batches
-    3. finalize_database_from_results
-    
-    Parameters are flexible to support both calling conventions from labels.ipynb and setup.ipynb.
-    """
-    import os
-    from pathlib import Path
-    
-    # Handle parameter mappings for different calling conventions
-    if out_dir is None:
-        out_dir = os.getenv("OUT_DIR", "./local_embedding_db")
-    
-    # For setup.ipynb calling convention, map host/model to openai equivalents
-    if host is not None and openai_base_url is None:
-        openai_base_url = host
-    if model is not None and openai_model is None:
-        openai_model = model
-        
-    # Set defaults from environment or function defaults
-    env = _env()
-    if batch_size is None:
-        batch_size = env["STAGING_BATCH_SIZE"]
-    if build_faiss is None:
-        build_faiss = True
-    if id_col is None:
-        id_col = env["ID_COLUMN"]
-    if text_fields is None:
-        text_fields = env["TEXT_FIELDS"]
-    if field_weights is None:
-        field_weights = env["FIELD_WEIGHTS"]
-    if openai_model is None:
-        openai_model = env["OPENAI_EMBED_MODEL"]
-    if openai_api_key is None:
-        openai_api_key = env["OPENAI_API_KEY"]
-    if openai_base_url is None:
-        openai_base_url = env["OPENAI_BASE_URL"]
-    
-    # Phase 1: Stage batches
-    print("Phase 1: Staging batches...")
-    stage_batches_from_df(
-        df=df,
-        out_dir=out_dir,
-        id_col=id_col,
-        text_fields=text_fields,
-        field_weights=field_weights,
-        batch_size=batch_size
-    )
-    
-    # Phase 2: Embed staged batches
-    print("Phase 2: Embedding batches...")
-    embed_staged_batches(
-        out_dir=out_dir,
-        openai_model=openai_model,
-        openai_api_key=openai_api_key,
-        openai_base_url=openai_base_url,
-        api_batch_size=batch_size
-    )
-    
-    # Phase 3: Finalize database
-    print("Phase 3: Finalizing database...")
-    result = finalize_database_from_results(
-        out_dir=out_dir,
-        id_col=id_col,
-        build_faiss=build_faiss,
-        rows_df=df
-    )
-    
-    print("Embedding database built successfully.")
-    return result
