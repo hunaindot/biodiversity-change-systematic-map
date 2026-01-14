@@ -1,0 +1,18 @@
+python labelling/orchestrator.py <input_dir_with_xls> <run_name> [--task driver|geography|taxa|ecosystems|threats]
+
+paths:
+data/labels/l1
+data/labels/l2 
+data/labels/l3 
+data/labels/l4 
+data/labels/l5 
+data/labels/l6
+
+
+05-01-2026 - Tests usins Prompts_zero json:
+batch   python labelling/orchestrator.py  data/labels/l1 l1-05-01-2026 --task driver
+live    python labelling/orchestrator.py  data/labels/l2 l2-05-01-2026 --task threats
+batch   python labelling/orchestrator.py  data/labels/l3 l3-05-01-2026 --task geography
+live   python labelling/orchestrator.py  data/labels/l4 l4-05-01-2026 --task ecosystems
+batch   python labelling/orchestrator.py  data/labels/l5 l5-05-01-2026 --task study
+batch   python labelling/orchestrator.py  data/labels/l6 l6-05-01-2026 --task taxa
