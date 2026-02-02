@@ -210,7 +210,7 @@ class SimpleTask(TaskDefinition):
 
 @dataclass
 class EcosystemTask(TaskDefinition):
-    mapping_filename: str = "ecosystem_typology_1_3_with_short_desc.json"
+    mapping_filename: str = "ecosystem_typology_1_3.json"
 
     def build_requests_file(
         self,
@@ -745,6 +745,7 @@ class ThreatTask(TaskDefinition):
                 l2_lookup[l1_name] = []
                 for l2_name, l2_data in l1_data.get("level2", {}).items():
                     l2_lookup[l1_name].append({"name": l2_name, "desc": l2_data.get("examples", "")})
+        print(f"Final L1 loopkup: {l2_lookup}")
         return candidates, l2_lookup
 
     def _build_l2_candidates(self, threat_l1_labels: list[str], l2_lookup: dict[str, list]) -> list[dict]:

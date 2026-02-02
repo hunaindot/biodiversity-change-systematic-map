@@ -1,0 +1,109 @@
+from __future__ import annotations
+
+import pandas as pd
+from typing import Callable
+
+LabelNormalizer = Callable[[object], set[str]]
+
+
+def record_confusion(df: pd.DataFrame, truth_col: str, pred_col: str, base: str, normalizer: LabelNormalizer) -> pd.DataFrame:
+    """Add per-record tp/fp/fn/jaccard columns."""
+    if truth_col not in df or pred_col not in df:
+        raise KeyError(f"Missing columns: {truth_col} or {pred_col}")
+
+    truth_sets = df[truth_col].apply(normalizer)
+    pred_sets = df[pred_col].apply(normalizer)
+
+    tps, fps, fns, jaccs = [], [], [], []
+    for t, p in zip(truth_sets, pred_sets):
+        if not t:  # skip metrics when truth is empty
+            tp = fp = fn = None
+            jacc = None
+        else:
+            tp = len(t & p)
+            fp = len(p - t)
+            fn = len(t - p)
+            union = t | p
+            jacc = tp / len(union) if union else 0.0
+        tps.append(tp)
+        fps.append(fp)
+        fns.append(fn)
+        jaccs.append(jacc)
+
+    df[f"{base}_tp"] = tps
+    df[f"{base}_fp"] = fps
+    df[f"{base}_fn"] = fns
+    df[f"{base}_jaccard"] = jaccs
+    return df
+
+
+def label_metrics(df: pd.DataFrame, truth_col: str, pred_col: str, normalizer: LabelNormalizer) -> pd.DataFrame:
+    """Return per-label precision/recall/F1/Jaccard plus macro/weighted/micro rows."""
+    truth_sets = df[truth_col].apply(normalizer)
+    pred_sets = df[pred_col].apply(normalizer)
+    # Exclude rows with empty truth from scoring
+    mask = truth_sets.apply(len) > 0
+    truth_sets = truth_sets[mask]
+    pred_sets = pred_sets[mask]
+    if truth_sets.empty:
+        return pd.DataFrame(columns=["label", "tp", "fp", "fn", "precision", "recall", "f1", "jaccard", "support"])
+
+    labels = sorted(set().union(*truth_sets, *pred_sets))
+
+    rows = []
+    for label in labels:
+        tp = sum((label in t) and (label in p) for t, p in zip(truth_sets, pred_sets))
+        fp = sum((label not in t) and (label in p) for t, p in zip(truth_sets, pred_sets))
+        fn = sum((label in t) and (label not in p) for t, p in zip(truth_sets, pred_sets))
+        prec = tp / (tp + fp) if (tp + fp) else 0.0
+        rec = tp / (tp + fn) if (tp + fn) else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+        jacc = tp / (tp + fp + fn) if (tp + fp + fn) else 0.0
+        rows.append(
+            {"label": label, "tp": tp, "fp": fp, "fn": fn, "precision": prec, "recall": rec, "f1": f1, "jaccard": jacc, "support": tp + fn}
+        )
+
+    support_sum = sum(r["support"] for r in rows) or 1
+    weighted = {
+        "label": "_weighted",
+        "tp": None,
+        "fp": None,
+        "fn": None,
+        "precision": sum(r["precision"] * r["support"] for r in rows) / support_sum,
+        "recall": sum(r["recall"] * r["support"] for r in rows) / support_sum,
+        "f1": sum(r["f1"] * r["support"] for r in rows) / support_sum,
+        "jaccard": sum(r["jaccard"] * r["support"] for r in rows) / support_sum,
+        "support": support_sum,
+    }
+    macro = {
+        "label": "_macro",
+        "tp": None,
+        "fp": None,
+        "fn": None,
+        "precision": sum(r["precision"] for r in rows) / len(rows),
+        "recall": sum(r["recall"] for r in rows) / len(rows),
+        "f1": sum(r["f1"] for r in rows) / len(rows),
+        "jaccard": sum(r["jaccard"] for r in rows) / len(rows),
+        "support": support_sum,
+    }
+    # micro: sum tp/fp/fn across labels
+    tp_sum = sum(r["tp"] for r in rows)
+    fp_sum = sum(r["fp"] for r in rows)
+    fn_sum = sum(r["fn"] for r in rows)
+    micro_precision = tp_sum / (tp_sum + fp_sum) if (tp_sum + fp_sum) else 0.0
+    micro_recall = tp_sum / (tp_sum + fn_sum) if (tp_sum + fn_sum) else 0.0
+    micro_f1 = 2 * micro_precision * micro_recall / (micro_precision + micro_recall) if (micro_precision + micro_recall) else 0.0
+    micro_jaccard = tp_sum / (tp_sum + fp_sum + fn_sum) if (tp_sum + fp_sum + fn_sum) else 0.0
+    micro = {
+        "label": "_micro",
+        "tp": tp_sum,
+        "fp": fp_sum,
+        "fn": fn_sum,
+        "precision": micro_precision,
+        "recall": micro_recall,
+        "f1": micro_f1,
+        "jaccard": micro_jaccard,
+        "support": support_sum,
+    }
+    rows.extend([macro, weighted, micro])
+    return pd.DataFrame(rows)
