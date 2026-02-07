@@ -108,3 +108,19 @@ def normalize_geo_labels(values) -> set[str]:
         else:
             out.add(text.lower())
     return out
+
+
+def normalize_screening_label(value) -> str:
+    """
+    Canonicalize screening labels to either ELIGIBLE or NOT_ELIGIBLE.
+    Accepts single strings or single-item lists; returns empty string if missing.
+    """
+    labels = to_label_list(value)
+    if not labels:
+        return ""
+    raw = labels[0].strip().lower().replace("-", "_").replace(" ", "_")
+    if raw in {"eligible"}:
+        return "ELIGIBLE"
+    if raw in {"not_eligible", "noteligible", "ineligible"}:
+        return "NOT_ELIGIBLE"
+    return raw.upper()

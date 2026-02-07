@@ -81,7 +81,7 @@ def parse_args() -> argparse.Namespace:
         "--task",
         "-t",
         dest="task",
-        help="Classification task to run (e.g., driver, geography, taxa, study, ecosystems, threats). Defaults to driver.",
+        help="Classification task to run (e.g., driver, screening, geography, taxa, study, ecosystems, threats). Defaults to driver.",
     )
     return parser.parse_args()
 

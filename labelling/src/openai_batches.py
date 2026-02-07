@@ -10,28 +10,65 @@ from openai import OpenAI
 from .config import DEFAULT_MODEL, DEFAULT_REASONING_EFFORT, MAPPINGS_DIR
 from .config import get_openai_api_key
 
-DEFAULT_PROMPTS_FILE = "prompts_zero.json"
+DEFAULT_PROMPTS_PATH = "prompts"
 ENV_PROMPTS_FILE = "ORCHESTRATOR_PROMPTS_FILE"
 
 
 def _resolve_prompts_path(path: Path | None) -> Path:
+    def _normalize(candidate: Path) -> Path:
+        if candidate.is_absolute():
+            return candidate
+        return MAPPINGS_DIR / candidate
+
     if path:
-        return Path(path)
-    env_value = os.getenv(ENV_PROMPTS_FILE)
-    if env_value:
-        candidate = Path(env_value)
-        if not candidate.is_absolute():
-            candidate = MAPPINGS_DIR / candidate
+        candidate = _normalize(Path(path))
     else:
-        candidate = MAPPINGS_DIR / DEFAULT_PROMPTS_FILE
+        env_value = os.getenv(ENV_PROMPTS_FILE)
+        if env_value:
+            candidate = _normalize(Path(env_value))
+        else:
+            candidate = _normalize(Path(DEFAULT_PROMPTS_PATH))
+
     if not candidate.exists():
-        raise FileNotFoundError(f"Prompt file not found: {candidate}")
+        raise FileNotFoundError(f"Prompt path not found: {candidate}")
     return candidate
+
+
+def _iter_prompt_files(directory: Path) -> list[Path]:
+    txt_files = sorted(directory.glob("*.txt"))
+    if txt_files:
+        return txt_files
+    # fallback for older md prompts if any linger
+    md_files = sorted(directory.glob("*.md"))
+    return md_files
+
+
+def _load_prompts_from_dir(directory: Path) -> dict:
+    prompts: dict[str, dict] = {}
+    for prompt_path in _iter_prompt_files(directory):
+        key = prompt_path.stem
+        system_prompt = prompt_path.read_text(encoding="utf-8")
+        structured_output = None
+        json_path = prompt_path.with_suffix(".json")
+        if json_path.exists():
+            structured_output = json.loads(json_path.read_text(encoding="utf-8"))
+        prompts[key] = {"system_prompt": system_prompt, "structured_output": structured_output}
+    if not prompts:
+        raise ValueError(f"No prompt files found in {directory}")
+    return prompts
 
 
 def load_prompts(path: Path | None = None) -> dict:
     prompt_path = _resolve_prompts_path(path)
-    return json.loads(prompt_path.read_text(encoding="utf-8"))
+    if prompt_path.is_dir():
+        return _load_prompts_from_dir(prompt_path)
+    suffix = prompt_path.suffix.lower()
+    if suffix == ".json":
+        return json.loads(prompt_path.read_text(encoding="utf-8"))
+    if suffix in {".md", ".markdown", ".txt"}:
+        system_prompt = prompt_path.read_text(encoding="utf-8")
+        return {prompt_path.stem: {"system_prompt": system_prompt, "structured_output": None}}
+    raise ValueError(f"Unsupported prompt path type: {prompt_path}")
 
 
 def format_article(doc: dict) -> str:

@@ -12,20 +12,18 @@ Some papers primarily study a DRIVER/PRESSURE itself (e.g., mapping, monitoring,
 3. "Climate Change"
 4. "Pollution"
 5. "Invasive alien species"
-6. "Not Applicable"
 
 ## Output format (STRICT)
 Return ONLY valid JSON:
 {"results": ["<one or more allowed labels>"]}
 No extra keys. No explanations. No text outside JSON.
 No duplicates.
-If "Not Applicable" is present, it MUST be the only item.
 
 ========================================================
 ## DECISION ALGORITHM (follow in this exact order)
 ========================================================
 
-Step 1 — Soft triggers → create CANDIDATES, then CONFIRM with focus evidence
+Step 1 — Use soft triggers to create CANDIDATES, then CONFIRM with focus evidence
 If ANY trigger term appears anywhere in the text, treat the corresponding driver as a CANDIDATE.
 
 Only CONFIRM (add to results) a candidate if it has focus evidence:
@@ -93,17 +91,6 @@ After Steps 1–3, apply these binding disambiguation rules before finalizing re
   habitat modification, or coastal development.
 - If explicitly linked to effluent/nutrients/chemicals/antibiotics → also label "Pollution".
 
-Step 5 — "Not Applicable" 
-Output ONLY "Not Applicable" if ALL are true:
-(i) No drivers were labeled by Steps 1–4, AND
-(ii) The text is clearly about non-driver topics (taxonomy/systematics, physiology, life history,
-     baseline ecology, generic methods not tied to pressures), AND
-(iii) There is no central focus on any pressure/exposure/hazard or its monitoring/modeling/management.
-
-Final guardrail:
-If you are about to output "Not Applicable" but the paper is centrally about a pressure/exposure/hazard
-or quantifying/monitoring/modeling such a pressure, DO NOT output "Not Applicable".
-Instead, choose the best-fitting driver label(s).
 
 ========================================================
 ## TRIGGERS (used only to create candidates in Step 1)

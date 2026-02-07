@@ -8,8 +8,8 @@ import pandas as pd
 
 from .config import EVAL_OUTPUT_DIR, TASK_CONFIG, DEFAULT_RUN_SUFFIXES, BATCH_OUTPUTS_DIR
 from .loaders import join_truth_pred, normalize_truth_pred
-from .metrics import label_metrics, record_confusion
-from .normalizers import normalize_geo_labels, to_label_set
+from .metrics import label_metrics, record_confusion, binary_metrics
+from .normalizers import normalize_geo_labels, to_label_set, normalize_screening_label
 
 
 def _ensure_dirs(run_name: str) -> tuple[Path, Path]:
@@ -23,6 +23,8 @@ def _ensure_dirs(run_name: str) -> tuple[Path, Path]:
 def _normalizer_for(task: str, col: str):
     if task == "geography":
         return normalize_geo_labels
+    if task == "screening":
+        return lambda v: {normalize_screening_label(v)}
     return to_label_set
 
 
@@ -30,21 +32,115 @@ def run_task(task: str, run_name: str) -> dict:
     df = join_truth_pred(task, run_name)
     df, col_map = normalize_truth_pred(task, df)
 
+    # Optional per-truth-column include masks to skip rows with placeholder labels
+    include_masks: dict[str, pd.Series | None] = {}
+    if task == "threats":
+        banned = {"no threat_l2 candidates found", "no threat_l1 candidates found", "unclear"}
+        level_pairs = {
+            "threats_l0": ["threats_l0", "pred_threat_l0"],
+            "threats_l1": ["threats_l1", "pred_threat_l1"],
+        }
+        for truth_col, cols in level_pairs.items():
+            cols = [c for c in cols if c in df.columns]
+            if not cols:
+                include_masks[truth_col] = None
+                continue
+            mask_parts = [df[c].apply(lambda v: len(to_label_set(v) & banned) == 0) for c in cols]
+            include_masks[truth_col] = pd.concat(mask_parts, axis=1).all(axis=1)
+
     data_dir, metrics_dir = _ensure_dirs(run_name)
     data_path = data_dir / f"{task}.csv"
 
     # add normalized truth/pred columns to preserve exact label sets
+    metric_paths = {}
+    if task == "screening":
+        truth_col, pred_col = next(iter(col_map.items()))
+        truth_col = truth_col
+        pred_col = pred_col
+
+        df["true_label"] = df[truth_col]
+        if "ut_unique_wos_id_" not in df.columns:
+            df["ut_unique_wos_id_"] = df.get("custom_id")
+
+        truth_norm = df[truth_col].apply(normalize_screening_label)
+        pred_norm = df[pred_col].apply(normalize_screening_label)
+        df[f"{truth_col}_truth_norm"] = truth_norm
+        df[f"{truth_col}_pred_norm"] = pred_norm
+
+        has_truth = truth_norm != ""
+        pred_pos = pred_norm == "ELIGIBLE"
+        true_pos = truth_norm == "ELIGIBLE"
+        for col in ["tp", "fp", "fn", "tn"]:
+            df[col] = pd.NA
+        df.loc[has_truth, "tp"] = (pred_pos & true_pos & has_truth).astype("Int64")
+        df.loc[has_truth, "fp"] = (pred_pos & ~true_pos & has_truth).astype("Int64")
+        df.loc[has_truth, "fn"] = (~pred_pos & true_pos & has_truth).astype("Int64")
+        df.loc[has_truth, "tn"] = (~pred_pos & ~true_pos & has_truth).astype("Int64")
+
+        metrics_df, confusion_df = binary_metrics(
+            truth_norm,
+            pred_norm,
+            labels=["ELIGIBLE", "NOT_ELIGIBLE"],
+        )
+        metrics_path = metrics_dir / f"{task}_{truth_col}_label_metrics.csv"
+        confusion_path = metrics_dir / f"{task}_{truth_col}_confusion.csv"
+        metrics_df.to_csv(metrics_path, index=False)
+        confusion_df.to_csv(confusion_path, index=False)
+        metric_paths[truth_col] = str(metrics_path)
+        metric_paths[f"{truth_col}_confusion"] = str(confusion_path)
+
+        # Save data exactly matching reference notebook output
+        ref_cols = [
+            "UT",
+            "title",
+            "abstract",
+            "doi",
+            "custom_id",
+            "model",
+            "created_at",
+            "raw_output",
+            "step_0_label",
+            "step_0_reason",
+            "step_1_label",
+            "step_1_reason",
+            "step_1_reason_stressor_spans",
+            "step_2_label",
+            "step_2_reason",
+            "step_2_reason_use_type",
+            "step_2_reason_evidence_span",
+            "step_3_label",
+            "step_3_reason",
+            "step_3_reason_biodiversity_span",
+            "step_3_reason_link_span",
+            "step_1_reason_evidence_span",
+            "label_1_3",
+            "pred_screening",
+            "ut_unique_wos_id_",
+            "true_label",
+            "tp",
+            "fp",
+            "fn",
+            "tn",
+        ]
+        # Ensure all columns exist before reindex
+        for col in ref_cols:
+            if col not in df.columns:
+                df[col] = pd.NA
+        df_out = df.reindex(columns=ref_cols)
+        df_out.to_csv(data_path, index=False)
+        return {"task": task, "rows": len(df), "data_path": str(data_path), "metric_paths": metric_paths}
+
     for truth_col, pred_col in col_map.items():
         norm = _normalizer_for(task, truth_col)
         df[f"{truth_col}_truth_norm"] = df[truth_col].apply(lambda v: sorted(norm(v)))
         df[f"{truth_col}_pred_norm"] = df[pred_col].apply(lambda v: sorted(norm(v)))
     df.to_csv(data_path, index=False)
 
-    metric_paths = {}
     for truth_col, pred_col in col_map.items():
         norm = _normalizer_for(task, truth_col)
-        df = record_confusion(df, truth_col, pred_col, base=truth_col, normalizer=norm)
-        metrics_df = label_metrics(df, truth_col, pred_col, normalizer=norm)
+        include_mask = include_masks.get(truth_col)
+        df = record_confusion(df, truth_col, pred_col, base=truth_col, normalizer=norm, include_mask=include_mask)
+        metrics_df = label_metrics(df, truth_col, pred_col, normalizer=norm, include_mask=include_mask)
         out_path = metrics_dir / f"{task}_{truth_col}_label_metrics.csv"
         metrics_df.to_csv(out_path, index=False)
         metric_paths[truth_col] = str(out_path)
@@ -127,7 +223,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--use-default-suffixes",
         action="store_true",
-        help="Treat positional run_name as base and append default suffixes per task (driver='', geo='-geo', threats='-threats', ecosystems='-eco', study='-study', taxa='-taxa').",
+        help="Treat positional run_name as base and append default suffixes per task (driver='', screening='-screen', geography='-geography', threats='-threats', ecosystems='-ecosystem', study='-study', taxa='-taxa').",
     )
     args = parser.parse_args(argv)
 

@@ -15,10 +15,11 @@ Command-line pipeline for turning Web of Science (WoS) Excel exports into OpenAI
 - `ORCHESTRATOR_RUN_OPENAI=true` — set to `false` to only build request files.
 - `ORCHESTRATOR_SUBMISSION_MODE=live|batch` — batch submits to `/v1/responses` via the batches API; live streams requests one-by-one.
 - `ORCHESTRATOR_TASK` — fallback task name if `--task` is omitted.
-- `ORCHESTRATOR_PROMPTS_FILE` — optional override for `mappings/prompts_zero.json`.
+- `ORCHESTRATOR_PROMPTS_FILE` — optional override for `mappings/prompts/` (directory of per-prompt .txt files) or a legacy JSON bundle.
 
 ## Mappings and prompts
-- `mappings/prompts_zero.json` — prompt + output schema for all tasks (driver, geography, taxa, study, ecosystems, threats).
+- `mappings/prompts/<prompt_key>.txt` — one plain-text system prompt per task (driver, geography, taxa, study, ecosystems, threats).
+- `mappings/prompts/<prompt_key>.json` — optional sidecar containing the structured output schema for the matching prompt.
 - `mappings/ipbes_drivers.json`, `ipbes_regions.json`, `habitats_classification.json`, `study_types.json` — reference lookups used in prompts.
 - `mappings/threats_classification.json` — required for the multi-stage threats workflow.
 - `mappings/ecosystem_typology_1_3.json` — required for the multi-stage ecosystems workflow.

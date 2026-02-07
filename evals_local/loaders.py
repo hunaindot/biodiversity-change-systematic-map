@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from .config import BATCH_OUTPUTS_DIR, TASK_CONFIG
+try:
+    from json_repair import repair_json  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    repair_json = None
+
+from .config import BATCH_OUTPUTS_DIR, BATCHES_DIR, TASK_CONFIG
 from .normalizers import normalize_geo_labels, to_label_list
 
 
@@ -41,8 +47,161 @@ def _safe_json(text: str | None) -> Any:
         return None
 
 
+# --- Screening-specific helpers (mirrors screening-reader.ipynb) ---
+ALLOWED_REASON_KEYS = {"stressor_spans", "use_type", "evidence_span", "biodiversity_span", "link_span"}
+
+
+def parse_json_text(text: str):
+    if not text:
+        return None
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    if repair_json:
+        try:
+            return repair_json(text, return_objects=True)
+        except Exception:
+            pass
+
+    cleaned = re.sub(r",\\s*([}\\]])", r"\\1", text.replace("\\r", "").replace("\\n", " "))
+    try:
+        return json.loads(cleaned)
+    except Exception:
+        return None
+
+
+def extract_output_payload(output_list):
+    # Return the first JSON payload found in the model output content, else None.
+    for item in output_list or []:
+        content_blocks = item.get("content") or []
+        for block in content_blocks:
+            text = block.get("text") if isinstance(block, dict) else None
+            if not text:
+                continue
+            parsed = parse_json_text(text)
+            if parsed is not None:
+                return parsed
+    return None
+
+
+def flatten_steps(parsed: dict) -> dict:
+    flat = {}
+    if not isinstance(parsed, dict):
+        return flat
+    for step_key, step_val in parsed.items():
+        if not isinstance(step_val, dict):
+            continue
+        flat[f"{step_key}_label"] = step_val.get("label")
+        reason = step_val.get("reason")
+        flat[f"{step_key}_reason"] = reason
+        if isinstance(reason, dict):
+            for k, v in reason.items():
+                if ALLOWED_REASON_KEYS and k not in ALLOWED_REASON_KEYS:
+                    continue
+                flat[f"{step_key}_reason_{k}"] = v
+    return flat
+
+
+def parse_output_record(rec: dict) -> dict:
+    body = (rec.get("response") or {}).get("body") or {}
+    model = body.get("model")
+    created_at = body.get("created_at")
+    parsed = extract_output_payload(body.get("output"))
+    flat = flatten_steps(parsed)
+    return {
+        "custom_id": rec.get("custom_id"),
+        "model": model,
+        "created_at": created_at,
+        "raw_output": parsed,
+        **flat,
+    }
+
+
+def load_screening_outputs(run: str) -> pd.DataFrame:
+    out_dir = BATCH_OUTPUTS_DIR / run
+    if not out_dir.exists():
+        return pd.DataFrame()
+    files = sorted(out_dir.glob("*.jsonl"))
+    rows = []
+    for fp in files:
+        with open(fp) as f:
+            for line in f:
+                rec = json.loads(line)
+                rows.append(parse_output_record(rec))
+    df = pd.DataFrame(rows)
+    if not df.empty and "created_at" in df.columns:
+        df["created_at"] = pd.to_datetime(df["created_at"], unit="s", utc=True, errors="coerce")
+    return df
+
+
+def load_screening_batch_records(run: str, keep_cols=("UT", "title", "abstract", "doi")) -> pd.DataFrame:
+    data_dir = BATCHES_DIR / run / "data"
+    frames = []
+    if not data_dir.exists():
+        return pd.DataFrame(columns=keep_cols)
+    for fp in sorted(data_dir.glob("*.jsonl")):
+        frames.append(pd.read_json(fp, lines=True))
+    if not frames:
+        return pd.DataFrame(columns=keep_cols)
+    df = pd.concat(frames, ignore_index=True)
+    cols = [c for c in keep_cols if c in df.columns]
+    return df[cols]
+
+
+def load_screening_predictions(run: str) -> pd.DataFrame:
+    batch_df = load_screening_batch_records(run)
+    outputs_df = load_screening_outputs(run)
+    joined = batch_df.merge(outputs_df, left_on="UT", right_on="custom_id", how="left")
+
+    for col in ["step_0_label", "step_1_label", "step_2_label", "step_3_label"]:
+        if col in joined.columns:
+            joined[col] = pd.to_numeric(joined[col], errors="coerce").fillna(0).astype(int)
+        else:
+            joined[col] = 0
+
+    joined["label_1_3"] = joined[["step_1_label", "step_2_label", "step_3_label"]].sum(axis=1)
+    joined["pred_screening"] = joined.apply(
+        lambda r: '[\"ELIGIBLE\"]' if (r["step_0_label"] == 0 and r["label_1_3"] == 3) else '[\"NOT_ELIGIBLE\"]',
+        axis=1,
+    )
+    joined["pred"] = joined["pred_screening"]
+    return joined
+
+
+def load_screening_labels(folder: Path) -> pd.DataFrame:
+    frames = [pd.read_csv(fp) for fp in sorted(folder.glob("*.csv"))]
+    if not frames:
+        return pd.DataFrame(columns=["custom_id", "eligibility"])
+    df = pd.concat(frames, ignore_index=True)
+    label_col = None
+    if "eligbility" in df.columns:
+        label_col = "eligbility"
+    elif "eligibility" in df.columns:
+        label_col = "eligibility"
+    if label_col is None:
+        return pd.DataFrame(columns=["custom_id", "eligibility"])
+
+    keep_cols = {"ut_unique_wos_id_", "article_title", "abstract", "doi", "source", label_col}
+    df = df[[c for c in keep_cols if c in df.columns]]
+    df = df.rename(
+        columns={
+            label_col: "eligibility",
+            "ut_unique_wos_id_": "custom_id",
+            "article_title": "Article Title",
+            "abstract": "Abstract",
+            "doi": "DOI",
+        }
+    )
+    return df.drop_duplicates()
+
+
 def load_predictions(task: str, run_name: str) -> pd.DataFrame:
     cfg = TASK_CONFIG[task]
+    if cfg["task_type"] == "screening":
+        return load_screening_predictions(run_name)
+
     folder = BATCH_OUTPUTS_DIR / run_name
     df = load_jsonl_folder(folder)
 
@@ -68,7 +227,7 @@ def load_predictions(task: str, run_name: str) -> pd.DataFrame:
                 return item.get(key)
         return None
 
-    if cfg["task_type"] == "simple":
+    if cfg["task_type"] in {"simple", "binary"}:
         df["output_text"] = df["response"].apply(_output_text_from_record)
         df["pred"] = df["output_text"].apply(lambda t: (_safe_json(t) or {}).get("results") if t else None)
     elif cfg["task_type"] == "threats":
@@ -102,6 +261,8 @@ def load_predictions(task: str, run_name: str) -> pd.DataFrame:
 def load_labels(task: str) -> pd.DataFrame:
     cfg = TASK_CONFIG[task]
     path: Path = cfg["label_path"]
+    if cfg["task_type"] == "screening":
+        return load_screening_labels(path)
     df = pd.read_excel(path)
     df = df.rename(columns={"UT (Unique WOS ID)": "custom_id"})
     return df
@@ -130,6 +291,13 @@ def join_truth_pred(task: str, run_name: str) -> pd.DataFrame:
     elif task == "geography":
         label_cols += ["region", "sub-region", "country"]
         merged = preds.merge(labels[label_cols], on="custom_id", how=join_how)
+    elif task == "screening":
+        label_cols += ["eligibility"]
+        merged = preds.merge(labels[label_cols], on="custom_id", how=join_how)
+        if "pred" in merged.columns:
+            merged = merged.rename(columns={"pred": "pred_eligibility"})
+        elif "pred_screening" in merged.columns:
+            merged = merged.rename(columns={"pred_screening": "pred_eligibility"})
     elif task == "ecosystems":
         label_cols += ["realm", "biome"]
         merged = preds.merge(labels[label_cols], on="custom_id", how=join_how)
@@ -154,6 +322,8 @@ def normalize_truth_pred(task: str, df: pd.DataFrame) -> tuple[pd.DataFrame, dic
     elif task == "geography":
         df["pred_countries"] = df["pred_countries"].apply(lambda v: [c.upper() for c in v] if isinstance(v, list) else v)
         col_map = {"region": "pred_regions", "sub-region": "pred_subregions", "country": "pred_countries"}
+    elif task == "screening":
+        col_map = {"eligibility": "pred_eligibility"}
     elif task == "ecosystems":
         col_map = {"realm": "pred_realm", "biome": "pred_biome"}
     elif task == "study":

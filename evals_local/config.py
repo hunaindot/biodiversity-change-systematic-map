@@ -5,12 +5,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 LABELS_DIR = ROOT / "data" / "labels"
 BATCH_OUTPUTS_DIR = ROOT / "labelling" / "artifacts" / "batch_outputs"
+BATCHES_DIR = ROOT / "labelling" / "artifacts" / "batches"
 EVAL_OUTPUT_DIR = LABELS_DIR / "eval"
 MAPPINGS_DIR = ROOT / "mappings"
 
 # Default suffixes when using a base run name per task
 DEFAULT_RUN_SUFFIXES = {
     "driver": "",
+    "screening": "-screen",
     "geography": "-geography",
     "threats": "-threats",
     "ecosystems": "-ecosystem",
@@ -24,6 +26,11 @@ TASK_CONFIG: dict[str, dict] = {
         "label_path": LABELS_DIR / "l1" / "L1) Drivers.xlsx",
         "truth_cols": {"driver": "driver"},
         "task_type": "simple",
+    },
+    "screening": {
+        "label_path": LABELS_DIR / "l0-batched-curated",
+        "truth_cols": {"eligibility": "eligibility"},
+        "task_type": "screening",
     },
     "threats": {
         "label_path": LABELS_DIR / "l2" / "L2) threats.xlsx",

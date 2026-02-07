@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Sequence
@@ -745,7 +746,7 @@ class ThreatTask(TaskDefinition):
                 l2_lookup[l1_name] = []
                 for l2_name, l2_data in l1_data.get("level2", {}).items():
                     l2_lookup[l1_name].append({"name": l2_name, "desc": l2_data.get("examples", "")})
-        print(f"Final L1 loopkup: {l2_lookup}")
+        # print(f"Final L1 loopkup: {l2_lookup}")
         return candidates, l2_lookup
 
     def _build_l2_candidates(self, threat_l1_labels: list[str], l2_lookup: dict[str, list]) -> list[dict]:
@@ -821,6 +822,11 @@ class ThreatTask(TaskDefinition):
 
             if not threat_l1_labels and workflow_active:
                 l1_candidates, l2_lookup = self._build_l1_candidates(threat_l0_labels, mapping)
+                if os.getenv("THREATS_DEBUG_CANDIDATES"):
+                    print(
+                        f"[threats-debug] custom_id={custom_id} l0={threat_l0_labels} "
+                        f"l1_candidates={[c['name'] for c in l1_candidates]}"
+                    )
 
                 # print(f"Threat L0 Labels: {threat_l0_labels}")
                 # # print("mapping", mapping)
@@ -929,6 +935,7 @@ class ThreatTask(TaskDefinition):
 
 
 DRIVER_TASK = SimpleTask(name="driver", prompt_key="classify_direct_driver", output_prefix="drivers")
+SCREENING_TASK = SimpleTask(name="screening", prompt_key="screen", output_prefix="screening")
 GEOGRAPHY_TASK = SimpleTask(name="geography", prompt_key="classify_region", output_prefix="geography")
 TAXA_TASK = SimpleTask(name="taxa", prompt_key="classify_taxa", output_prefix="taxa")
 STUDY_TASK = SimpleTask(name="study", prompt_key="classify_study", output_prefix="study")
@@ -940,6 +947,9 @@ TASK_ALIASES = {
     "drivers": DRIVER_TASK,
     "direct_driver": DRIVER_TASK,
     "direct_drivers": DRIVER_TASK,
+    "screen": SCREENING_TASK,
+    "screening": SCREENING_TASK,
+    "eligibility": SCREENING_TASK,
     "geography": GEOGRAPHY_TASK,
     "geo": GEOGRAPHY_TASK,
     "region": GEOGRAPHY_TASK,
