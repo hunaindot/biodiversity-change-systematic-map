@@ -49,7 +49,7 @@ def run_task(task: str, run_name: str) -> dict:
             include_masks[truth_col] = pd.concat(mask_parts, axis=1).all(axis=1)
 
     data_dir, metrics_dir = _ensure_dirs(run_name)
-    data_path = data_dir / f"{task}.csv"
+    data_path = data_dir / f"{task}.xlsx"
 
     # add normalized truth/pred columns to preserve exact label sets
     metric_paths = {}
@@ -82,10 +82,10 @@ def run_task(task: str, run_name: str) -> dict:
             pred_norm,
             labels=["ELIGIBLE", "NOT_ELIGIBLE"],
         )
-        metrics_path = metrics_dir / f"{task}_{truth_col}_label_metrics.csv"
-        confusion_path = metrics_dir / f"{task}_{truth_col}_confusion.csv"
-        metrics_df.to_csv(metrics_path, index=False)
-        confusion_df.to_csv(confusion_path, index=False)
+        metrics_path = metrics_dir / f"{task}_{truth_col}_label_metrics.xlsx"
+        confusion_path = metrics_dir / f"{task}_{truth_col}_confusion.xlsx"
+        metrics_df.to_excel(metrics_path, index=False, engine='openpyxl')
+        confusion_df.to_excel(confusion_path, index=False, engine='openpyxl')
         metric_paths[truth_col] = str(metrics_path)
         metric_paths[f"{truth_col}_confusion"] = str(confusion_path)
 
@@ -127,26 +127,43 @@ def run_task(task: str, run_name: str) -> dict:
             if col not in df.columns:
                 df[col] = pd.NA
         df_out = df.reindex(columns=ref_cols)
-        df_out.to_csv(data_path, index=False)
+
+        # Remove timezone info from datetime columns (Excel doesn't support timezones)
+        for col in df_out.columns:
+            if pd.api.types.is_datetime64_any_dtype(df_out[col]):
+                df_out[col] = df_out[col].dt.tz_localize(None)
+
+        df_out.to_excel(data_path, index=False, engine='openpyxl')
         return {"task": task, "rows": len(df), "data_path": str(data_path), "metric_paths": metric_paths}
 
     for truth_col, pred_col in col_map.items():
         norm = _normalizer_for(task, truth_col)
         df[f"{truth_col}_truth_norm"] = df[truth_col].apply(lambda v: sorted(norm(v)))
         df[f"{truth_col}_pred_norm"] = df[pred_col].apply(lambda v: sorted(norm(v)))
-    df.to_csv(data_path, index=False)
+
+    # Remove timezone info from datetime columns (Excel doesn't support timezones)
+    for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            df[col] = df[col].dt.tz_localize(None)
+
+    df.to_excel(data_path, index=False, engine='openpyxl')
 
     for truth_col, pred_col in col_map.items():
         norm = _normalizer_for(task, truth_col)
         include_mask = include_masks.get(truth_col)
         df = record_confusion(df, truth_col, pred_col, base=truth_col, normalizer=norm, include_mask=include_mask)
         metrics_df = label_metrics(df, truth_col, pred_col, normalizer=norm, include_mask=include_mask)
-        out_path = metrics_dir / f"{task}_{truth_col}_label_metrics.csv"
-        metrics_df.to_csv(out_path, index=False)
+        out_path = metrics_dir / f"{task}_{truth_col}_label_metrics.xlsx"
+        metrics_df.to_excel(out_path, index=False, engine='openpyxl')
         metric_paths[truth_col] = str(out_path)
 
+    # Remove timezone info from datetime columns before final save (Excel doesn't support timezones)
+    for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            df[col] = df[col].dt.tz_localize(None)
+
     # save updated df with confusion columns
-    df.to_csv(data_path, index=False)
+    df.to_excel(data_path, index=False, engine='openpyxl')
     return {"task": task, "rows": len(df), "data_path": str(data_path), "metric_paths": metric_paths}
 
 

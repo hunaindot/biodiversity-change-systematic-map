@@ -183,17 +183,26 @@ def load_screening_labels(folder: Path) -> pd.DataFrame:
     if label_col is None:
         return pd.DataFrame(columns=["custom_id", "eligibility"])
 
-    keep_cols = {"ut_unique_wos_id_", "article_title", "abstract", "doi", "source", label_col}
+    # Handle both column name formats
+    id_col = None
+    if "UT (Unique WOS ID)" in df.columns:
+        id_col = "UT (Unique WOS ID)"
+    elif "ut_unique_wos_id_" in df.columns:
+        id_col = "ut_unique_wos_id_"
+
+    keep_cols = {id_col, "article_title", "abstract", "doi", "source", label_col} if id_col else {"article_title", "abstract", "doi", "source", label_col}
     df = df[[c for c in keep_cols if c in df.columns]]
-    df = df.rename(
-        columns={
-            label_col: "eligibility",
-            "ut_unique_wos_id_": "custom_id",
-            "article_title": "Article Title",
-            "abstract": "Abstract",
-            "doi": "DOI",
-        }
-    )
+
+    rename_map = {
+        label_col: "eligibility",
+        "article_title": "Article Title",
+        "abstract": "Abstract",
+        "doi": "DOI",
+    }
+    if id_col:
+        rename_map[id_col] = "custom_id"
+
+    df = df.rename(columns=rename_map)
     return df.drop_duplicates()
 
 
@@ -263,7 +272,11 @@ def load_labels(task: str) -> pd.DataFrame:
     path: Path = cfg["label_path"]
     if cfg["task_type"] == "screening":
         return load_screening_labels(path)
-    df = pd.read_excel(path)
+    # Handle both CSV and Excel files
+    if path.suffix == ".csv":
+        df = pd.read_csv(path)
+    else:
+        df = pd.read_excel(path)
     df = df.rename(columns={"UT (Unique WOS ID)": "custom_id"})
     return df
 

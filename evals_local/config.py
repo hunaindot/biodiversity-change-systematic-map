@@ -23,37 +23,37 @@ DEFAULT_RUN_SUFFIXES = {
 # Task registry: file locations and truth columns to compare.
 TASK_CONFIG: dict[str, dict] = {
     "driver": {
-        "label_path": LABELS_DIR / "l1" / "L1) Drivers.xlsx",
+        "label_path": LABELS_DIR / "l1" / "L1) driver set.csv",
         "truth_cols": {"driver": "driver"},
         "task_type": "simple",
     },
     "screening": {
-        "label_path": LABELS_DIR / "l0-batched-curated",
+        "label_path": LABELS_DIR / "l0",
         "truth_cols": {"eligibility": "eligibility"},
         "task_type": "screening",
     },
     "threats": {
-        "label_path": LABELS_DIR / "l2" / "L2) threats.xlsx",
+        "label_path": LABELS_DIR / "l2" / "L2) threats set.csv",
         "truth_cols": {"threats_l0": "threats_l0", "threats_l1": "threats_l1"},
         "task_type": "threats",
     },
     "geography": {
-        "label_path": LABELS_DIR / "l3" / "L3) geography.xlsx",
+        "label_path": LABELS_DIR / "l3" / "L3) geography set.csv",
         "truth_cols": {"region": "region", "sub-region": "sub-region", "country": "country"},
         "task_type": "geo",
     },
     "ecosystems": {
-        "label_path": LABELS_DIR / "l4" / "L4) ecosystems.xlsx",
+        "label_path": LABELS_DIR / "l4" / "L4) ecosystem set.csv",
         "truth_cols": {"realm": "realm", "biome": "biome"},
         "task_type": "ecosystems",
     },
     "study": {
-        "label_path": LABELS_DIR / "l5" / "L5) study.xlsx",
+        "label_path": LABELS_DIR / "l5" / "L5) study set.csv",
         "truth_cols": {"study_design": "study_design"},
         "task_type": "study",
     },
     "taxa": {
-        "label_path": LABELS_DIR / "l6" / "L6) taxa.xlsx",
+        "label_path": LABELS_DIR / "l6" / "L6) taxa set.csv",
         "truth_cols": {
             "kingdom": "kingdom",
             "phylum": "phylum",
