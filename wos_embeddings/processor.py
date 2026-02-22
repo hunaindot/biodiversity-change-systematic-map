@@ -260,6 +260,16 @@ def process_partition(
 
         logger.info(f"Saved {len(all_ut_ids)} embeddings to {output_dir}")
 
+    # Audit: verify meta.json matches actual saved embeddings
+    try:
+        from .storage import load_embeddings as _load_emb
+        saved = _load_emb(str(partition_name), config)
+        actual_ids = set(saved["record_ids"])
+        audit_report = tracker.audit(actual_ids)
+        logger.info(f"Audit report for partition {partition_name}: {audit_report}")
+    except FileNotFoundError:
+        logger.warning(f"No embeddings file found for audit of partition {partition_name}")
+
     # Mark as completed
     processing_time = time.time() - start_time
     tracker.mark_completed(processing_time_seconds=processing_time)

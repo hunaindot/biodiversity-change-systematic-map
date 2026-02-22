@@ -21,7 +21,11 @@ def save_embeddings(
     record_ids: list[str],
     save_format: str = "npz",
 ) -> None:
-    """Save embeddings to disk in specified format.
+    """Save embeddings to disk, merging with existing data if present.
+
+    On reruns (e.g. after failures), new embeddings are appended to the
+    existing file. Duplicate record IDs are avoided — if an ID already
+    exists, the new embedding replaces the old one.
 
     Args:
         output_dir: Directory to save embeddings
@@ -36,10 +40,35 @@ def save_embeddings(
 
     if save_format == "npz":
         output_path = output_dir / "embeddings.npz"
+
+        # Merge with existing if present
+        if output_path.exists():
+            existing = np.load(output_path, allow_pickle=False)
+            existing_embeddings = existing['embeddings']
+            existing_ids = existing['record_ids'].tolist()
+
+            # Build index of existing IDs for dedup
+            new_ids_set = set(record_ids)
+            keep_mask = [eid not in new_ids_set for eid in existing_ids]
+
+            kept_embeddings = existing_embeddings[keep_mask]
+            kept_ids = [eid for eid, keep in zip(existing_ids, keep_mask) if keep]
+
+            # Combine: existing (minus duplicates) + new
+            merged_embeddings = np.vstack([kept_embeddings, embeddings]) if len(kept_embeddings) > 0 else embeddings
+            merged_ids = kept_ids + list(record_ids)
+
+            logger.info(
+                f"Merged embeddings: {len(kept_ids)} existing + {len(record_ids)} new = {len(merged_ids)} total"
+            )
+        else:
+            merged_embeddings = embeddings
+            merged_ids = list(record_ids)
+
         np.savez_compressed(
             output_path,
-            embeddings=embeddings,
-            record_ids=np.array(record_ids, dtype='U50'),
+            embeddings=merged_embeddings,
+            record_ids=np.array(merged_ids, dtype='U50'),
         )
         logger.debug(f"Saved embeddings to {output_path} (NPZ compressed)")
 
@@ -148,7 +177,10 @@ def save_metadata(
     metadata_df: pd.DataFrame,
     metadata_format: str = "parquet",
 ) -> None:
-    """Save metadata to disk.
+    """Save metadata to disk, merging with existing data if present.
+
+    On reruns, new metadata rows are appended. Duplicate UT IDs are
+    replaced with the newer entry.
 
     Args:
         output_dir: Directory to save metadata
@@ -162,12 +194,36 @@ def save_metadata(
 
     if metadata_format == "parquet":
         output_path = output_dir / "metadata.parquet"
-        metadata_df.to_parquet(output_path, index=False, compression='snappy')
+
+        if output_path.exists():
+            existing_df = pd.read_parquet(output_path)
+            # Remove rows with IDs that are in the new data (dedup)
+            new_ids = set(metadata_df['ut'])
+            existing_df = existing_df[~existing_df['ut'].isin(new_ids)]
+            merged_df = pd.concat([existing_df, metadata_df], ignore_index=True)
+            # Reindex embedding_index to be sequential
+            merged_df['embedding_index'] = range(len(merged_df))
+            logger.info(f"Merged metadata: {len(existing_df)} existing + {len(metadata_df)} new = {len(merged_df)} total")
+        else:
+            merged_df = metadata_df
+
+        merged_df.to_parquet(output_path, index=False, compression='snappy')
         logger.debug(f"Saved metadata to {output_path} (Parquet)")
 
     elif metadata_format == "csv":
         output_path = output_dir / "metadata.csv"
-        metadata_df.to_csv(output_path, index=False)
+
+        if output_path.exists():
+            existing_df = pd.read_csv(output_path)
+            new_ids = set(metadata_df['ut'])
+            existing_df = existing_df[~existing_df['ut'].isin(new_ids)]
+            merged_df = pd.concat([existing_df, metadata_df], ignore_index=True)
+            merged_df['embedding_index'] = range(len(merged_df))
+            logger.info(f"Merged metadata: {len(existing_df)} existing + {len(metadata_df)} new = {len(merged_df)} total")
+        else:
+            merged_df = metadata_df
+
+        merged_df.to_csv(output_path, index=False)
         logger.debug(f"Saved metadata to {output_path} (CSV)")
 
     else:

@@ -28,7 +28,7 @@ Apply the 4-step screening process and return a structured JSON record logging e
 STEP 0 — CLEAR OUT-OF-SCOPE EXCLUSION (PRE-FILTER)
 ------------------------------------------------------------
 Set step_0.label = 1 ONLY if clearly out of scope, e.g.:
-- Pure governance/policy/indicator design with no driver→biodiversity analysis
+- Pure governance/policy/indicator design with no driver to biodiversity analysis
 - Pure methods/tools/models with no application to driver impacts
 - Baseline ecology/natural history with no anthropogenic pressure context
 - Human welfare/economics/infrastructure only with no biodiversity/ecology endpoint

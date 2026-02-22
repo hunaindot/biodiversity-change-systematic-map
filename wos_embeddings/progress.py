@@ -124,20 +124,37 @@ class ProgressTracker:
     ) -> None:
         """Update progress after processing a batch.
 
+        When a previously failed ID is now processed successfully,
+        it is removed from failed_ut_ids and added to processed_ut_ids.
+
         Args:
             processed_ids: List of successfully processed UT IDs
             failed_ids: Optional list of failed UT IDs
         """
         failed_ids = failed_ids or []
 
-        # Add to processed/failed lists (avoid duplicates)
         existing_processed = set(self.meta.get("processed_ut_ids", []))
         existing_failed = set(self.meta.get("failed_ut_ids", []))
 
+        # Add new processed IDs (avoid duplicates)
         new_processed = [uid for uid in processed_ids if uid not in existing_processed]
-        new_failed = [uid for uid in failed_ids if uid not in existing_failed]
-
         self.meta["processed_ut_ids"].extend(new_processed)
+
+        # Remove newly processed IDs from failed list (recovered on rerun)
+        newly_processed_set = set(processed_ids)
+        recovered = existing_failed & newly_processed_set
+        if recovered:
+            self.meta["failed_ut_ids"] = [
+                uid for uid in self.meta["failed_ut_ids"] if uid not in recovered
+            ]
+            logger.info(f"Recovered {len(recovered)} previously failed IDs on rerun")
+
+        # Add new failed IDs (only if not already processed)
+        all_processed = set(self.meta["processed_ut_ids"])
+        new_failed = [
+            uid for uid in failed_ids
+            if uid not in existing_failed and uid not in all_processed
+        ]
         self.meta["failed_ut_ids"].extend(new_failed)
 
         # Update counts
@@ -195,6 +212,74 @@ class ProgressTracker:
         # Atomic rename
         temp_path.replace(self.meta_path)
         logger.debug(f"Saved progress to {self.meta_path}")
+
+    def audit(self, actual_record_ids: set[str]) -> dict[str, Any]:
+        """Audit meta.json against actual saved embeddings.
+
+        Ensures processed_ut_ids only contains IDs that are actually present
+        in the embeddings file. Removes any orphaned IDs and updates counts.
+
+        Args:
+            actual_record_ids: Set of UT IDs actually present in saved embeddings
+
+        Returns:
+            Audit report with counts of removed/corrected entries
+        """
+        claimed_processed = set(self.meta.get("processed_ut_ids", []))
+        claimed_failed = set(self.meta.get("failed_ut_ids", []))
+
+        # Find IDs claimed as processed but not in actual embeddings
+        orphaned = claimed_processed - actual_record_ids
+        # Find IDs in embeddings but not claimed as processed
+        unclaimed = actual_record_ids - claimed_processed
+
+        report = {
+            "claimed_processed": len(claimed_processed),
+            "actual_in_embeddings": len(actual_record_ids),
+            "orphaned_removed": len(orphaned),
+            "unclaimed_added": len(unclaimed),
+            "failed_cleaned": 0,
+        }
+
+        changed = False
+
+        # Remove orphaned IDs from processed list
+        if orphaned:
+            self.meta["processed_ut_ids"] = [
+                uid for uid in self.meta["processed_ut_ids"] if uid not in orphaned
+            ]
+            logger.warning(f"Audit: removed {len(orphaned)} orphaned IDs from processed list")
+            changed = True
+
+        # Add unclaimed IDs that are actually in embeddings
+        if unclaimed:
+            self.meta["processed_ut_ids"].extend(list(unclaimed))
+            logger.info(f"Audit: added {len(unclaimed)} unclaimed IDs to processed list")
+            changed = True
+
+        # Clean failed list: remove any IDs that are now in processed
+        all_processed = set(self.meta["processed_ut_ids"])
+        failed_before = len(self.meta.get("failed_ut_ids", []))
+        self.meta["failed_ut_ids"] = [
+            uid for uid in self.meta.get("failed_ut_ids", []) if uid not in all_processed
+        ]
+        failed_cleaned = failed_before - len(self.meta["failed_ut_ids"])
+        report["failed_cleaned"] = failed_cleaned
+        if failed_cleaned:
+            logger.info(f"Audit: removed {failed_cleaned} recovered IDs from failed list")
+            changed = True
+
+        # Update counts
+        if changed:
+            self.meta["processed_records"] = len(self.meta["processed_ut_ids"])
+            self.meta["failed_records"] = len(self.meta["failed_ut_ids"])
+            self.meta["updated_at"] = datetime.utcnow().isoformat() + "Z"
+            self.save()
+            logger.info(f"Audit complete: {report}")
+        else:
+            logger.info("Audit complete: meta.json is consistent, no changes needed")
+
+        return report
 
     def get_summary(self) -> dict[str, Any]:
         """Get summary of current progress.
