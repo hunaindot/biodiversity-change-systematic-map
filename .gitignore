@@ -6,3 +6,5 @@
 /labelling/__pycache__
 /mappings/prompts_templates.json
 .env
+.claude
+.agents.md
