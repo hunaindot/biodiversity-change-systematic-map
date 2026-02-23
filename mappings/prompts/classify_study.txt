@@ -115,9 +115,8 @@ Add:
 - trait: boolean
 Interpretation (broad and general):
 Set TRUE if the study is focused on a specific taxonomic group or a trait-based assessment, such as:
-- Specific taxa focus: birds, mammals, amphibians, reptiles, fish, insects, pollinators, butterflies, bees, corals, plankton, plants, trees, fungi, microbes, a named species/genus/family, etc.
-- Trait focus: “functional traits”, “life-history traits”, “morphological traits”, “body size”, “SLA”, “seed mass”, “trait-based”, “functional composition”, etc.
-Set FALSE if the study is broadly about “biodiversity” without indicating a focal taxon group or trait lens.
+- Specific taxa focus: The focus of taxa can be at any level from kingdom, phylum, class, order, genus, or sepcies. For example: birds, mammals, amphibians, reptiles, fish, insects, pollinators, butterflies, bees, corals, plankton, plants, trees, fungi, microbes, a named species/genus/family, etc.
+Set FALSE if the study is broadly about “biodiversity” without indicating a focal taxon group.
 If genuinely ambiguous, set TRUE. Be broad and less conservative here; favor recall in identifying taxa or traits rather than precision.
 
 REQUIRED OUTPUT FORMAT (STRICT)
