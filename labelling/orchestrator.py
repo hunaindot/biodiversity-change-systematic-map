@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import time
 from pathlib import Path
 
 from src import batching, data_loader, openai_batches, tasks
@@ -180,6 +181,54 @@ def main() -> None:
                 print(f"  [{label}] Live outputs for {entry.get('request_path')}: {entry.get('output_path')}")
             else:
                 print(f"  [{label}] Batch submitted: id={entry.get('batch_id')}, request={entry.get('request_path')}")
+
+    # Poll and download batch outputs
+    batch_entries = [e for e in submitted if e.get("mode") == "batch" and e.get("batch_id")]
+    if batch_entries:
+        poll_interval = 90
+        print(f"\nPolling {len(batch_entries)} batch(es) every {poll_interval}s until complete ...")
+        pending = list(batch_entries)
+        completed = []
+        failed = []
+
+        while pending:
+            still_pending = []
+            for entry in pending:
+                status = openai_batches.poll_batch(entry["batch_id"], client=client)
+                state = status["status"]
+                label = entry.get("task") or task.name
+
+                if state == "completed":
+                    print(f"  [{label}] Batch {entry['batch_id']} completed.")
+                    entry["output_file_id"] = status.get("output_file_id")
+                    completed.append(entry)
+                elif state in ("failed", "cancelled", "expired"):
+                    print(f"  [{label}] Batch {entry['batch_id']} {state}.")
+                    failed.append(entry)
+                else:
+                    still_pending.append(entry)
+
+            pending = still_pending
+            if pending:
+                print(f"  ... {len(pending)} batch(es) still running, waiting {poll_interval}s")
+                time.sleep(poll_interval)
+
+        if completed:
+            output_dir = BATCH_OUTPUTS_DIR / run_name
+            output_dir.mkdir(parents=True, exist_ok=True)
+            print(f"\nDownloading {len(completed)} batch output(s) to {output_dir}")
+            for entry in completed:
+                dest = output_dir / f"{entry['batch_id']}-output.jsonl"
+                try:
+                    openai_batches.download_batch_output(entry["batch_id"], dest, client=client)
+                    print(f"  [{entry.get('task')}] Saved {dest}")
+                except Exception as exc:
+                    print(f"  [{entry.get('task')}] Download failed: {exc}")
+
+        if failed:
+            print(f"\n{len(failed)} batch(es) failed/cancelled/expired:")
+            for entry in failed:
+                print(f"  [{entry.get('task')}] {entry['batch_id']}")
 
 
 if __name__ == "__main__":
