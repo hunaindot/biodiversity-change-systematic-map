@@ -23,10 +23,20 @@ class LabelConfig:
     strat_column: str
     missing_key: str = MISSING_KEY
     drop_if_all_missing: tuple[str, ...] | None = None
+    source_weights: dict[str, float] | None = None
 
+
+# Target source proportions for L0: rebalances imbalanced sources to these weights.
+_L0_SOURCE_WEIGHTS: dict[str, float] = {
+    "Jaureguiberry et al": 0.25,
+    "Keck et al": 0.125,
+    "shaw et al": 0.25,
+    "murphy et al": 0.125,
+    "RLE Database": 0.25,
+}
 
 LABEL_CONFIGS: dict[str, LabelConfig] = {
-    "l0": LabelConfig(name="l0", strat_column="eligbility"),
+    "l0": LabelConfig(name="l0", strat_column="source"),
     "l1": LabelConfig(name="l1", strat_column="driver"),
     "l2": LabelConfig(name="l2", strat_column="threats_l0"),
     "l3": LabelConfig(name="l3", strat_column="region"),
@@ -163,6 +173,73 @@ def _split_strata(
     return split_rows, strata_counts
 
 
+def _split_with_source_weights(
+    source_groups: dict[str, list[list[str]]],
+    target_weights: dict[str, float],
+    ratios: dict[str, float],
+    seed: int,
+) -> tuple[dict[str, list[list[str]]], dict[str, dict[str, int]]]:
+    """Split rows by source, rebalancing to target_weights proportions.
+
+    Finds the largest balanced total N such that no source needs more records
+    than it has, then samples each source to its target count and splits
+    train/dev/test within each source.
+
+    Records from sources not listed in target_weights are excluded (noted in
+    strata_counts under their source name with sampled=0).
+    """
+    rng = random.Random(seed)
+
+    total_w = sum(target_weights.values())
+    norm_weights = {s: w / total_w for s, w in target_weights.items()}
+
+    # Maximum balanced N: limited by the scarcest source relative to its weight.
+    max_n: float = float("inf")
+    for source, weight in norm_weights.items():
+        available = len(source_groups.get(source, []))
+        if weight > 0:
+            max_n = min(max_n, available / weight)
+    if max_n == float("inf"):
+        max_n = 0.0
+
+    target_n = int(math.floor(max_n))
+
+    ratio_list = [ratios[split] for split in SPLITS]
+    split_rows: dict[str, list[list[str]]] = {split: [] for split in SPLITS}
+    strata_counts: dict[str, dict[str, int]] = {}
+
+    for source in sorted(norm_weights.keys()):
+        rows = list(source_groups.get(source, []))
+        rng.shuffle(rows)
+        n = min(int(round(target_n * norm_weights[source])), len(rows))
+        sampled = rows[:n]
+        counts = _allocation_counts(len(sampled), ratio_list)
+        offsets = [0, counts[0], counts[0] + counts[1]]
+        split_rows["train"].extend(sampled[offsets[0]: offsets[0] + counts[0]])
+        split_rows["dev"].extend(sampled[offsets[1]: offsets[1] + counts[1]])
+        split_rows["test"].extend(sampled[offsets[2]: offsets[2] + counts[2]])
+        strata_counts[source] = {
+            "total": len(rows),
+            "sampled": n,
+            "train": counts[0],
+            "dev": counts[1],
+            "test": counts[2],
+        }
+
+    # Record excluded sources (not in target_weights) for transparency.
+    for source, rows in source_groups.items():
+        if source not in norm_weights:
+            strata_counts[f"__excluded__{source}"] = {
+                "total": len(rows),
+                "sampled": 0,
+                "train": 0,
+                "dev": 0,
+                "test": 0,
+            }
+
+    return split_rows, strata_counts
+
+
 def _get_ratios(env: dict[str, str]) -> dict[str, float]:
     train = get_env_int(env, "train", 60)
     dev = get_env_int(env, "dev", 20)
@@ -252,7 +329,10 @@ def split_label_dataset(
         stratum, _ = _stratum_from_value(raw_value, config.missing_key)
         strata.setdefault(stratum, []).append(row)
 
-    split_rows, strata_counts = _split_strata(strata, ratios, seed)
+    if config.source_weights is not None:
+        split_rows, strata_counts = _split_with_source_weights(strata, config.source_weights, ratios, seed)
+    else:
+        split_rows, strata_counts = _split_strata(strata, ratios, seed)
 
     train_dir = label_path / "train"
     dev_dir = label_path / "dev"
@@ -276,11 +356,19 @@ def split_label_dataset(
         _write_csv_rows(inprocess_dir / "dropped_rows.csv", drop_header, dropped_with_reason)
 
     strata_counts_path = inprocess_dir / "strata_counts.csv"
-    strata_header = ["stratum", "total", "train", "dev", "test"]
-    strata_rows = [
-        [stratum, counts["total"], counts["train"], counts["dev"], counts["test"]]
-        for stratum, counts in sorted(strata_counts.items())
-    ]
+    has_sampled = any("sampled" in counts for counts in strata_counts.values())
+    if has_sampled:
+        strata_header = ["stratum", "total", "sampled", "train", "dev", "test"]
+        strata_rows = [
+            [stratum, counts["total"], counts.get("sampled", ""), counts["train"], counts["dev"], counts["test"]]
+            for stratum, counts in sorted(strata_counts.items())
+        ]
+    else:
+        strata_header = ["stratum", "total", "train", "dev", "test"]
+        strata_rows = [
+            [stratum, counts["total"], counts["train"], counts["dev"], counts["test"]]
+            for stratum, counts in sorted(strata_counts.items())
+        ]
     _write_csv_rows(strata_counts_path, strata_header, strata_rows)
 
     summary = {
@@ -298,6 +386,7 @@ def split_label_dataset(
             "column": config.strat_column,
             "multi_label_group": MULTI_LABEL_KEY,
             "missing_group": config.missing_key,
+            **({"source_weights": config.source_weights} if config.source_weights else {}),
         },
         "seed": seed,
         "outputs": {

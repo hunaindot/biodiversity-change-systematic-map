@@ -89,38 +89,10 @@ def run_task(task: str, run_name: str) -> dict:
         metric_paths[truth_col] = str(metrics_path)
         metric_paths[f"{truth_col}_confusion"] = str(confusion_path)
 
-        # Save data exactly matching reference notebook output
         ref_cols = [
-            "UT",
-            "title",
-            "abstract",
-            "doi",
-            "custom_id",
-            "model",
-            "created_at",
-            "raw_output",
-            "step_0_label",
-            "step_0_reason",
-            "step_1_label",
-            "step_1_reason",
-            "step_1_reason_stressor_spans",
-            "step_2_label",
-            "step_2_reason",
-            "step_2_reason_use_type",
-            "step_2_reason_evidence_span",
-            "step_3_label",
-            "step_3_reason",
-            "step_3_reason_biodiversity_span",
-            "step_3_reason_link_span",
-            "step_1_reason_evidence_span",
-            "label_1_3",
-            "pred_screening",
-            "ut_unique_wos_id_",
-            "true_label",
-            "tp",
-            "fp",
-            "fn",
-            "tn",
+            "UT", "title", "abstract", "doi", "custom_id", "model", "created_at", "raw_output",
+            "s1_r", "s1_bio", "s2_r", "s2_dir", "s3_r", "s3_drivers", "s4_r", "s4_link",
+            "ut_unique_wos_id_", "true_label", "tp", "fp", "fn", "tn",
         ]
         # Ensure all columns exist before reindex
         for col in ref_cols:

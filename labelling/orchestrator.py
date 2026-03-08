@@ -40,7 +40,7 @@ def load_env_file(path: Path = ENV_FILE) -> None:
             continue
         if value[:1] == value[-1:] and value.startswith(("'", '"')):
             value = value[1:-1]
-        os.environ.setdefault(key, value)
+        os.environ[key] = value
 
 
 def env_int(name: str, default: int | None) -> int | None:

@@ -47,9 +47,6 @@ def _safe_json(text: str | None) -> Any:
         return None
 
 
-# --- Screening-specific helpers (mirrors screening-reader.ipynb) ---
-ALLOWED_REASON_KEYS = {"stressor_spans", "use_type", "evidence_span", "biodiversity_span", "link_span"}
-
 
 def parse_json_text(text: str):
     if not text:
@@ -90,17 +87,33 @@ def flatten_steps(parsed: dict) -> dict:
     flat = {}
     if not isinstance(parsed, dict):
         return flat
+
+    # New schema: step1/step2/step3/step4 with results/biodiversity_types/direction/drivers/linkage
+    if any(k in parsed for k in ("step1", "step2", "step3", "step4")):
+        new_extra = {
+            "step1": ("bio", "biodiversity_types"),
+            "step2": ("dir", "direction"),
+            "step3": ("drivers", "drivers"),
+            "step4": ("link", "linkage"),
+        }
+        for step_key, (flat_suffix, src_key) in new_extra.items():
+            step_val = parsed.get(step_key)
+            if not isinstance(step_val, dict):
+                continue
+            snum = step_key.replace("step", "s")
+            flat[f"{snum}_r"] = step_val.get("results")
+            flat[f"{snum}_{flat_suffix}"] = step_val.get(src_key)
+        return flat
+
+    # Old schema: s1/s2/s3/s4 with r/bio/dir/drivers/link
+    extra_fields = {"s1": "bio", "s2": "dir", "s3": "drivers", "s4": "link"}
     for step_key, step_val in parsed.items():
         if not isinstance(step_val, dict):
             continue
-        flat[f"{step_key}_label"] = step_val.get("label")
-        reason = step_val.get("reason")
-        flat[f"{step_key}_reason"] = reason
-        if isinstance(reason, dict):
-            for k, v in reason.items():
-                if ALLOWED_REASON_KEYS and k not in ALLOWED_REASON_KEYS:
-                    continue
-                flat[f"{step_key}_reason_{k}"] = v
+        flat[f"{step_key}_r"] = step_val.get("r")
+        extra = extra_fields.get(step_key)
+        if extra:
+            flat[f"{step_key}_{extra}"] = step_val.get(extra)
     return flat
 
 
@@ -155,18 +168,15 @@ def load_screening_predictions(run: str) -> pd.DataFrame:
     outputs_df = load_screening_outputs(run)
     joined = batch_df.merge(outputs_df, left_on="UT", right_on="custom_id", how="left")
 
-    for col in ["step_0_label", "step_1_label", "step_2_label", "step_3_label"]:
-        if col in joined.columns:
-            joined[col] = pd.to_numeric(joined[col], errors="coerce").fillna(0).astype(int)
-        else:
+    stage_cols = ["s1_r", "s2_r", "s3_r", "s4_r"]
+    for col in stage_cols:
+        if col not in joined.columns:
             joined[col] = 0
-
-    joined["label_1_3"] = joined[["step_1_label", "step_2_label", "step_3_label"]].sum(axis=1)
-    joined["pred_screening"] = joined.apply(
-        lambda r: '[\"ELIGIBLE\"]' if (r["step_0_label"] == 0 and r["label_1_3"] == 3) else '[\"NOT_ELIGIBLE\"]',
+        joined[col] = pd.to_numeric(joined[col], errors="coerce").fillna(0).astype(int)
+    joined["pred"] = joined.apply(
+        lambda r: '["ELIGIBLE"]' if all(r[c] == 1 for c in stage_cols) else '["NOT_ELIGIBLE"]',
         axis=1,
     )
-    joined["pred"] = joined["pred_screening"]
     return joined
 
 
@@ -309,8 +319,6 @@ def join_truth_pred(task: str, run_name: str) -> pd.DataFrame:
         merged = preds.merge(labels[label_cols], on="custom_id", how=join_how)
         if "pred" in merged.columns:
             merged = merged.rename(columns={"pred": "pred_eligibility"})
-        elif "pred_screening" in merged.columns:
-            merged = merged.rename(columns={"pred_screening": "pred_eligibility"})
     elif task == "ecosystems":
         label_cols += ["realm", "biome"]
         merged = preds.merge(labels[label_cols], on="custom_id", how=join_how)
