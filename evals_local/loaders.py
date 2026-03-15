@@ -174,7 +174,7 @@ def load_screening_predictions(run: str) -> pd.DataFrame:
             joined[col] = 0
         joined[col] = pd.to_numeric(joined[col], errors="coerce").fillna(0).astype(int)
     joined["pred"] = joined.apply(
-        lambda r: '["ELIGIBLE"]' if all(r[c] == 1 for c in stage_cols) else '["NOT_ELIGIBLE"]',
+        lambda r: '["NOT_ELIGIBLE"]' if any(r[c] == 0 for c in stage_cols) else '["ELIGIBLE"]',
         axis=1,
     )
     return joined
@@ -266,7 +266,16 @@ def load_predictions(task: str, run_name: str) -> pd.DataFrame:
     elif cfg["task_type"] == "study":
         df["output_text"] = df["response"].apply(_output_text_from_record)
         df["payload"] = df["output_text"].apply(_safe_json)
-        df["pred_study_design"] = df["payload"].apply(lambda d: _first_result_field(d, "study_design"))
+        for _field in (
+            "study_design",
+            "methods_data_collection",
+            "methods_analysis",
+            "has_comparison",
+            "comparison_types",
+            "impact_assessments",
+            "trait",
+        ):
+            df[f"pred_{_field}"] = df["payload"].apply(lambda d, f=_field: _first_result_field(d, f))
     elif cfg["task_type"] == "taxa":
         df["output_text"] = df["response"].apply(_output_text_from_record)
         df["payload"] = df["output_text"].apply(_safe_json)

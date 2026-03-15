@@ -40,7 +40,8 @@ def load_env_file(path: Path = ENV_FILE) -> None:
             continue
         if value[:1] == value[-1:] and value.startswith(("'", '"')):
             value = value[1:-1]
-        os.environ[key] = value
+        if key not in os.environ:
+            os.environ[key] = value
 
 
 def env_int(name: str, default: int | None) -> int | None:
@@ -84,6 +85,13 @@ def parse_args() -> argparse.Namespace:
         dest="task",
         help="Classification task to run (e.g., driver, screening, geography, taxa, study, ecosystems, threats). Defaults to driver.",
     )
+    parser.add_argument(
+        "--submission-mode",
+        "-s",
+        dest="submission_mode",
+        choices=["live", "batch"],
+        help="Submission mode: 'live' (default) or 'batch'. Overrides ORCHESTRATOR_SUBMISSION_MODE.",
+    )
     return parser.parse_args()
 
 
@@ -102,7 +110,7 @@ def main() -> None:
     model = os.getenv(ENV_MODEL, DEFAULT_MODEL) or DEFAULT_MODEL
     reasoning = os.getenv(ENV_REASONING, DEFAULT_REASONING_EFFORT) or DEFAULT_REASONING_EFFORT
     run_openai = env_bool(ENV_RUN_OPENAI, True)
-    submission_mode = (os.getenv(ENV_SUBMISSION_MODE) or "live").lower()
+    submission_mode = (args.submission_mode or os.getenv(ENV_SUBMISSION_MODE) or "live").lower()
     if submission_mode not in {"live", "batch"}:
         raise ValueError(f"{ENV_SUBMISSION_MODE} must be 'live' or 'batch'.")
     if submission_mode == "batch" and not task.supports_batch:

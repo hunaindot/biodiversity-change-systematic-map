@@ -1,0 +1,31 @@
+{
+  "experiment_name": "v1-v9",
+  "iterations": [
+    {
+      "iteration_id": 1,
+      "description": "gpt-5-nano low reasoning",
+      "model": "gpt-5-nano-2025-08-07",
+      "reasoning": { "effort": "low" },
+      "tasks": {
+        "screening": {
+          "dev": { "data_path": "data/labels/l0/test", "run_name": "l0-test-150326-gptnano-low" }
+        },
+        "driver": {
+          "dev": { "data_path": "data/labels/l1/test", "run_name": "l1-test-150326-gptnano-low" }
+        },
+        "threat": {
+          "dev": { "data_path": "data/labels/l2/test", "run_name": "l2-test-150326-gptnano-low" }
+        },
+        "geography": {
+          "dev": { "data_path": "data/labels/l3/test", "run_name": "l3-test-150326-gptnano-low" }
+        },
+        "ecosystem": {
+          "dev": { "data_path": "data/labels/l4/test", "run_name": "l4-test-150326-gptnano-low" }
+        },
+        "study": {
+          "dev": { "data_path": "data/labels/l5/test", "run_name": "l5-test-150326-gptnano-low" }
+        }
+      }
+    }
+  ]
+}

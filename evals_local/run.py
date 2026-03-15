@@ -9,7 +9,7 @@ import pandas as pd
 from .config import EVAL_OUTPUT_DIR, TASK_CONFIG, DEFAULT_RUN_SUFFIXES, BATCH_OUTPUTS_DIR
 from .loaders import join_truth_pred, normalize_truth_pred
 from .metrics import label_metrics, record_confusion, binary_metrics
-from .normalizers import normalize_geo_labels, to_label_set, normalize_screening_label
+from .normalizers import normalize_geo_labels, normalize_region_labels, to_label_set, normalize_screening_label, normalize_threat_labels
 
 
 def _ensure_dirs(run_name: str) -> tuple[Path, Path]:
@@ -22,9 +22,15 @@ def _ensure_dirs(run_name: str) -> tuple[Path, Path]:
 
 def _normalizer_for(task: str, col: str):
     if task == "geography":
+        if col == "region":
+            return normalize_region_labels
+        if col == "sub-region":
+            return to_label_set
         return normalize_geo_labels
     if task == "screening":
         return lambda v: {normalize_screening_label(v)}
+    if task == "threats":
+        return normalize_threat_labels
     return to_label_set
 
 
@@ -36,17 +42,26 @@ def run_task(task: str, run_name: str) -> dict:
     include_masks: dict[str, pd.Series | None] = {}
     if task == "threats":
         banned = {"no threat_l2 candidates found", "no threat_l1 candidates found", "unclear"}
-        level_pairs = {
-            "threats_l0": ["threats_l0", "pred_threat_l0"],
-            "threats_l1": ["threats_l1", "pred_threat_l1"],
-        }
-        for truth_col, cols in level_pairs.items():
-            cols = [c for c in cols if c in df.columns]
-            if not cols:
-                include_masks[truth_col] = None
-                continue
-            mask_parts = [df[c].apply(lambda v: len(to_label_set(v) & banned) == 0) for c in cols]
-            include_masks[truth_col] = pd.concat(mask_parts, axis=1).all(axis=1)
+
+        # Build l0 mask first
+        l0_cols = [c for c in ["threats_l0", "pred_threat_l0"] if c in df.columns]
+        if l0_cols:
+            l0_mask_parts = [df[c].apply(lambda v: len(to_label_set(v) & banned) == 0) for c in l0_cols]
+            l0_mask = pd.concat(l0_mask_parts, axis=1).all(axis=1)
+        else:
+            l0_mask = None
+        include_masks["threats_l0"] = l0_mask
+
+        # Build l1 mask and propagate l0 exclusions: if l0 is banned, exclude the whole record
+        l1_cols = [c for c in ["threats_l1", "pred_threat_l1"] if c in df.columns]
+        if l1_cols:
+            l1_mask_parts = [df[c].apply(lambda v: len(to_label_set(v) & banned) == 0) for c in l1_cols]
+            l1_mask = pd.concat(l1_mask_parts, axis=1).all(axis=1)
+            if l0_mask is not None:
+                l1_mask = l1_mask & l0_mask
+        else:
+            l1_mask = l0_mask
+        include_masks["threats_l1"] = l1_mask
 
     data_dir, metrics_dir = _ensure_dirs(run_name)
     data_path = data_dir / f"{task}.xlsx"
@@ -59,6 +74,7 @@ def run_task(task: str, run_name: str) -> dict:
         pred_col = pred_col
 
         df["true_label"] = df[truth_col]
+        df["pred_label"] = df[pred_col]
         if "ut_unique_wos_id_" not in df.columns:
             df["ut_unique_wos_id_"] = df.get("custom_id")
 
@@ -92,7 +108,7 @@ def run_task(task: str, run_name: str) -> dict:
         ref_cols = [
             "UT", "title", "abstract", "doi", "custom_id", "model", "created_at", "raw_output",
             "s1_r", "s1_bio", "s2_r", "s2_dir", "s3_r", "s3_drivers", "s4_r", "s4_link",
-            "ut_unique_wos_id_", "true_label", "tp", "fp", "fn", "tn",
+            "ut_unique_wos_id_", "true_label", "pred_label", "tp", "fp", "fn", "tn",
         ]
         # Ensure all columns exist before reindex
         for col in ref_cols:

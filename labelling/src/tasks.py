@@ -736,8 +736,10 @@ class ThreatTask(TaskDefinition):
         candidates: list[dict] = []
         l2_lookup: dict[str, list] = {}
         seen: set[str] = set()
+        threats_map = mapping.get("threats", {})
+        ci_threats_map = {k.lower(): v for k, v in threats_map.items()}
         for label in threat_l0_labels:
-            l0_entry = mapping.get("threats").get(label, {})
+            l0_entry = threats_map.get(label) or ci_threats_map.get(label.lower(), {})
             for l1_name, l1_data in l0_entry.get("level1", {}).items():
                 if not l1_name or l1_name in seen:
                     continue
@@ -752,9 +754,10 @@ class ThreatTask(TaskDefinition):
     def _build_l2_candidates(self, threat_l1_labels: list[str], l2_lookup: dict[str, list]) -> list[dict]:
         candidates: list[dict] = []
         seen: set[str] = set()
+        ci_l2_lookup = {k.lower(): v for k, v in l2_lookup.items()}
         for l1_label in threat_l1_labels:
             # print(f"Looking up L2 for L1 label: {l1_label}")
-            for l2 in l2_lookup.get(l1_label, []):
+            for l2 in l2_lookup.get(l1_label) or ci_l2_lookup.get(l1_label.lower(), []):
                 # print(f"  Found L2 candidate: {l2}")
                 name = l2.get("name")
                 if not name or name in seen:
@@ -780,6 +783,7 @@ class ThreatTask(TaskDefinition):
         article_text = article_text or ""
         responses: dict[str, Any] = {"threat_l0": None, "threat_l1": None, "threat_l2": None}
         results_payload: dict[str, Any] = {"threat_l0": None, "threat_l1": None, "threat_l2": None}
+        candidates_passed: dict[str, Any] = {"threat_l1": None, "threat_l2": None}
         workflow_error: str | None = None
         iteration = 0
         workflow_active = True
@@ -834,6 +838,7 @@ class ThreatTask(TaskDefinition):
                 # print(f"L2 Lookup: {l2_lookup}")
                 # break
 
+                candidates_passed["threat_l1"] = l1_candidates
                 if not l1_candidates:
                     threat_l1_data = {"results": ["No threat_l1 candidates found"], "stop_reason": "stop-manual"}
                     responses["threat_l1"] = {
@@ -883,6 +888,7 @@ class ThreatTask(TaskDefinition):
                 # print(f"L2 Lookup: {l2_lookup}")
                 # print(f"Threat L2 Labels: {threat_l2_candidates}")
 
+                candidates_passed["threat_l2"] = threat_l2_candidates
                 if not threat_l2_candidates:
                     threat_l2_data = {"results": ["No threat_l2 candidates found"], "stop_reason": "stop-manual"}
                     responses["threat_l2"] = {
@@ -929,6 +935,7 @@ class ThreatTask(TaskDefinition):
             "custom_id": custom_id,
             "responses": responses,
             "results_payload": results_payload,
+            "candidates_passed": candidates_passed,
             "error": {"message": workflow_error} if workflow_error else None,
             "iterations": iteration,
         }

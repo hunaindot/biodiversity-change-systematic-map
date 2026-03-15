@@ -43,7 +43,7 @@ Rules (be conservative):
    - EXCLUDE author affiliations, publisher locations, and incidental mentions unless clearly part of the study area.
 2) If the study is global/broad with no specific geography focus, set:
    - scope = "global"
-   - regions = ["All Region"]
+   - regions = ["All Region"] and nothing extra labels along with All region
    - subregions = []
    - countries_iso3 = []
    - locales = []
@@ -68,12 +68,11 @@ Rules (be conservative):
    - you may return multiple regions/subregions/countries if explicitly supported.
    - If multiple countries are listed, include them all (deduplicated) only if the abstract indicates they are part of the analyzed study area.
 
-7) If unsure, return empty arrays rather than guessing.
+7) If you can reason for the presence of a label, but remain unclear on actual value of label, use "Unclear"; Otherwise, If any of the label can not be inferred from text, use "Not Applicable"
 
 8) Granularity and restraint:
    - Prefer the most specific geographic description supported by the text.
    - Do not “upgrade” specificity (e.g., don’t infer provinces when only a country is stated).
-   - If unsure, return empty arrays rather than guessing.
 
 Reasoning style:
 - Think step-by-step internally, but DO NOT reveal your reasoning.

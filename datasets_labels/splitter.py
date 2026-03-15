@@ -44,7 +44,7 @@ LABEL_CONFIGS: dict[str, LabelConfig] = {
     "l5": LabelConfig(name="l5", strat_column="study_design"),
     "l6": LabelConfig(
         name="l6",
-        strat_column="kingdom",
+        strat_column="phylum",
         missing_key=NO_KINGDOM_KEY,
         drop_if_all_missing=("kingdom", "phylum", "class", "order", "specie"),
     ),
@@ -267,7 +267,7 @@ def _stratum_from_value(value: str, missing_key: str) -> tuple[str, list[str]]:
     if not labels:
         return missing_key, labels
     if len(labels) == 1:
-        return labels[0], labels
+        return labels[0].lower(), labels
     return MULTI_LABEL_KEY, labels
 
 
