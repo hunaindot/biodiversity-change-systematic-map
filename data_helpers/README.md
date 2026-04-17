@@ -1,11 +1,11 @@
-# datasets_labels
+# data_helpers
 
 Utilities for building, splitting, and sampling the biodiversity literature label datasets (L0–L6).
 
 ## Package layout
 
 ```
-datasets_labels/
+data_helpers/
 ├── _config.py          # loads checklists/mappings/dataset_config.json
 ├── env.py              # .env file parser
 ├── splitter.py         # core train/dev/test split logic
@@ -41,25 +41,25 @@ All dataset paths, label configs, sheet names, and special keys live in one plac
 
 ```bash
 # Screening dataset (L0)
-python -m datasets_labels.build_screening
+python -m data_helpers.build_screening
 
 # Coding datasets (L1–L6), optionally filter to one label
-python -m datasets_labels.build_coding
-python -m datasets_labels.build_coding l2
+python -m data_helpers.build_coding
+python -m data_helpers.build_coding l2
 ```
 
 ### 2. Split into train / dev / test
 
 ```bash
-python -m datasets_labels
+python -m data_helpers
 ```
 
 Split ratios and paths are read from `.env` (see [Configuration](#configuration)).
 Run a subset of labels:
 
 ```bash
-python -m datasets_labels --labels l1,l2,l3
-python -m datasets_labels --seed 123
+python -m data_helpers --labels l1,l2,l3
+python -m data_helpers --seed 123
 ```
 
 Each label writes to `data/labels/<label>/train|dev|test/` and an `in-process/` folder with deduplication logs, dropped rows, strata counts, and a `split_summary.json`.
@@ -67,11 +67,11 @@ Each label writes to `data/labels/<label>/train|dev|test/` and an `in-process/` 
 ### 3. Sample for manual labelling
 
 ```bash
-python -m datasets_labels.sample_screening
-python -m datasets_labels.sample_coding
+python -m data_helpers.sample_screening
+python -m data_helpers.sample_coding
 
 # Single label
-python -m datasets_labels.sample_coding l4
+python -m data_helpers.sample_coding l4
 ```
 
 Samples 100 records from the train split (configurable via `dataset_config.json`).
@@ -82,7 +82,7 @@ Outputs go to `data/consistency-check-datasets/*/to-manual-label/`.
 Only needed once (or when the GBIF source file changes):
 
 ```bash
-python -m datasets_labels.build_gbif
+python -m data_helpers.build_gbif
 ```
 
 Reads `data/gbif/curated/gbif_curated.csv`, writes `checklists/mappings/gbif_lookup_cache.pkl`.

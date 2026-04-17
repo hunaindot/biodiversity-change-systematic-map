@@ -2,9 +2,9 @@
 Build and cache the GBIF canonical-name lookup dictionary.
 
 Usage:
-    python -m datasets_labels.build_gbif
+    python -m data_helpers.build_gbif
     # or directly:
-    python datasets_labels/build_gbif.py
+    python data_helpers/build_gbif.py
 
 Reads:  data/gbif/curated/gbif_curated.csv
 Writes: data/gbif/gbif_lookup_cache.pkl

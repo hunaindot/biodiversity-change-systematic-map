@@ -28,7 +28,7 @@ def main() -> None:
     try:
         summaries = run_from_env(env_path, labels=labels, seed=args.seed)
     except SplitError as exc:
-        raise SystemExit(f"datasets_labels error: {exc}") from exc
+        raise SystemExit(f"data_helpers error: {exc}") from exc
 
     for summary in summaries:
         label = summary["label"]
