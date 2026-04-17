@@ -5,6 +5,8 @@
 /labelling/artifacts
 /labelling/__pycache__
 /mappings/prompts_templates.json
+/checklists/mappings/gbif_lookup_cache.pkl
+/checklists/mappings/*.pkl
 .env
 .claude
 .agents.md
@@ -20,3 +22,4 @@ retrieval_test.ipynb
 iucn_rle_scraper.ipynb
 
 eval_notes.txt
+iucn_rle_scraper.ipynb
