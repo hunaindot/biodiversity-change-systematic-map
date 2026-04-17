@@ -56,13 +56,19 @@ GBIF_CACHE_PATH   = _resolve_path("EVALS_GBIF_CACHE_PATH")
 
 # Default run-name suffixes per task when using a shared base name.
 DEFAULT_RUN_SUFFIXES = {
-    "driver":     "",
-    "screening":  "-screen",
-    "geography":  "-geography",
-    "threats":    "-threats",
-    "ecosystems": "-ecosystem",
-    "study":      "-study",
-    "taxa":       "-taxa",
+    "driver":           "",
+    "screening":        "-screen",
+    "geography":        "-geography",
+    "threats":          "-threats",
+    "threats_l0":       "-threats",
+    "threats_l1":       "-threats",
+    "threats_l2":       "-threats",
+    "ecosystems":       "-ecosystem",
+    "ecosystems_realm": "-ecosystem",
+    "ecosystems_biome": "-ecosystem",
+    "ecosystems_efg":   "-ecosystem",
+    "study":            "-study",
+    "taxa":             "-taxa",
 }
 
 TASK_CONFIG: dict[str, dict] = {
@@ -81,6 +87,21 @@ TASK_CONFIG: dict[str, dict] = {
         "truth_cols": {"threats_l0": "threats_l0", "threats_l1": "threats_l1"},
         "task_type": "threats",
     },
+    "threats_l0": {
+        "label_path": LABELS_DIR / "l2" / "L2) threats set.csv",
+        "truth_cols": {"threats_l0": "threats_l0"},
+        "task_type": "threats_l0",
+    },
+    "threats_l1": {
+        "label_path": LABELS_DIR / "l2" / "L2) threats set.csv",
+        "truth_cols": {"threats_l1": "threats_l1"},
+        "task_type": "threats_l1",
+    },
+    "threats_l2": {
+        "label_path": LABELS_DIR / "l2" / "L2) threats set.csv",
+        "truth_cols": {},
+        "task_type": "threats_l2",
+    },
     "geography": {
         "label_path": LABELS_DIR / "l3" / "L3) geography set.csv",
         "truth_cols": {"region": "region", "sub-region": "sub-region", "country": "country"},
@@ -90,6 +111,21 @@ TASK_CONFIG: dict[str, dict] = {
         "label_path": LABELS_DIR / "l4" / "L4) ecosystem set.csv",
         "truth_cols": {"realm": "realm", "biome": "biome"},
         "task_type": "ecosystems",
+    },
+    "ecosystems_realm": {
+        "label_path": LABELS_DIR / "l4" / "L4) ecosystem set.csv",
+        "truth_cols": {"realm": "realm"},
+        "task_type": "ecosystems_realm",
+    },
+    "ecosystems_biome": {
+        "label_path": LABELS_DIR / "l4" / "L4) ecosystem set.csv",
+        "truth_cols": {"biome": "biome"},
+        "task_type": "ecosystems_biome",
+    },
+    "ecosystems_efg": {
+        "label_path": LABELS_DIR / "l4" / "L4) ecosystem set.csv",
+        "truth_cols": {},
+        "task_type": "ecosystems_efg",
     },
     "study": {
         "label_path": LABELS_DIR / "l5" / "L5) study set.csv",

@@ -298,10 +298,80 @@ def load_screening_labels(folder: Path) -> pd.DataFrame:
     return df.drop_duplicates()
 
 
+def _extract_split_threat_results(row) -> list | None:
+    """Extract results list from a split threat task record (live or batch mode).
+
+    Live output records store a pre-parsed ``results_payload`` dict directly.
+    Batch API output records store the raw response under ``response.body``; for
+    those we fall back to extracting and parsing the output_text.
+    """
+    rp = row.get("results_payload")
+    if isinstance(rp, dict):
+        results = rp.get("results")
+        if isinstance(results, list):
+            return results
+    # Batch mode fallback: parse from response.body output text
+    rec = row.to_dict() if hasattr(row, "to_dict") else row
+    text = _output_text_from_record(rec)
+    if text:
+        parsed = _safe_json(text)
+        if isinstance(parsed, dict):
+            return parsed.get("results")
+    return None
+
+
+def _load_split_threat_predictions(task: str, run_name: str) -> pd.DataFrame:
+    """Load predictions for a single split threat level (threats_l0/l1/l2).
+
+    Only loads files matching ``{task}-*.jsonl`` so that multiple levels stored
+    in the same run folder don't bleed into each other.
+    """
+    folder = BATCH_OUTPUTS_DIR / run_name
+    if not folder.exists():
+        raise FileNotFoundError(f"Batch outputs directory not found: {folder}")
+    paths = sorted(folder.glob(f"{task}-*.jsonl"))
+    if not paths:
+        raise FileNotFoundError(f"No {task}-*.jsonl files in {folder}")
+    df = pd.concat([pd.read_json(p, lines=True) for p in paths], ignore_index=True)
+    level = task.split("_")[-1]  # "l0", "l1", or "l2"
+    pred_col = f"pred_threat_{level}"
+    df[pred_col] = df.apply(_extract_split_threat_results, axis=1)
+    return df
+
+
+def _load_split_ecosystem_predictions(task: str, run_name: str) -> pd.DataFrame:
+    """Load predictions for a single split ecosystem level (ecosystems_realm/biome/efg).
+
+    Only loads files matching ``{task}-*.jsonl`` so that multiple levels stored
+    in the same run folder don't bleed into each other.
+
+    Reuses ``_extract_split_threat_results`` since the output record format is
+    identical: ``results_payload`` holds the direct JSON payload with a ``results``
+    key (live mode), or the raw response body (batch mode).
+    """
+    folder = BATCH_OUTPUTS_DIR / run_name
+    if not folder.exists():
+        raise FileNotFoundError(f"Batch outputs directory not found: {folder}")
+    paths = sorted(folder.glob(f"{task}-*.jsonl"))
+    if not paths:
+        raise FileNotFoundError(f"No {task}-*.jsonl files in {folder}")
+    df = pd.concat([pd.read_json(p, lines=True) for p in paths], ignore_index=True)
+    level = task.split("_")[-1]  # "realm", "biome", or "efg"
+    pred_col = f"pred_{level}"   # "pred_realm", "pred_biome", "pred_efg"
+    df[pred_col] = df.apply(_extract_split_threat_results, axis=1)
+    return df
+
+
 def load_predictions(task: str, run_name: str) -> pd.DataFrame:
     cfg = TASK_CONFIG[task]
     if cfg["task_type"] == "screening":
         return load_screening_predictions(run_name)
+
+    if cfg["task_type"] in {"threats_l0", "threats_l1", "threats_l2"}:
+        return _load_split_threat_predictions(task, run_name)
+
+    if cfg["task_type"] in {"ecosystems_realm", "ecosystems_biome", "ecosystems_efg"}:
+        return _load_split_ecosystem_predictions(task, run_name)
 
     folder = BATCH_OUTPUTS_DIR / run_name
     df = load_jsonl_folder(folder)
@@ -420,6 +490,22 @@ def join_truth_pred(task: str, run_name: str, label_path: Path | None = None) ->
     elif task == "taxa":
         label_cols += [c for c in ["kingdom", "phylum", "class", "order", "genus", "specie"] if c in labels.columns]
         merged = preds.merge(labels[label_cols], on="custom_id", how=join_how)
+    elif task == "threats_l0":
+        label_cols += ["threats_l0"]
+        merged = preds.merge(labels[label_cols], on="custom_id", how=join_how)
+    elif task == "threats_l1":
+        label_cols += ["threats_l1"]
+        merged = preds.merge(labels[label_cols], on="custom_id", how=join_how)
+    elif task == "threats_l2":
+        merged = preds  # no ground-truth labels for l2
+    elif task == "ecosystems_realm":
+        label_cols += ["realm"]
+        merged = preds.merge(labels[label_cols], on="custom_id", how=join_how)
+    elif task == "ecosystems_biome":
+        label_cols += ["biome"]
+        merged = preds.merge(labels[label_cols], on="custom_id", how=join_how)
+    elif task == "ecosystems_efg":
+        merged = preds  # no ground-truth labels for EFG
     else:
         merged = preds
     return merged
@@ -451,4 +537,16 @@ def normalize_truth_pred(task: str, df: pd.DataFrame) -> tuple[pd.DataFrame, dic
             "specie": "pred_species",
         }
         col_map = {t: p for t, p in truth_to_pred.items() if t in df.columns and p in df.columns}
+    elif task == "threats_l0":
+        col_map = {"threats_l0": "pred_threat_l0"}
+    elif task == "threats_l1":
+        col_map = {"threats_l1": "pred_threat_l1"}
+    elif task == "threats_l2":
+        col_map = {}  # no ground-truth labels
+    elif task == "ecosystems_realm":
+        col_map = {"realm": "pred_realm"}
+    elif task == "ecosystems_biome":
+        col_map = {"biome": "pred_biome"}
+    elif task == "ecosystems_efg":
+        col_map = {}  # no ground-truth labels for EFG
     return df, col_map

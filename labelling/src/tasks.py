@@ -13,6 +13,7 @@ from openai import OpenAI
 from .config import (
     DEFAULT_MODEL,
     DEFAULT_REASONING_EFFORT,
+    BATCH_OUTPUTS_DIR,
     MAPPINGS_DIR,
     PROMPT_KEY_DRIVER,
     PROMPT_KEY_SCREENING,
@@ -23,7 +24,7 @@ from .config import (
     PROMPT_KEY_THREATS,
 )
 from .batch_api import build_client, format_article
-from .live_api import run_live_requests, serialize_live_body
+from .live_api import run_live_requests, serialize_live_body, normalize_request_payload
 
 
 def _coerce_text_param(structured_output: Any) -> dict | None:
@@ -952,13 +953,933 @@ class ThreatTask(TaskDefinition):
         }
 
 
+# ── Split threat task helpers ──────────────────────────────────────────────────
+
+def _load_threat_level_outputs(run_name: str, level_prefix: str) -> dict[str, dict]:
+    """Load all JSONL records from a prior threats level run, keyed by custom_id.
+
+    Globs ``{BATCH_OUTPUTS_DIR}/{run_name}/{level_prefix}-*.jsonl`` so naming must
+    follow the convention threats_l0-*, threats_l1-*, threats_l2-*.
+    """
+    prior_dir = BATCH_OUTPUTS_DIR / run_name
+    result: dict[str, dict] = {}
+    if not prior_dir.exists():
+        return result
+    for path in sorted(prior_dir.glob(f"{level_prefix}-*.jsonl")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            cid = rec.get("custom_id")
+            if cid:
+                result[str(cid)] = rec
+    return result
+
+
+def _sort_requests_by_candidates(records: list[dict]) -> list[dict]:
+    """Sort request records by their candidates_passed names for cache locality.
+
+    Groups documents that share the same candidate list (i.e. came from the same
+    parent labels) so that adjacent requests in the batch have identical candidate
+    text — maximising prompt-cache hits on the candidate suffix.
+    """
+    return sorted(
+        records,
+        key=lambda r: tuple(sorted(c["name"] for c in (r.get("candidates_passed") or []))),
+    )
+
+
+def _run_split_threat_live(
+    task_name: str,
+    output_prefix: str,
+    request_paths: Iterable[Path | str],
+    output_dir: Path,
+    client: OpenAI,
+    default_model: str,
+    default_reasoning: str,
+    skip_existing: bool,
+) -> list[dict]:
+    """Shared live runner for ThreatL0 / ThreatL1 / ThreatL2.
+
+    Reads pre-built request JSONL, calls the API once per record, and writes a
+    clean per-stage output record:
+      {custom_id, response_text, results_payload, candidates_passed, error}
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    entries: list[dict] = []
+
+    for req_path in request_paths:
+        req_path = Path(req_path)
+        out_path = output_dir / f"{output_prefix}-{req_path.stem}.jsonl"
+        processed_ids = _load_processed_custom_ids(out_path) if skip_existing else set()
+        skipped_count = 0
+        rendered_count = 0
+        mode = "a" if out_path.exists() else "w"
+
+        with req_path.open("r", encoding="utf-8") as src, out_path.open(mode, encoding="utf-8") as dst:
+            for line in src:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    dst.write(json.dumps({
+                        "custom_id": None,
+                        "response_text": None,
+                        "results_payload": None,
+                        "candidates_passed": None,
+                        "error": {"message": f"Invalid request JSON: {exc}"},
+                    }, ensure_ascii=False) + "\n")
+                    rendered_count += 1
+                    continue
+
+                custom_id = payload.get("custom_id")
+                if custom_id:
+                    custom_id = str(custom_id)
+                # candidates_passed is stored alongside body in the request record
+                candidates_passed = payload.get("candidates_passed")
+
+                if skip_existing and custom_id and custom_id in processed_ids:
+                    print(f"Skipping already processed custom_id {custom_id} from {req_path}")
+                    skipped_count += 1
+                    continue
+
+                # normalize_request_payload only reads payload["body"], so
+                # candidates_passed (a top-level sibling) is not submitted to the API
+                _, body = normalize_request_payload(
+                    payload, default_model=default_model, default_reasoning=default_reasoning
+                )
+
+                try:
+                    resp = client.responses.create(**body)
+                    resp_body = serialize_live_body(resp)
+                    result_payload, parse_error = _parse_output_payload(resp, resp_body)
+                    response_text = _extract_output_text(resp, resp_body)
+                    record: dict[str, Any] = {
+                        "custom_id": custom_id,
+                        "response_text": response_text,
+                        "results_payload": result_payload,
+                        "candidates_passed": candidates_passed,
+                        "error": {"message": parse_error} if parse_error else None,
+                    }
+                except Exception as exc:
+                    record = {
+                        "custom_id": custom_id,
+                        "response_text": None,
+                        "results_payload": None,
+                        "candidates_passed": candidates_passed,
+                        "error": {"message": str(exc)},
+                    }
+
+                dst.write(json.dumps(record, ensure_ascii=False) + "\n")
+                rendered_count += 1
+
+        entries.append({
+            "mode": "live",
+            "request_path": str(req_path),
+            "output_path": str(out_path),
+            "status": "completed",
+            "responses": rendered_count,
+            "skipped": skipped_count,
+        })
+        print(f"Wrote {rendered_count} {task_name} outputs to {out_path} (skipped {skipped_count})")
+
+    return entries
+
+
+# ── Split threat tasks ─────────────────────────────────────────────────────────
+
+@dataclass
+class ThreatL0Task(TaskDefinition):
+    """Single-stage threat task: article_text → threat_l0 labels only.
+
+    Supports batch mode (single-turn call, no conversation chaining).
+    Output format per record: {custom_id, response_text, results_payload, error}
+    """
+
+    def build_requests_file(
+        self,
+        documents: Sequence[dict],
+        dest: Path,
+        prompts: dict,
+        model: str = DEFAULT_MODEL,
+        reasoning_effort: str = DEFAULT_REASONING_EFFORT,
+    ) -> Path:
+        prompt_config = _get_prompt_config(prompts, self.prompt_key)
+        system_prompt = prompt_config["system_prompt"]
+        text_param = _coerce_text_param(prompt_config.get("structured_output"))
+        dest = _normalize_request_dest(Path(dest))
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with dest.open("w", encoding="utf-8") as f:
+            for doc in documents:
+                article_text = format_article(doc)
+                body: dict[str, Any] = {
+                    "model": model,
+                    "instructions": system_prompt,
+                    "input": [{"role": "user", "content": f"ARTICLE_TEXT:\\n{article_text}"}],
+                }
+                if reasoning_effort:
+                    body["reasoning"] = {"effort": reasoning_effort}
+                if text_param:
+                    body["text"] = text_param
+                record = {
+                    "custom_id": _custom_id(doc),
+                    "method": "POST",
+                    "url": "/v1/responses",
+                    "body": body,
+                }
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        return dest
+
+    def run_live(
+        self,
+        request_paths: Iterable[Path | str],
+        output_dir: Path,
+        client: OpenAI | None = None,
+        default_model: str = DEFAULT_MODEL,
+        default_reasoning: str = DEFAULT_REASONING_EFFORT,
+        prompts: dict | None = None,
+        skip_existing: bool = True,
+    ) -> list[dict]:
+        return _run_split_threat_live(
+            task_name=self.name,
+            output_prefix=self.output_prefix or self.name,
+            request_paths=request_paths,
+            output_dir=output_dir,
+            client=client or build_client(),
+            default_model=default_model,
+            default_reasoning=default_reasoning,
+            skip_existing=skip_existing,
+        )
+
+
+@dataclass
+class ThreatL1Task(ThreatTask):
+    """L1-only threat task: reads threats_l0 outputs, builds L1 candidates, calls model.
+
+    Reconstructs the L0→L1 conversation from saved L0 outputs — no server-side
+    response chaining required, so batch mode is supported.
+
+    Prior outputs are looked up automatically from
+    ``{BATCH_OUTPUTS_DIR}/{run_name}/threats_l0-*.jsonl``.
+
+    Output format per record:
+      {custom_id, response_text, results_payload, candidates_passed, error}
+    """
+
+    def build_requests_file(
+        self,
+        documents: Sequence[dict],
+        dest: Path,
+        prompts: dict,
+        model: str = DEFAULT_MODEL,
+        reasoning_effort: str = DEFAULT_REASONING_EFFORT,
+    ) -> Path:
+        prompt_config = _get_prompt_config(prompts, self.prompt_key)
+        system_prompt = prompt_config["system_prompt"]
+        text_param = _coerce_text_param(prompt_config.get("structured_output"))
+        mapping = self._load_mapping()
+
+        dest = _normalize_request_dest(Path(dest))
+        run_name = dest.parent.parent.name
+        l0_outputs = _load_threat_level_outputs(run_name, "threats_l0")
+        if not l0_outputs:
+            print(
+                f"[threats_l1] WARNING: No threats_l0 outputs found for run '{run_name}'. "
+                "All documents will be skipped."
+            )
+
+        records: list[dict] = []
+        skipped = 0
+
+        for doc in documents:
+            cid = _custom_id(doc)
+            l0_rec = l0_outputs.get(cid)
+
+            if not l0_rec or l0_rec.get("error") or not l0_rec.get("results_payload"):
+                print(f"[threats_l1] Skipping {cid}: no valid threats_l0 output")
+                skipped += 1
+                continue
+
+            l0_results = l0_rec["results_payload"]
+            l0_labels = self._extract_labels(l0_results)
+            if not l0_labels or not self._should_continue(l0_results):
+                skipped += 1
+                continue
+
+            l1_candidates, _l2_lookup = self._build_l1_candidates(l0_labels, mapping)
+            if not l1_candidates:
+                print(f"[threats_l1] Skipping {cid}: no L1 candidates for L0 labels {l0_labels}")
+                skipped += 1
+                continue
+
+            article_text = format_article(doc)
+            l0_response_text = l0_rec.get("response_text") or ""
+
+            body: dict[str, Any] = {
+                "model": model,
+                "instructions": system_prompt,
+                "input": [
+                    {"role": "user", "content": f"ARTICLE_TEXT:\\n{article_text}"},
+                    {"role": "assistant", "content": l0_response_text},
+                    {"role": "user", "content": f"threats_l1_candidates:\\n{json.dumps(l1_candidates, indent=2)}"},
+                ],
+            }
+            if reasoning_effort:
+                body["reasoning"] = {"effort": reasoning_effort}
+            if text_param:
+                body["text"] = text_param
+
+            # candidates_passed stored alongside body (not inside it) so it is not
+            # submitted to the API but is available to run_live for the output record
+            records.append({
+                "custom_id": cid,
+                "method": "POST",
+                "url": "/v1/responses",
+                "body": body,
+                "candidates_passed": l1_candidates,
+            })
+
+        # Sort by L1 candidate names so documents with identical candidate sets are
+        # adjacent — maximises prompt-cache locality on the candidate suffix
+        records = _sort_requests_by_candidates(records)
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with dest.open("w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+        if skipped:
+            print(f"[threats_l1] Skipped {skipped} documents (no valid L0 output or terminal labels)")
+
+        return dest
+
+    def run_live(
+        self,
+        request_paths: Iterable[Path | str],
+        output_dir: Path,
+        client: OpenAI | None = None,
+        default_model: str = DEFAULT_MODEL,
+        default_reasoning: str = DEFAULT_REASONING_EFFORT,
+        prompts: dict | None = None,
+        skip_existing: bool = True,
+    ) -> list[dict]:
+        return _run_split_threat_live(
+            task_name=self.name,
+            output_prefix=self.output_prefix or self.name,
+            request_paths=request_paths,
+            output_dir=output_dir,
+            client=client or build_client(),
+            default_model=default_model,
+            default_reasoning=default_reasoning,
+            skip_existing=skip_existing,
+        )
+
+
+@dataclass
+class ThreatL2Task(ThreatTask):
+    """L2-only threat task: reads threats_l0 + threats_l1 outputs, builds L2 candidates, calls model.
+
+    Reconstructs the full L0→L1→L2 conversation from saved outputs — batch mode supported.
+
+    Prior outputs are looked up automatically from
+    ``{BATCH_OUTPUTS_DIR}/{run_name}/threats_l0-*.jsonl`` and
+    ``{BATCH_OUTPUTS_DIR}/{run_name}/threats_l1-*.jsonl``.
+
+    Output format per record:
+      {custom_id, response_text, results_payload, candidates_passed, error}
+    """
+
+    def build_requests_file(
+        self,
+        documents: Sequence[dict],
+        dest: Path,
+        prompts: dict,
+        model: str = DEFAULT_MODEL,
+        reasoning_effort: str = DEFAULT_REASONING_EFFORT,
+    ) -> Path:
+        prompt_config = _get_prompt_config(prompts, self.prompt_key)
+        system_prompt = prompt_config["system_prompt"]
+        text_param = _coerce_text_param(prompt_config.get("structured_output"))
+        mapping = self._load_mapping()
+
+        dest = _normalize_request_dest(Path(dest))
+        run_name = dest.parent.parent.name
+        l0_outputs = _load_threat_level_outputs(run_name, "threats_l0")
+        l1_outputs = _load_threat_level_outputs(run_name, "threats_l1")
+        if not l0_outputs:
+            print(f"[threats_l2] WARNING: No threats_l0 outputs found for run '{run_name}'.")
+        if not l1_outputs:
+            print(f"[threats_l2] WARNING: No threats_l1 outputs found for run '{run_name}'.")
+
+        records: list[dict] = []
+        skipped = 0
+
+        for doc in documents:
+            cid = _custom_id(doc)
+            l0_rec = l0_outputs.get(cid)
+            l1_rec = l1_outputs.get(cid)
+
+            if not l0_rec or l0_rec.get("error") or not l0_rec.get("results_payload"):
+                skipped += 1
+                continue
+            l0_results = l0_rec["results_payload"]
+            l0_labels = self._extract_labels(l0_results)
+            if not l0_labels or not self._should_continue(l0_results):
+                skipped += 1
+                continue
+
+            if not l1_rec or l1_rec.get("error") or not l1_rec.get("results_payload"):
+                skipped += 1
+                continue
+            l1_results = l1_rec["results_payload"]
+            l1_labels = self._extract_labels(l1_results)
+            if not l1_labels or not self._should_continue(l1_results):
+                skipped += 1
+                continue
+
+            # Re-derive L1 candidates (for history reconstruction) and L2 lookup
+            l1_candidates, l2_lookup = self._build_l1_candidates(l0_labels, mapping)
+            if not l1_candidates:
+                skipped += 1
+                continue
+
+            l2_candidates = self._build_l2_candidates(l1_labels, l2_lookup)
+            if not l2_candidates:
+                skipped += 1
+                continue
+
+            article_text = format_article(doc)
+            l0_response_text = l0_rec.get("response_text") or ""
+            l1_response_text = l1_rec.get("response_text") or ""
+
+            body: dict[str, Any] = {
+                "model": model,
+                "instructions": system_prompt,
+                "input": [
+                    {"role": "user", "content": f"ARTICLE_TEXT:\\n{article_text}"},
+                    {"role": "assistant", "content": l0_response_text},
+                    {"role": "user", "content": f"threats_l1_candidates:\\n{json.dumps(l1_candidates, indent=2)}"},
+                    {"role": "assistant", "content": l1_response_text},
+                    {"role": "user", "content": f"threats_l2_candidates:\\n{json.dumps(l2_candidates, indent=2)}"},
+                ],
+            }
+            if reasoning_effort:
+                body["reasoning"] = {"effort": reasoning_effort}
+            if text_param:
+                body["text"] = text_param
+
+            records.append({
+                "custom_id": cid,
+                "method": "POST",
+                "url": "/v1/responses",
+                "body": body,
+                "candidates_passed": l2_candidates,
+            })
+
+        # Sort by L2 candidate names for cache locality
+        records = _sort_requests_by_candidates(records)
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with dest.open("w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+        if skipped:
+            print(f"[threats_l2] Skipped {skipped} documents (missing L0/L1 outputs or terminal labels)")
+
+        return dest
+
+    def run_live(
+        self,
+        request_paths: Iterable[Path | str],
+        output_dir: Path,
+        client: OpenAI | None = None,
+        default_model: str = DEFAULT_MODEL,
+        default_reasoning: str = DEFAULT_REASONING_EFFORT,
+        prompts: dict | None = None,
+        skip_existing: bool = True,
+    ) -> list[dict]:
+        return _run_split_threat_live(
+            task_name=self.name,
+            output_prefix=self.output_prefix or self.name,
+            request_paths=request_paths,
+            output_dir=output_dir,
+            client=client or build_client(),
+            default_model=default_model,
+            default_reasoning=default_reasoning,
+            skip_existing=skip_existing,
+        )
+
+
+# ── Split ecosystem task helpers ───────────────────────────────────────────────
+
+def _load_ecosystem_level_outputs(run_name: str, level_prefix: str) -> dict[str, dict]:
+    """Load all JSONL records from a prior ecosystems level run, keyed by custom_id.
+
+    Globs ``{BATCH_OUTPUTS_DIR}/{run_name}/{level_prefix}-*.jsonl`` so naming must
+    follow the convention ecosystems_realm-*, ecosystems_biome-*, ecosystems_efg-*.
+    """
+    prior_dir = BATCH_OUTPUTS_DIR / run_name
+    result: dict[str, dict] = {}
+    if not prior_dir.exists():
+        return result
+    for path in sorted(prior_dir.glob(f"{level_prefix}-*.jsonl")):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            cid = rec.get("custom_id")
+            if cid:
+                result[str(cid)] = rec
+    return result
+
+
+def _run_split_ecosystem_live(
+    task_name: str,
+    output_prefix: str,
+    request_paths: Iterable[Path | str],
+    output_dir: Path,
+    client: OpenAI,
+    default_model: str,
+    default_reasoning: str,
+    skip_existing: bool,
+) -> list[dict]:
+    """Shared live runner for EcosystemRealm / EcosystemBiome / EcosystemEFG.
+
+    Reads pre-built request JSONL, calls the API once per record, and writes a
+    clean per-stage output record:
+      {custom_id, response_text, results_payload, candidates_passed, error}
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    entries: list[dict] = []
+
+    for req_path in request_paths:
+        req_path = Path(req_path)
+        out_path = output_dir / f"{output_prefix}-{req_path.stem}.jsonl"
+        processed_ids = _load_processed_custom_ids(out_path) if skip_existing else set()
+        skipped_count = 0
+        rendered_count = 0
+        mode = "a" if out_path.exists() else "w"
+
+        with req_path.open("r", encoding="utf-8") as src, out_path.open(mode, encoding="utf-8") as dst:
+            for line in src:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    dst.write(json.dumps({
+                        "custom_id": None,
+                        "response_text": None,
+                        "results_payload": None,
+                        "candidates_passed": None,
+                        "error": {"message": f"Invalid request JSON: {exc}"},
+                    }, ensure_ascii=False) + "\n")
+                    rendered_count += 1
+                    continue
+
+                custom_id = payload.get("custom_id")
+                if custom_id:
+                    custom_id = str(custom_id)
+                candidates_passed = payload.get("candidates_passed")
+
+                if skip_existing and custom_id and custom_id in processed_ids:
+                    print(f"Skipping already processed custom_id {custom_id} from {req_path}")
+                    skipped_count += 1
+                    continue
+
+                _, body = normalize_request_payload(
+                    payload, default_model=default_model, default_reasoning=default_reasoning
+                )
+
+                try:
+                    resp = client.responses.create(**body)
+                    resp_body = serialize_live_body(resp)
+                    result_payload, parse_error = _parse_output_payload(resp, resp_body)
+                    response_text = _extract_output_text(resp, resp_body)
+                    record: dict[str, Any] = {
+                        "custom_id": custom_id,
+                        "response_text": response_text,
+                        "results_payload": result_payload,
+                        "candidates_passed": candidates_passed,
+                        "error": {"message": parse_error} if parse_error else None,
+                    }
+                except Exception as exc:
+                    record = {
+                        "custom_id": custom_id,
+                        "response_text": None,
+                        "results_payload": None,
+                        "candidates_passed": candidates_passed,
+                        "error": {"message": str(exc)},
+                    }
+
+                dst.write(json.dumps(record, ensure_ascii=False) + "\n")
+                rendered_count += 1
+
+        entries.append({
+            "mode": "live",
+            "request_path": str(req_path),
+            "output_path": str(out_path),
+            "status": "completed",
+            "responses": rendered_count,
+            "skipped": skipped_count,
+        })
+        print(f"Wrote {rendered_count} {task_name} outputs to {out_path} (skipped {skipped_count})")
+
+    return entries
+
+
+# ── Split ecosystem tasks ──────────────────────────────────────────────────────
+
+@dataclass
+class EcosystemRealmTask(TaskDefinition):
+    """Single-stage ecosystem task: article_text → realm labels only.
+
+    Supports batch mode (single-turn call, no conversation chaining).
+    Output format per record: {custom_id, response_text, results_payload, candidates_passed, error}
+    """
+
+    def build_requests_file(
+        self,
+        documents: Sequence[dict],
+        dest: Path,
+        prompts: dict,
+        model: str = DEFAULT_MODEL,
+        reasoning_effort: str = DEFAULT_REASONING_EFFORT,
+    ) -> Path:
+        prompt_config = _get_prompt_config(prompts, self.prompt_key)
+        system_prompt = prompt_config["system_prompt"]
+        text_param = _coerce_text_param(prompt_config.get("structured_output"))
+        dest = _normalize_request_dest(Path(dest))
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with dest.open("w", encoding="utf-8") as f:
+            for doc in documents:
+                article_text = format_article(doc)
+                body: dict[str, Any] = {
+                    "model": model,
+                    "instructions": system_prompt,
+                    "input": [{"role": "user", "content": f"ARTICLE_TEXT:\\n{article_text}"}],
+                }
+                if reasoning_effort:
+                    body["reasoning"] = {"effort": reasoning_effort}
+                if text_param:
+                    body["text"] = text_param
+                record = {
+                    "custom_id": _custom_id(doc),
+                    "method": "POST",
+                    "url": "/v1/responses",
+                    "body": body,
+                }
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        return dest
+
+    def run_live(
+        self,
+        request_paths: Iterable[Path | str],
+        output_dir: Path,
+        client: OpenAI | None = None,
+        default_model: str = DEFAULT_MODEL,
+        default_reasoning: str = DEFAULT_REASONING_EFFORT,
+        prompts: dict | None = None,
+        skip_existing: bool = True,
+    ) -> list[dict]:
+        return _run_split_ecosystem_live(
+            task_name=self.name,
+            output_prefix=self.output_prefix or self.name,
+            request_paths=request_paths,
+            output_dir=output_dir,
+            client=client or build_client(),
+            default_model=default_model,
+            default_reasoning=default_reasoning,
+            skip_existing=skip_existing,
+        )
+
+
+@dataclass
+class EcosystemBiomeTask(EcosystemTask):
+    """Biome-only ecosystem task: reads ecosystems_realm outputs, builds biome candidates, calls model.
+
+    Reconstructs the realm→biome conversation from saved realm outputs — no server-side
+    response chaining required, so batch mode is supported.
+
+    Prior outputs are looked up automatically from
+    ``{BATCH_OUTPUTS_DIR}/{run_name}/ecosystems_realm-*.jsonl``.
+
+    Output format per record:
+      {custom_id, response_text, results_payload, candidates_passed, error}
+    """
+
+    def build_requests_file(
+        self,
+        documents: Sequence[dict],
+        dest: Path,
+        prompts: dict,
+        model: str = DEFAULT_MODEL,
+        reasoning_effort: str = DEFAULT_REASONING_EFFORT,
+    ) -> Path:
+        prompt_config = _get_prompt_config(prompts, self.prompt_key)
+        system_prompt = prompt_config["system_prompt"]
+        text_param = _coerce_text_param(prompt_config.get("structured_output"))
+        mapping = self._load_mapping()
+
+        dest = _normalize_request_dest(Path(dest))
+        run_name = dest.parent.parent.name
+        realm_outputs = _load_ecosystem_level_outputs(run_name, "ecosystems_realm")
+        if not realm_outputs:
+            print(
+                f"[ecosystems_biome] WARNING: No ecosystems_realm outputs found for run '{run_name}'. "
+                "All documents will be skipped."
+            )
+
+        records: list[dict] = []
+        skipped = 0
+
+        for doc in documents:
+            cid = _custom_id(doc)
+            realm_rec = realm_outputs.get(cid)
+
+            if not realm_rec or realm_rec.get("error") or not realm_rec.get("results_payload"):
+                print(f"[ecosystems_biome] Skipping {cid}: no valid ecosystems_realm output")
+                skipped += 1
+                continue
+
+            realm_results = realm_rec["results_payload"]
+            realm_labels = self._extract_labels(realm_results)
+            if not realm_labels or not self._should_continue(realm_results):
+                skipped += 1
+                continue
+
+            biome_candidates, _biome_lookup = self._build_biome_candidates(realm_labels, mapping)
+            if not biome_candidates:
+                print(f"[ecosystems_biome] Skipping {cid}: no biome candidates for realm labels {realm_labels}")
+                skipped += 1
+                continue
+
+            article_text = format_article(doc)
+            realm_response_text = realm_rec.get("response_text") or ""
+
+            body: dict[str, Any] = {
+                "model": model,
+                "instructions": system_prompt,
+                "input": [
+                    {"role": "user", "content": f"ARTICLE_TEXT:\\n{article_text}"},
+                    {"role": "assistant", "content": realm_response_text},
+                    {"role": "user", "content": f"BIOME_CANDIDATES:\\n{json.dumps(biome_candidates, indent=2)}"},
+                ],
+            }
+            if reasoning_effort:
+                body["reasoning"] = {"effort": reasoning_effort}
+            if text_param:
+                body["text"] = text_param
+
+            # candidates_passed stored alongside body (not inside it) so it is not
+            # submitted to the API but is available to run_live for the output record
+            records.append({
+                "custom_id": cid,
+                "method": "POST",
+                "url": "/v1/responses",
+                "body": body,
+                "candidates_passed": biome_candidates,
+            })
+
+        # Sort by biome candidate names so documents with identical candidate sets are
+        # adjacent — maximises prompt-cache locality on the candidate suffix
+        records = _sort_requests_by_candidates(records)
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with dest.open("w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+        if skipped:
+            print(f"[ecosystems_biome] Skipped {skipped} documents (no valid realm output or terminal labels)")
+
+        return dest
+
+    def run_live(
+        self,
+        request_paths: Iterable[Path | str],
+        output_dir: Path,
+        client: OpenAI | None = None,
+        default_model: str = DEFAULT_MODEL,
+        default_reasoning: str = DEFAULT_REASONING_EFFORT,
+        prompts: dict | None = None,
+        skip_existing: bool = True,
+    ) -> list[dict]:
+        return _run_split_ecosystem_live(
+            task_name=self.name,
+            output_prefix=self.output_prefix or self.name,
+            request_paths=request_paths,
+            output_dir=output_dir,
+            client=client or build_client(),
+            default_model=default_model,
+            default_reasoning=default_reasoning,
+            skip_existing=skip_existing,
+        )
+
+
+@dataclass
+class EcosystemEFGTask(EcosystemTask):
+    """EFG-only ecosystem task: reads realm + biome outputs, builds EFG candidates, calls model.
+
+    Reconstructs the full realm→biome→EFG conversation from saved outputs — batch mode supported.
+
+    Prior outputs are looked up automatically from
+    ``{BATCH_OUTPUTS_DIR}/{run_name}/ecosystems_realm-*.jsonl`` and
+    ``{BATCH_OUTPUTS_DIR}/{run_name}/ecosystems_biome-*.jsonl``.
+
+    Output format per record:
+      {custom_id, response_text, results_payload, candidates_passed, error}
+    """
+
+    def build_requests_file(
+        self,
+        documents: Sequence[dict],
+        dest: Path,
+        prompts: dict,
+        model: str = DEFAULT_MODEL,
+        reasoning_effort: str = DEFAULT_REASONING_EFFORT,
+    ) -> Path:
+        prompt_config = _get_prompt_config(prompts, self.prompt_key)
+        system_prompt = prompt_config["system_prompt"]
+        text_param = _coerce_text_param(prompt_config.get("structured_output"))
+        mapping = self._load_mapping()
+
+        dest = _normalize_request_dest(Path(dest))
+        run_name = dest.parent.parent.name
+        realm_outputs = _load_ecosystem_level_outputs(run_name, "ecosystems_realm")
+        biome_outputs = _load_ecosystem_level_outputs(run_name, "ecosystems_biome")
+        if not realm_outputs:
+            print(f"[ecosystems_efg] WARNING: No ecosystems_realm outputs found for run '{run_name}'.")
+        if not biome_outputs:
+            print(f"[ecosystems_efg] WARNING: No ecosystems_biome outputs found for run '{run_name}'.")
+
+        records: list[dict] = []
+        skipped = 0
+
+        for doc in documents:
+            cid = _custom_id(doc)
+            realm_rec = realm_outputs.get(cid)
+            biome_rec = biome_outputs.get(cid)
+
+            if not realm_rec or realm_rec.get("error") or not realm_rec.get("results_payload"):
+                skipped += 1
+                continue
+            realm_results = realm_rec["results_payload"]
+            realm_labels = self._extract_labels(realm_results)
+            if not realm_labels or not self._should_continue(realm_results):
+                skipped += 1
+                continue
+
+            if not biome_rec or biome_rec.get("error") or not biome_rec.get("results_payload"):
+                skipped += 1
+                continue
+            biome_results = biome_rec["results_payload"]
+            biome_labels = self._extract_labels(biome_results)
+            if not biome_labels or not self._should_continue(biome_results):
+                skipped += 1
+                continue
+
+            # Re-derive biome candidates (for history reconstruction) and biome→EFG lookup
+            biome_candidates, biome_lookup = self._build_biome_candidates(realm_labels, mapping)
+            if not biome_candidates:
+                skipped += 1
+                continue
+
+            efg_candidates = self._build_efg_candidates(biome_labels, biome_lookup)
+            if not efg_candidates:
+                skipped += 1
+                continue
+
+            article_text = format_article(doc)
+            realm_response_text = realm_rec.get("response_text") or ""
+            biome_response_text = biome_rec.get("response_text") or ""
+
+            body: dict[str, Any] = {
+                "model": model,
+                "instructions": system_prompt,
+                "input": [
+                    {"role": "user", "content": f"ARTICLE_TEXT:\\n{article_text}"},
+                    {"role": "assistant", "content": realm_response_text},
+                    {"role": "user", "content": f"BIOME_CANDIDATES:\\n{json.dumps(biome_candidates, indent=2)}"},
+                    {"role": "assistant", "content": biome_response_text},
+                    {"role": "user", "content": f"EFG_CANDIDATES:\\n{json.dumps(efg_candidates, indent=2)}"},
+                ],
+            }
+            if reasoning_effort:
+                body["reasoning"] = {"effort": reasoning_effort}
+            if text_param:
+                body["text"] = text_param
+
+            records.append({
+                "custom_id": cid,
+                "method": "POST",
+                "url": "/v1/responses",
+                "body": body,
+                "candidates_passed": efg_candidates,
+            })
+
+        # Sort by EFG candidate names for cache locality
+        records = _sort_requests_by_candidates(records)
+
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with dest.open("w", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+        if skipped:
+            print(f"[ecosystems_efg] Skipped {skipped} documents (missing realm/biome outputs or terminal labels)")
+
+        return dest
+
+    def run_live(
+        self,
+        request_paths: Iterable[Path | str],
+        output_dir: Path,
+        client: OpenAI | None = None,
+        default_model: str = DEFAULT_MODEL,
+        default_reasoning: str = DEFAULT_REASONING_EFFORT,
+        prompts: dict | None = None,
+        skip_existing: bool = True,
+    ) -> list[dict]:
+        return _run_split_ecosystem_live(
+            task_name=self.name,
+            output_prefix=self.output_prefix or self.name,
+            request_paths=request_paths,
+            output_dir=output_dir,
+            client=client or build_client(),
+            default_model=default_model,
+            default_reasoning=default_reasoning,
+            skip_existing=skip_existing,
+        )
+
+
 DRIVER_TASK = SimpleTask(name="driver", prompt_key=PROMPT_KEY_DRIVER, output_prefix="drivers")
 SCREENING_TASK = SimpleTask(name="screening", prompt_key=PROMPT_KEY_SCREENING, output_prefix="screening")
 GEOGRAPHY_TASK = SimpleTask(name="geography", prompt_key=PROMPT_KEY_GEOGRAPHY, output_prefix="geography")
 TAXA_TASK = SimpleTask(name="taxa", prompt_key=PROMPT_KEY_TAXA, output_prefix="taxa")
 STUDY_TASK = SimpleTask(name="study", prompt_key=PROMPT_KEY_STUDY, output_prefix="study")
 ECOSYSTEM_TASK = EcosystemTask(name="ecosystems", prompt_key=PROMPT_KEY_ECOSYSTEMS, supports_batch=False, output_prefix="ecosystems")
+ECOSYSTEM_REALM_TASK = EcosystemRealmTask(name="ecosystems_realm", prompt_key=PROMPT_KEY_ECOSYSTEMS, supports_batch=True, output_prefix="ecosystems_realm")
+ECOSYSTEM_BIOME_TASK = EcosystemBiomeTask(name="ecosystems_biome", prompt_key=PROMPT_KEY_ECOSYSTEMS, supports_batch=True, output_prefix="ecosystems_biome")
+ECOSYSTEM_EFG_TASK   = EcosystemEFGTask(name="ecosystems_efg",  prompt_key=PROMPT_KEY_ECOSYSTEMS, supports_batch=True, output_prefix="ecosystems_efg")
 THREAT_TASK = ThreatTask(name="threats", prompt_key=PROMPT_KEY_THREATS, supports_batch=False, output_prefix="threats")
+THREAT_L0_TASK = ThreatL0Task(name="threats_l0", prompt_key=PROMPT_KEY_THREATS, supports_batch=True, output_prefix="threats_l0")
+THREAT_L1_TASK = ThreatL1Task(name="threats_l1", prompt_key=PROMPT_KEY_THREATS, supports_batch=True, output_prefix="threats_l1")
+THREAT_L2_TASK = ThreatL2Task(name="threats_l2", prompt_key=PROMPT_KEY_THREATS, supports_batch=True, output_prefix="threats_l2")
 
 TASK_ALIASES = {
     "driver": DRIVER_TASK,
@@ -979,10 +1900,18 @@ TASK_ALIASES = {
     "ecosystem": ECOSYSTEM_TASK,
     "ecosystem_typology": ECOSYSTEM_TASK,
     "typology": ECOSYSTEM_TASK,
+    "ecosystems_realm": ECOSYSTEM_REALM_TASK,
+    "ecosystem_realm": ECOSYSTEM_REALM_TASK,
+    "ecosystems_biome": ECOSYSTEM_BIOME_TASK,
+    "ecosystem_biome": ECOSYSTEM_BIOME_TASK,
+    "ecosystems_efg": ECOSYSTEM_EFG_TASK,
+    "ecosystem_efg": ECOSYSTEM_EFG_TASK,
     "threat": THREAT_TASK,
     "threats": THREAT_TASK,
-    "threat_l0": THREAT_TASK,
     "threat_classification": THREAT_TASK,
+    "threats_l0": THREAT_L0_TASK,
+    "threats_l1": THREAT_L1_TASK,
+    "threats_l2": THREAT_L2_TASK,
 }
 
 

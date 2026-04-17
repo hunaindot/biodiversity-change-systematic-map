@@ -1,79 +1,133 @@
-# Biodiversity Labelling Pipeline
+# Labelling Package
 
-Command-line pipeline for turning Web of Science (WoS) Excel exports into OpenAI-ready classification jobs with reusable batches, prompts, and mapping lookups. The code lives under `labelling/` and writes all artifacts to `labelling/artifacts/`.
+Runs classification tasks against the OpenAI API (live or batch mode), writes JSONL outputs, and optionally runs evals automatically.
 
-## Prerequisites
-- Python 3.11+ (a ready-made env exists at `venv/`); install deps with `pip install -r labelling/requirements.txt`.
-- WoS `.xls/.xlsx` exports containing a document ID column (`UT`, `ut`, `UT (Unique WOS ID)`, or `custom_id`) plus the usual metadata (title, abstract, authors, year, DOI, WoS Categories).
-- An OpenAI API key exported as `OPENAI_API_KEY`. Other env toggles live in `.env` (see below); avoid committing secrets.
+## Quick start
 
-## Environment toggles (defaults shown)
-- `ORCHESTRATOR_LIMIT_DOCS=500` — cap documents ingested; use `none` to disable.
-- `ORCHESTRATOR_BATCH_SIZE=100` — lines per batch JSONL.
-- `ORCHESTRATOR_MODEL=gpt-5-nano-2025-08-07`
-- `ORCHESTRATOR_REASONING=low`
-- `ORCHESTRATOR_RUN_OPENAI=true` — set to `false` to only build request files.
-- `ORCHESTRATOR_SUBMISSION_MODE=live|batch` — batch submits to `/v1/responses` via the batches API; live streams requests one-by-one.
-- `ORCHESTRATOR_TASK` — fallback task name if `--task` is omitted.
-- `ORCHESTRATOR_PROMPTS_FILE` — optional override for `mappings/prompts/` (directory of per-prompt .txt files) or a legacy JSON bundle.
-
-## Mappings and prompts
-- `mappings/prompts/<prompt_key>.txt` — one plain-text system prompt per task (driver, geography, taxa, study, ecosystems, threats).
-- `mappings/prompts/<prompt_key>.json` — optional sidecar containing the structured output schema for the matching prompt.
-- `mappings/ipbes_drivers.json`, `ipbes_regions.json`, `habitats_classification.json`, `study_types.json` — reference lookups used in prompts.
-- `mappings/threats_classification.json` — required for the multi-stage threats workflow.
-- `mappings/ecosystem_typology_1_3.json` — required for the multi-stage ecosystems workflow.
-
-## How to run
-1) Activate the env and set your key:
 ```bash
-source venv/bin/activate
-export OPENAI_API_KEY=sk-...
+python -m labelling.orchestrator <input_dir> <run_name> -t <task> [-s live|batch]
 ```
-2) Point the orchestrator at a folder of WoS Excel files and choose a run name:
+
+- `input_dir` — directory containing WoS `.xls` export files
+- `run_name` — name tag applied to all output files for this run
+- `-t` / `--task` — task to run (see table below; defaults to `driver`)
+- `-s` / `--submission-mode` — `live` (default) or `batch`
+
+## Available tasks
+
+### Simple tasks (single-turn, batch supported)
+
+| Task name | Alias(es) | What it classifies |
+|---|---|---|
+| `driver` | `drivers`, `direct_driver` | Direct biodiversity drivers (L1) |
+| `screening` | `screen`, `eligibility` | Paper eligibility (ELIGIBLE / NOT_ELIGIBLE) |
+| `geography` | `geo`, `region` | Geographic scope, region, sub-region, country |
+| `taxa` | — | Taxonomic ranks (kingdom → genus, species) |
+| `study` | `studies` | Study design type |
+
+### Threat tasks
+
+| Task name | Mode | Description |
+|---|---|---|
+| `threats_l0` | live + **batch** | L0 threat classification only (article → top-level threats) |
+| `threats_l1` | live + **batch** | L1 threats — reads `threats_l0` outputs from same run, builds L1 candidates |
+| `threats_l2` | live + **batch** | L2 threats — reads `threats_l0` + `threats_l1` outputs, builds L2 candidates |
+| `threats` *(legacy)* | live only | Integrated L0 → L1 → L2 in a single conversational loop |
+
+The split tasks (`threats_l0/l1/l2`) reconstruct the prior conversation from saved outputs instead of using server-side response chaining, which allows batch mode and better prompt-cache locality (requests are sorted by candidate names before submission).
+
+**Run order:**
 ```bash
-python labelling/orchestrator.py data/wos-data/2025 p25 --task driver
+python -m labelling.orchestrator <input_dir> <run_name> -t threats_l0 -s batch
+python -m labelling.orchestrator <input_dir> <run_name> -t threats_l1 -s batch
+python -m labelling.orchestrator <input_dir> <run_name> -t threats_l2 -s batch
 ```
-   Arguments:
-   - `input_dir`: folder containing `.xls/.xlsx`.
-   - `run_name`: label used for all artifacts.
-   - `--task/-t`: one of `driver` (default), `geography`, `taxa`, `study`, `ecosystems` (live only), `threats` (live only).
 
-3) What you get:
-   - Combined dataset: `labelling/artifacts/datasets/<run_name>-dataset.json`
-   - Batches: `labelling/artifacts/batches/<run_name>/data/*.jsonl`
-   - Request files: `labelling/artifacts/batches/<run_name>/request/*.jsonl`
-   - Live outputs (if `ORCHESTRATOR_SUBMISSION_MODE=live`): `labelling/artifacts/batch_outputs/<run_name>/<task>-*.jsonl`
-   - Batch submissions (if `submission_mode=batch`): batch IDs are printed to stdout; fetch later with `openai_batches.download_batch_output`.
+All three must use the same `run_name` so each level can find the prior level's outputs in `batch_outputs/<run_name>/`.
 
-4) Offline / dry-run: set `ORCHESTRATOR_RUN_OPENAI=false` to only build datasets, batches, and request files; you can submit them later.
+### Ecosystem tasks
 
-## Task-specific run examples
-- Driver (default, batch submit): `python labelling/orchestrator.py data/wos-data/2025 p25 --task driver --submission_mode batch`
-- Geography (live submit): `python labelling/orchestrator.py data/wos-data/2025 p25-geo --task geography --submission_mode live`
-- Taxa (batch): `python labelling/orchestrator.py data/wos-data/2025 p25-taxa --task taxa --submission_mode batch`
-- Study type (batch): `python labelling/orchestrator.py data/wos-data/2025 p25-study --task study --submission_mode batch`
-- Ecosystems (live only): `python labelling/orchestrator.py data/wos-data/2025 p25-eco --task ecosystems --submission_mode live`
-- Threats (live only): `python labelling/orchestrator.py data/wos-data/2025 p25-threats --task threats --submission_mode live`
+| Task name | Mode | Description |
+|---|---|---|
+| `ecosystems_realm` | live + **batch** | Realm classification only (article → realms) |
+| `ecosystems_biome` | live + **batch** | Biome classification — reads `ecosystems_realm` outputs, builds biome candidates |
+| `ecosystems_efg` | live + **batch** | EFG classification — reads realm + biome outputs, builds EFG candidates |
+| `ecosystems` *(legacy)* | live only | Integrated realm → biome → EFG in a single conversational loop |
 
-## Tasks at a glance
-- Driver, Geography, Taxa, Study — support batch or live submission; use the standard prompt schema.
-- Ecosystems — live-only three-stage realm→biome→EFG flow; requires the ecosystem typology mapping file.
-- Threats — live-only three-stage threat_l0→threat_l1→threat_l2 flow; uses `threats_classification.json`.
+The split tasks follow the same pattern as the split threat tasks: each level reads prior outputs from the same run folder, reconstructs the conversation, and sorts requests by candidate names for cache locality.
 
-## Run-name conventions (helps when joining outputs later)
-- `p<number>` — production WoS pulls (e.g., `p24` for the 24th run). Keep consistent across dataset/batches/batch_outputs.
-- `wos-YYYY-q` — quarter-labeled pulls from the WoS source folders (matches existing `wos-2025-1..4` runs).
-- `l<number>-<date>` — lightweight/local experiments; include ISO-ish date (`l1-05-01-2026`) to avoid collisions.
-- `*-prompt-v<number>` — prompt-tuning experiments; keep the base run name (`l1`) and bump `v` when the prompt changes.
-- Task suffixes when splitting the same source: append `-geo`, `-taxa`, `-study`, `-eco`, `-threats` (e.g., `p25-geo`, `p25-eco`).
-- Keep the same base name when you intend to join results (dataset, request, and outputs) later; only the suffix should differ per task.
+**Run order:**
+```bash
+python -m labelling.orchestrator <input_dir> <run_name> -t ecosystems_realm -s batch
+python -m labelling.orchestrator <input_dir> <run_name> -t ecosystems_biome -s batch
+python -m labelling.orchestrator <input_dir> <run_name> -t ecosystems_efg  -s batch
+```
 
-## Looking at past runs
-- Datasets: `labelling/artifacts/datasets/` (e.g., `p24-dataset.json`).
-- Batch manifests: `labelling/artifacts/batches/<run>/manifest.json` (counts, paths, timestamps).
-- Sample live/batch outputs: see `labelling/artifacts/batch_outputs/l1-prompt-v4/` (batch output JSONL) or `.../p3/`, `.../p4/` for driver live runs. These files show the expected response shape for downstream parsing.
+## Output format
 
-## Troubleshooting
-- If you see a document ID column error, confirm the input includes one of `UT`, `ut`, `UT (Unique WOS ID)`, or `custom_id`, then re-run.
-- For very large exports, lower `ORCHESTRATOR_BATCH_SIZE` to keep individual request files manageable.
+**Simple tasks** — standard OpenAI batch/live response JSONL:
+```json
+{"custom_id": "...", "response": {"body": {"output": [...]}}}
+```
+
+**Split threat and ecosystem tasks** — per-stage record:
+```json
+{
+  "custom_id": "...",
+  "response_text": "<raw model output text>",
+  "results_payload": {"results": ["Label A", "Label B"], "stop_reason": "continue"},
+  "candidates_passed": [{"name": "...", "desc": "..."}, ...],
+  "error": null
+}
+```
+
+**Legacy integrated tasks** (`threats`, `ecosystems`) — full workflow record with all stages:
+```json
+{
+  "custom_id": "...",
+  "results_payload": {
+    "threat_l0": {"results": [...], "stop_reason": "continue"},
+    "threat_l1": {"results": [...], "stop_reason": "continue"},
+    "threat_l2": {"results": [...], "stop_reason": "stop"}
+  },
+  "responses": {"threat_l0": {...}, "threat_l1": {...}, "threat_l2": {...}},
+  "iterations": 3,
+  "error": null
+}
+```
+
+## Output file naming
+
+All outputs land in `batch_outputs/<run_name>/`:
+
+| Task | Output file pattern |
+|---|---|
+| Simple tasks | `<task>-<request_stem>.jsonl` |
+| `threats_l0/l1/l2` | `threats_l0-<request_stem>.jsonl` etc. |
+| `ecosystems_realm/biome/efg` | `ecosystems_realm-<request_stem>.jsonl` etc. |
+| `threats` (legacy) | `threats-<request_stem>.jsonl` |
+| `ecosystems` (legacy) | `ecosystems-<request_stem>.jsonl` |
+
+The level-specific prefix (`threats_l0-`, `ecosystems_biome-`, etc.) is what lets the next level in the chain find the right files when building candidates.
+
+## Environment variables
+
+Configured via `.env` in the repo root.
+
+| Variable | Description |
+|---|---|
+| `OPENAI_API_KEY` | OpenAI API key |
+| `ORCHESTRATOR_MODEL` | Model to use (e.g. `o4-mini`) |
+| `ORCHESTRATOR_REASONING` | Reasoning effort (`low`, `medium`, `high`) |
+| `ORCHESTRATOR_BATCH_OUTPUTS_DIR` | Where outputs are written |
+| `ORCHESTRATOR_BATCHES_DIR` | Where request JSONL files are staged |
+| `ORCHESTRATOR_DATASETS_DIR` | Where parsed document datasets are saved |
+| `ORCHESTRATOR_MAPPINGS_DIR` | Location of taxonomy/typology mapping JSON files |
+| `ORCHESTRATOR_PROMPTS_DIR` | Location of prompt config JSON files |
+| `ORCHESTRATOR_LIMIT_DOCS` | Max documents to process (default 500, `None` for all) |
+| `ORCHESTRATOR_BATCH_SIZE` | Documents per batch file (default 100) |
+| `ORCHESTRATOR_RUN_OPENAI` | Set `false` to skip API submission (dry run) |
+| `ORCHESTRATOR_RUN_EVALS` | Set `false` to skip automatic evals after run |
+| `ORCHESTRATOR_SUBMISSION_MODE` | Default submission mode (`live` or `batch`) |
+| `ORCHESTRATOR_TASK` | Default task if `-t` is not passed |
+| `PROMPT_KEY_*` | Prompt config keys for each task (e.g. `PROMPT_KEY_THREATS`) |

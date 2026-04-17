@@ -138,10 +138,11 @@ def main() -> None:
         data_path = Path(entry.get("data_path") or entry["path"])
         docs = data_loader.load_jsonl(data_path)
         if entry.get("request_path"):
-            dest = Path(entry["request_path"])
+            raw_dest = Path(entry["request_path"])
+            dest = raw_dest.parent / f"{task.name}-{raw_dest.name}"
         else:
             request_dir = Path(manifest["request_dir"])
-            dest = request_dir / f"{data_path.stem}-requests.jsonl"
+            dest = request_dir / f"{task.name}-{data_path.stem}-requests.jsonl"
         dest.parent.mkdir(parents=True, exist_ok=True)
         built_path = task.build_requests_file(
             docs,

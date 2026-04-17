@@ -12,6 +12,36 @@ from .metrics import label_metrics, record_confusion, binary_metrics
 from .normalizers import normalize_geo_labels, normalize_region_labels, to_label_set, normalize_screening_label, normalize_threat_labels
 
 
+TASK_ALIASES = {
+    "threat": "threats",
+    "ecosystem": "ecosystems",
+    "threat_l0": "threats_l0",
+    "threat_l1": "threats_l1",
+    "threat_l2": "threats_l2",
+    "ecosystem_realm": "ecosystems_realm",
+    "ecosystem_biome": "ecosystems_biome",
+    "ecosystem_efg":   "ecosystems_efg",
+}
+
+
+def _normalize_task_name(task: str) -> str:
+    return TASK_ALIASES.get(task.strip(), task.strip())
+
+
+def _normalize_tasks(tasks: Iterable[str] | str | None) -> list[str]:
+    if tasks is None:
+        return list(TASK_CONFIG.keys())
+    if isinstance(tasks, str):
+        return [_normalize_task_name(tasks)]
+    return [_normalize_task_name(task) for task in tasks]
+
+
+def _normalize_task_key_map(mapping: Dict[str, str] | None) -> Dict[str, str] | None:
+    if mapping is None:
+        return None
+    return {_normalize_task_name(task): value for task, value in mapping.items()}
+
+
 def _ensure_dirs(run_name: str) -> tuple[Path, Path]:
     data_dir = EVAL_OUTPUT_DIR / run_name / "data"
     metrics_dir = EVAL_OUTPUT_DIR / run_name / "metrics"
@@ -29,9 +59,9 @@ def _normalizer_for(task: str, col: str):
         return normalize_geo_labels
     if task == "screening":
         return lambda v: {normalize_screening_label(v)}
-    if task == "threats":
+    if task in ("threats", "threats_l0", "threats_l1", "threats_l2"):
         return normalize_threat_labels
-    return to_label_set
+    return to_label_set  # covers ecosystems, ecosystems_realm/biome/efg, driver, study, taxa, etc.
 
 
 def run_task(task: str, run_name: str, label_path: str | Path | None = None) -> dict:
@@ -62,6 +92,42 @@ def run_task(task: str, run_name: str, label_path: str | Path | None = None) -> 
         else:
             l1_mask = l0_mask
         include_masks["threats_l1"] = l1_mask
+
+    if task == "threats_l0":
+        banned = {"no threat_l2 candidates found", "no threat_l1 candidates found", "unclear"}
+        l0_cols = [c for c in ["threats_l0", "pred_threat_l0"] if c in df.columns]
+        if l0_cols:
+            parts = [df[c].apply(lambda v: len(to_label_set(v) & banned) == 0) for c in l0_cols]
+            include_masks["threats_l0"] = pd.concat(parts, axis=1).all(axis=1)
+        else:
+            include_masks["threats_l0"] = None
+
+    if task == "threats_l1":
+        banned = {"no threat_l2 candidates found", "no threat_l1 candidates found", "unclear"}
+        l1_cols = [c for c in ["threats_l1", "pred_threat_l1"] if c in df.columns]
+        if l1_cols:
+            parts = [df[c].apply(lambda v: len(to_label_set(v) & banned) == 0) for c in l1_cols]
+            include_masks["threats_l1"] = pd.concat(parts, axis=1).all(axis=1)
+        else:
+            include_masks["threats_l1"] = None
+
+    if task == "ecosystems_biome":
+        banned = {"no biome candidates found"}
+        biome_cols = [c for c in ["biome", "pred_biome"] if c in df.columns]
+        if biome_cols:
+            parts = [df[c].apply(lambda v: len({s.lower() for s in to_label_set(v)} & banned) == 0) for c in biome_cols]
+            include_masks["biome"] = pd.concat(parts, axis=1).all(axis=1)
+        else:
+            include_masks["biome"] = None
+
+    if task == "ecosystems_efg":
+        banned = {"no efg candidates found"}
+        efg_cols = [c for c in ["pred_efg"] if c in df.columns]
+        if efg_cols:
+            parts = [df[c].apply(lambda v: len({s.lower() for s in to_label_set(v)} & banned) == 0) for c in efg_cols]
+            include_masks["efg"] = pd.concat(parts, axis=1).all(axis=1)
+        else:
+            include_masks["efg"] = None
 
     if task == "taxa":
         banned = {"not applicable", "unclear"}
@@ -179,7 +245,7 @@ def _parse_run_name_map(raw: list[str]) -> Dict[str, str]:
         if "=" not in item:
             raise ValueError(f"Invalid mapping '{item}', expected task=run_name")
         task, name = item.split("=", 1)
-        out[task.strip()] = name.strip()
+        out[_normalize_task_name(task)] = name.strip()
     return out
 
 
@@ -189,7 +255,7 @@ def _parse_path_map(raw: list[str]) -> Dict[str, str]:
         if "=" not in item:
             raise ValueError(f"Invalid mapping '{item}', expected task=path")
         task, path = item.split("=", 1)
-        out[task.strip()] = path.strip()
+        out[_normalize_task_name(task)] = path.strip()
     return out
 
 
@@ -218,14 +284,15 @@ def resolve_run_name(task: str, run_name: str | None, run_name_map: Dict[str, st
 
 def run_tasks_with_mapping(
     run_name: str | None,
-    tasks: Iterable[str] | None = None,
+    tasks: Iterable[str] | str | None = None,
     run_name_map: Dict[str, str] | None = None,
     label_path_map: Dict[str, str] | None = None,
     base_run_name: str | None = None,
     use_suffixes: bool = False,
 ) -> list[dict]:
-    _aliases = {"threat": "threats", "ecosystem": "ecosystems"}
-    tasks = [_aliases.get(t, t) for t in tasks] if tasks else list(TASK_CONFIG.keys())
+    tasks = _normalize_tasks(tasks)
+    run_name_map = _normalize_task_key_map(run_name_map)
+    label_path_map = _normalize_task_key_map(label_path_map)
     summaries = []
     for task in tasks:
         if task not in TASK_CONFIG:
@@ -237,7 +304,7 @@ def run_tasks_with_mapping(
 
 def run_tasks(
     run_name: str,
-    tasks: Iterable[str] | None = None,
+    tasks: Iterable[str] | str | None = None,
     use_suffixes: bool = False,
     per_task_run_names: Dict[str, str] | None = None,
     per_task_label_paths: Dict[str, str] | None = None,
