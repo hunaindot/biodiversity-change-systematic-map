@@ -1,1 +1,0 @@
-# Labelling workspace package namespace.
