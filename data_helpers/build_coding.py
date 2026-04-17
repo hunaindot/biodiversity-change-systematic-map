@@ -1,55 +1,20 @@
 import os
+
 import pandas as pd
+
+from ._config import BASE_COLS, CODING_CFG as _CODING_CFG
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-SOURCE = os.path.join(ROOT, "data/consistency-check-datasets/data-coding/reference_coding_dataset.xlsx")
-
-SHEETS = [
-    "S1) Benitez lopez et al",
-    "S2) Jaureguiberry et al",
-    "S3) Moullec et al",
-    "S4) Urban et al",
-    "S5) Wright et al",
-    "S6) Lowery et al",
-    "S7) Ridley et al",
-    "S8) Keck et al",
-    "S9) Pulido-Chadid et al",
-]
-
-BASE_COLS = ["Article Title", "Abstract", "DOI", "source", "UT (Unique WOS ID)"]
-
+SOURCE = os.path.join(ROOT, _CODING_CFG["source"])
+SHEETS = _CODING_CFG["sheets"]
 LABELS = [
     {
-        "name": "L1) Driver",
-        "cols": BASE_COLS + ["driver"],
-        "out": os.path.join(ROOT, "data/labels/l1/L1) driver set.csv"),
-    },
-    {
-        "name": "L2) Threats",
-        "cols": BASE_COLS + ["threats_l0", "threats_l1"],
-        "out": os.path.join(ROOT, "data/labels/l2/L2) threats set.csv"),
-    },
-    {
-        "name": "L3) Geography",
-        "cols": BASE_COLS + ["region", "sub-region", "country"],
-        "out": os.path.join(ROOT, "data/labels/l3/L3) geography set.csv"),
-    },
-    {
-        "name": "L4) Ecosystems",
-        "cols": BASE_COLS + ["realm", "biome"],
-        "out": os.path.join(ROOT, "data/labels/l4/L4) ecosystem set.csv"),
-    },
-    {
-        "name": "L5) Study",
-        "cols": BASE_COLS + ["study_design"],
-        "out": os.path.join(ROOT, "data/labels/l5/L5) study set.csv"),
-    },
-    {
-        "name": "L6) Taxa",
-        "cols": BASE_COLS + ["kingdom", "phylum", "class", "order", "genus", "specie"],
-        "out": os.path.join(ROOT, "data/labels/l6/L6) taxa set.csv"),
-    },
+        "name": item["name"],
+        "cols": BASE_COLS + item["extra_cols"],
+        "out": os.path.join(ROOT, item["output"]),
+    }
+    for item in _CODING_CFG["labels"]
 ]
 
 
@@ -86,6 +51,7 @@ def main():
     for label in labels:
         print(f"\n=== {label['name']} ===")
         df = load_sheets(label["cols"])
+        os.makedirs(os.path.dirname(label["out"]), exist_ok=True)
         df.to_csv(label["out"], index=False)
         print(f"Saved {len(df)} rows → {label['out']}")
 

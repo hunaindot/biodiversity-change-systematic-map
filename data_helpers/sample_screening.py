@@ -7,17 +7,20 @@ import random
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ._config import (
+    LABEL_CONFIGS_RAW as _LABEL_CONFIGS_RAW,
+    MISSING_KEY,
+    MULTI_LABEL_KEY as MULTI_KEY,
+    N_SAMPLE,
+    SCREENING_CFG as _SCREENING_CFG,
+)
+
 ROOT = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 ENV_PATH = ROOT / ".env"
 
-N_SAMPLE = 100
-OUT_DIR = ROOT / "data/consistency-check-datasets/screening/to-manual-label"
-
-MISSING_KEY = "__MISSING__"
-MULTI_KEY = "__MULTI__"
-
+OUT_DIR = ROOT / _SCREENING_CFG["manual_sample_output_dir"]
 TRAIN_PATH = ROOT / "data/labels/l0/train"
-STRAT_COL = "source"
+STRAT_COL = _LABEL_CONFIGS_RAW["l0"]["strat_column"]
 
 
 def _load_env_seed() -> int:

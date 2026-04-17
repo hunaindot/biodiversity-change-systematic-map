@@ -7,27 +7,28 @@ import random
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ._config import (
+    CODING_CFG as _CODING_CFG,
+    LABEL_CONFIGS_RAW as _LABEL_CONFIGS_RAW,
+    MISSING_KEY,
+    MULTI_LABEL_KEY as MULTI_KEY,
+    N_SAMPLE,
+    NO_KINGDOM_KEY,
+)
+
 ROOT = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 ENV_PATH = ROOT / ".env"
 
-N_SAMPLE = 100
-OUT_DIR = ROOT / "data/consistency-check-datasets/data-coding/to-manual-label"
-
-MULTI_KEY = "__MULTI__"
-MISSING_KEY = "__MISSING__"
-NO_KINGDOM_KEY = "__NO_KINGDOM__"
+OUT_DIR = ROOT / _CODING_CFG["manual_sample_output_dir"]
 
 LABEL_CONFIGS = {
-    "l1": {"strat_col": "driver",       "missing_key": MISSING_KEY, "drop_if_all_missing": None},
-    "l2": {"strat_col": "threats_l0",   "missing_key": MISSING_KEY, "drop_if_all_missing": None},
-    "l3": {"strat_col": "region",       "missing_key": MISSING_KEY, "drop_if_all_missing": None},
-    "l4": {"strat_col": "realm",        "missing_key": MISSING_KEY, "drop_if_all_missing": None},
-    "l5": {"strat_col": "study_design", "missing_key": MISSING_KEY, "drop_if_all_missing": None},
-    "l6": {
-        "strat_col": "phylum",
-        "missing_key": NO_KINGDOM_KEY,
-        "drop_if_all_missing": ("kingdom", "phylum", "class", "order", "specie"),
-    },
+    name: {
+        "strat_col": raw["strat_column"],
+        "missing_key": raw.get("missing_key", MISSING_KEY),
+        "drop_if_all_missing": tuple(raw["drop_if_all_missing"]) if raw.get("drop_if_all_missing") else None,
+    }
+    for name, raw in _LABEL_CONFIGS_RAW.items()
+    if name != "l0"
 }
 
 TRAIN_PATHS = {

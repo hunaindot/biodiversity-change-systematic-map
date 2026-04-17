@@ -9,12 +9,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from ._config import (
+    LABEL_CONFIGS_RAW as _LABEL_CONFIGS_RAW,
+    L0_SOURCE_WEIGHTS as _L0_SOURCE_WEIGHTS,
+    MISSING_KEY,
+    MULTI_LABEL_KEY,
+    NO_KINGDOM_KEY,
+)
 from .env import get_env_int, load_env
 
 SPLITS = ("train", "dev", "test")
-MULTI_LABEL_KEY = "__MULTI__"
-MISSING_KEY = "__MISSING__"
-NO_KINGDOM_KEY = "__NO_KINGDOM__"
 
 
 @dataclass(frozen=True)
@@ -26,28 +30,14 @@ class LabelConfig:
     source_weights: dict[str, float] | None = None
 
 
-# Target source proportions for L0: rebalances imbalanced sources to these weights.
-_L0_SOURCE_WEIGHTS: dict[str, float] = {
-    "Jaureguiberry et al": 0.25,
-    "Keck et al": 0.125,
-    "shaw et al": 0.25,
-    "murphy et al": 0.125,
-    "RLE Database": 0.25,
-}
-
 LABEL_CONFIGS: dict[str, LabelConfig] = {
-    "l0": LabelConfig(name="l0", strat_column="source"),
-    "l1": LabelConfig(name="l1", strat_column="driver"),
-    "l2": LabelConfig(name="l2", strat_column="threats_l0"),
-    "l3": LabelConfig(name="l3", strat_column="region"),
-    "l4": LabelConfig(name="l4", strat_column="realm"),
-    "l5": LabelConfig(name="l5", strat_column="study_design"),
-    "l6": LabelConfig(
-        name="l6",
-        strat_column="phylum",
-        missing_key=NO_KINGDOM_KEY,
-        drop_if_all_missing=("kingdom", "phylum", "class", "order", "specie"),
-    ),
+    name: LabelConfig(
+        name=name,
+        strat_column=raw["strat_column"],
+        missing_key=raw.get("missing_key", MISSING_KEY),
+        drop_if_all_missing=tuple(raw["drop_if_all_missing"]) if raw.get("drop_if_all_missing") else None,
+    )
+    for name, raw in _LABEL_CONFIGS_RAW.items()
 }
 
 

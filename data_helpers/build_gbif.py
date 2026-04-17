@@ -2,9 +2,9 @@
 Build and cache the GBIF canonical-name lookup dictionary.
 
 Usage:
-    python -m datasets_labels.build_gbif_lookup
+    python -m datasets_labels.build_gbif
     # or directly:
-    python datasets_labels/build_gbif_lookup.py
+    python datasets_labels/build_gbif.py
 
 Reads:  data/gbif/curated/gbif_curated.csv
 Writes: data/gbif/gbif_lookup_cache.pkl
@@ -18,11 +18,13 @@ from pathlib import Path
 
 import pandas as pd
 
+from ._config import GBIF_CFG as _GBIF_CFG
+
 REPO_ROOT   = Path(__file__).resolve().parent.parent
-GBIF_PATH   = REPO_ROOT / "data" / "gbif" / "curated" / "gbif_curated.csv"
-CACHE_PATH  = REPO_ROOT / "mappings" / "gbif_lookup_cache.pkl"
-CHUNKSIZE   = 200_000
-TAX_COLS    = ["kingdom", "phylum", "class", "order", "genus"]
+GBIF_PATH   = REPO_ROOT / _GBIF_CFG["source"]
+CACHE_PATH  = REPO_ROOT / _GBIF_CFG["cache"]
+CHUNKSIZE   = _GBIF_CFG["chunksize"]
+TAX_COLS    = _GBIF_CFG["taxonomic_columns"]
 NEEDED_COLS = ["canonicalName", "taxonomicStatus"] + TAX_COLS
 
 
