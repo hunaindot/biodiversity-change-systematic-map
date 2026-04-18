@@ -232,12 +232,13 @@ def main() -> None:
             output_dir.mkdir(parents=True, exist_ok=True)
             print(f"\nDownloading {len(completed)} batch output(s) to {output_dir}")
             for entry in completed:
-                dest = output_dir / f"{entry['batch_id']}-output.jsonl"
+                label = entry.get("task") or task.name
+                dest = output_dir / f"{label}-{entry['batch_id']}-output.jsonl"
                 try:
                     batch_api.download_batch_output(entry["batch_id"], dest, client=client)
-                    print(f"  [{entry.get('task')}] Saved {dest}")
+                    print(f"  [{label}] Saved {dest}")
                 except Exception as exc:
-                    print(f"  [{entry.get('task')}] Download failed: {exc}")
+                    print(f"  [{label}] Download failed: {exc}")
             outputs_ready = True
 
         if failed:
@@ -248,7 +249,7 @@ def main() -> None:
     if outputs_ready and run_evals:
         print(f"\nRunning evals for task '{task_name}' on run '{run_name}' ...")
         try:
-            summaries = run_tasks(run_name, tasks=[task_name])
+            summaries = run_tasks(run_name, tasks=[task.name])
             for s in summaries:
                 print(f"  [{s['task']}] rows={s['rows']} data={s['data_path']}")
                 for truth, path in s["metric_paths"].items():
