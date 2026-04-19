@@ -249,7 +249,14 @@ def main() -> None:
     if outputs_ready and run_evals:
         print(f"\nRunning evals for task '{task_name}' on run '{run_name}' ...")
         try:
-            summaries = run_tasks(run_name, tasks=[task.name])
+            per_task_label_paths = None
+            if task.name == "screening":
+                per_task_label_paths = {task.name: str(input_dir)}
+            summaries = run_tasks(
+                run_name,
+                tasks=[task.name],
+                per_task_label_paths=per_task_label_paths,
+            )
             for s in summaries:
                 print(f"  [{s['task']}] rows={s['rows']} data={s['data_path']}")
                 for truth, path in s["metric_paths"].items():

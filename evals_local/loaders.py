@@ -262,8 +262,11 @@ def load_screening_predictions(run: str) -> pd.DataFrame:
     return joined
 
 
-def load_screening_labels(folder: Path) -> pd.DataFrame:
-    frames = [pd.read_csv(fp) for fp in sorted(folder.glob("*.csv"))]
+def load_screening_labels(path: Path) -> pd.DataFrame:
+    if path.is_file():
+        frames = [pd.read_csv(path)]
+    else:
+        frames = [pd.read_csv(fp) for fp in sorted(path.glob("*.csv"))]
     if not frames:
         return pd.DataFrame(columns=["custom_id", "eligibility"])
     df = pd.concat(frames, ignore_index=True)
@@ -281,6 +284,8 @@ def load_screening_labels(folder: Path) -> pd.DataFrame:
         id_col = "UT (Unique WOS ID)"
     elif "ut_unique_wos_id_" in df.columns:
         id_col = "ut_unique_wos_id_"
+    elif "custom_id" in df.columns:
+        id_col = "custom_id"
 
     keep_cols = {id_col, "article_title", "abstract", "doi", "source", label_col} if id_col else {"article_title", "abstract", "doi", "source", label_col}
     df = df[[c for c in keep_cols if c in df.columns]]
