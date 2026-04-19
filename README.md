@@ -1,6 +1,6 @@
-# Biodiversity Literature Labelling Pipeline
+This pipeline generates the structured labels that power the [Biodiversity Loss Systematic Map](https://hunaindot.github.io/biodiversity-systematic-map/) — an interactive systematic map of literature on biodiversity loss.
 
-Automated classification of biodiversity literature (Web of Science exports) across seven label dimensions using the OpenAI API, with built-in evaluation metrics and consistency-checking tools.
+![1776632101977](checklists/mappings/1776632101977.png)
 
 ## Repository structure
 
@@ -29,15 +29,15 @@ biodiversity/
 
 ## Label dimensions
 
-| Label | Task name(s) | What is classified |
-|---|---|---|
-| L0 | `screen` | Paper eligibility (`ELIGIBLE` / `NOT_ELIGIBLE`) |
-| L1 | `driver` | Direct biodiversity drivers |
-| L2 | `threats_l0`, `threats_l1`, `threats_l2` | IUCN threat classification (3-level hierarchy) |
-| L3 | `geography` | Geographic scope, region, sub-region, country |
-| L4 | `ecosystems_realm`, `ecosystems_biome`, `ecosystems_efg` | IUCN RLE ecosystem typology (3-level hierarchy) |
-| L5 | `study` | Study design type |
-| L6 | `taxa` | Taxonomic ranks (kingdom → genus/species) |
+| Label | Task name(s)                                             | What is classified                              |
+| ----- | -------------------------------------------------------- | ----------------------------------------------- |
+| L0    | `screen`                                                 | Paper eligibility (`ELIGIBLE` / `NOT_ELIGIBLE`) |
+| L1    | `driver`                                                 | Direct biodiversity drivers                     |
+| L2    | `threats_l0`, `threats_l1`, `threats_l2`                 | IUCN threat classification (3-level hierarchy)  |
+| L3    | `geography`                                              | Geographic scope, region, sub-region, country   |
+| L4    | `ecosystems_realm`, `ecosystems_biome`, `ecosystems_efg` | IUCN RLE ecosystem typology (3-level hierarchy) |
+| L5    | `study`                                                  | Study design type                               |
+| L6    | `taxa`                                                   | Taxonomic ranks (kingdom → genus/species)       |
 
 ---
 
@@ -136,14 +136,14 @@ python labelling/orchestrator.py data/labels/l4/train my_run --task ecosystems_e
 
 The orchestrator reads any `.xls`, `.xlsx`, or `.csv` files found in `input_dir`. These are Web of Science export files. Key columns used:
 
-| Column | Description |
-|---|---|
-| `UT` | Unique WoS record ID (used as `custom_id` in all outputs) |
-| `TI` | Title |
-| `AB` | Abstract |
-| `AU` | Authors |
-| `PY` | Publication year |
-| `SO` | Journal name |
+| Column | Description                                               |
+| ------ | --------------------------------------------------------- |
+| `UT`   | Unique WoS record ID (used as `custom_id` in all outputs) |
+| `TI`   | Title                                                     |
+| `AB`   | Abstract                                                  |
+| `AU`   | Authors                                                   |
+| `PY`   | Publication year                                          |
+| `SO`   | Journal name                                              |
 
 The loader is tolerant of missing columns — only `UT`, `TI`, and `AB` are strictly required for most tasks.
 
@@ -153,17 +153,17 @@ The loader is tolerant of missing columns — only `UT`, `TI`, and `AB` are stri
 
 Copy `.env.sample` to `.env` and set at minimum `OPENAI_API_KEY`. Key variables:
 
-| Variable | Default | Description |
-|---|---|---|
-| `OPENAI_API_KEY` | — | **Required.** Your OpenAI API key |
-| `ORCHESTRATOR_MODEL` | `gpt-5-nano-2025-08-07` | Model to use |
-| `ORCHESTRATOR_REASONING` | `high` | Reasoning effort (`low` / `medium` / `high`) |
-| `ORCHESTRATOR_SUBMISSION_MODE` | `batch` | Default submission mode |
-| `ORCHESTRATOR_LIMIT_DOCS` | `none` | Cap on documents per run (`none` for all) |
-| `ORCHESTRATOR_BATCH_SIZE` | `10000` | Documents per request file |
-| `ORCHESTRATOR_RUN_EVALS` | `true` | Auto-run evals after each run |
-| `EVALS_LABELS_DIR` | `data/labels` | Root of ground-truth label CSVs |
-| `EVALS_OUTPUT_DIR` | `data/labels/eval` | Where eval Excel files are written |
+| Variable                       | Default                 | Description                                  |
+| ------------------------------ | ----------------------- | -------------------------------------------- |
+| `OPENAI_API_KEY`               | —                       | **Required.** Your OpenAI API key            |
+| `ORCHESTRATOR_MODEL`           | `gpt-5-nano-2025-08-07` | Model to use                                 |
+| `ORCHESTRATOR_REASONING`       | `high`                  | Reasoning effort (`low` / `medium` / `high`) |
+| `ORCHESTRATOR_SUBMISSION_MODE` | `batch`                 | Default submission mode                      |
+| `ORCHESTRATOR_LIMIT_DOCS`      | `none`                  | Cap on documents per run (`none` for all)    |
+| `ORCHESTRATOR_BATCH_SIZE`      | `10000`                 | Documents per request file                   |
+| `ORCHESTRATOR_RUN_EVALS`       | `true`                  | Auto-run evals after each run                |
+| `EVALS_LABELS_DIR`             | `data/labels`           | Root of ground-truth label CSVs              |
+| `EVALS_OUTPUT_DIR`             | `data/labels/eval`      | Where eval Excel files are written           |
 
 ---
 
