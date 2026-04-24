@@ -1,4 +1,4 @@
-This pipeline generates the structured labels that power the [Biodiversity Loss Systematic Map](https://hunaindot.github.io/biodiversity-systematic-map/) — an interactive systematic map of literature on biodiversity loss.
+This pipeline generates the structured labels that power the Biodiversity Loss Systematic Map — an interactive systematic map of literature on biodiversity loss.
 
 ![1776632101977](checklists/mappings/1776632101977.png)
 
