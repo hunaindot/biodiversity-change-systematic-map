@@ -82,7 +82,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--task",
         dest="task",
-        help="Classification task to run (e.g., driver, screening, geography, taxa, study, ecosystems, threats). Defaults to driver.",
+        required=True,
+        help="Classification task to run (e.g., screening, driver, threats_l0, geography, ecosystems_realm, study, taxa).",
     )
     return parser.parse_args()
 
@@ -94,7 +95,7 @@ def main() -> None:
     args = parse_args()
     input_dir: Path = args.input_dir
     run_name: str = args.run_name
-    task_name: str = args.task or "driver"
+    task_name: str = args.task
     task = tasks.get_task(task_name)
 
     limit_docs = env_int(ENV_LIMIT_DOCS, 500)

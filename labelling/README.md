@@ -16,11 +16,14 @@ Run from the repo root:
 python labelling/orchestrator.py <input_dir> <run_name> --task <task>
 ```
 
-- `input_dir` — directory containing WoS export files (`.xls`, `.xlsx`, or `.csv`; all files are combined)
-- `run_name` — tag applied to all outputs for this run (e.g. `l1_train_170426_f1`)
-- `--task` — classification task (see below; defaults to `driver`)
-
-**Suggested run naming:** `{label_level}_{split}_{date}_{run_index}` — e.g. `l2_train_170426_f1`
+- `input_dir` — a directory of WoS export files. Typically one of:
+  - `data/labels/l{0-6}/{train|dev|test}` — label splits for a specific label level (built by `data_helpers`)
+  - a raw screening or coding dataset folder for running against unannotated inputs
+- `run_name` — tag applied to all outputs for this run. Follow the convention `{partition}-{type}-{label_level}-v{n}`, e.g.:
+  - `train-screening-l0-v1`
+  - `dev-coding-l2-v1`
+  - `test-coding-l4-v2`
+- `--task` — classification task to run (required; see table below)
 
 ---
 
