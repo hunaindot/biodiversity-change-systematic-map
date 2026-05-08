@@ -92,22 +92,14 @@ The level-specific prefix (`threats_l0-`, `ecosystems_biome-`, etc.) is what let
 
 ## Environment variables
 
-Configured via `.env` in the repo root.
+Configured via `.env` in the repo root. See [`.env.sample`](../.env.sample) for all variables and defaults, and the [root README](../README.md#configuration-env) for descriptions.
+
+Key toggles specific to this package:
 
 | Variable | Description |
 |---|---|
-| `OPENAI_API_KEY` | OpenAI API key |
-| `ORCHESTRATOR_MODEL` | Model to use (e.g. `o4-mini`) |
-| `ORCHESTRATOR_REASONING` | Reasoning effort (`low`, `medium`, `high`) |
-| `ORCHESTRATOR_BATCH_OUTPUTS_DIR` | Where outputs are written |
-| `ORCHESTRATOR_BATCHES_DIR` | Where request JSONL files are staged |
-| `ORCHESTRATOR_DATASETS_DIR` | Where parsed document datasets are saved |
-| `ORCHESTRATOR_MAPPINGS_DIR` | Location of taxonomy/typology mapping JSON files |
-| `ORCHESTRATOR_PROMPTS_DIR` | Location of prompt config JSON files |
-| `ORCHESTRATOR_LIMIT_DOCS` | Max documents to process (default 500, `None` for all) |
-| `ORCHESTRATOR_BATCH_SIZE` | Documents per batch file (default 100) |
+| `ORCHESTRATOR_SUBMISSION_MODE` | Submission mode: `live` (default) or `batch` |
 | `ORCHESTRATOR_RUN_OPENAI` | Set `false` to skip API submission (dry run) |
 | `ORCHESTRATOR_RUN_EVALS` | Set `false` to skip automatic evals after run |
-| `ORCHESTRATOR_SUBMISSION_MODE` | Submission mode: `live` (default) or `batch` |
 | `ORCHESTRATOR_TASK` | Default task if `--task` is not passed |
-| `PROMPT_KEY_*` | Prompt config keys for each task (e.g. `PROMPT_KEY_THREATS`) |
+| `ORCHESTRATOR_LIMIT_DOCS` | Cap on documents per run (`none` for all) |
