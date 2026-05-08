@@ -50,7 +50,7 @@ python -m labelling.orchestrator <input_dir> <run_name> --task ecosystems_efg
 
 Evals run automatically after a task completes (both live and batch), unless disabled. They compare model outputs against ground-truth labels and write metrics to disk.
 
-**Output location:** `evals/<run_name>/`
+**Output location:** `$EVALS_OUTPUT_DIR/<run_name>/`
 - `data/` — joined truth + prediction CSV per task
 - `metrics/` — metric files per truth column
 
