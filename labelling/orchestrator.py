@@ -75,7 +75,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "input_dir",
         type=Path,
-        help="Directory containing WoS .xls files.",
+        help="Directory containing WoS export files (.xls, .xlsx, or .csv).",
     )
     parser.add_argument(
         "run_name",
@@ -83,16 +83,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--task",
-        "-t",
         dest="task",
         help="Classification task to run (e.g., driver, screening, geography, taxa, study, ecosystems, threats). Defaults to driver.",
-    )
-    parser.add_argument(
-        "--submission-mode",
-        "-s",
-        dest="submission_mode",
-        choices=["live", "batch"],
-        help="Submission mode: 'live' (default) or 'batch'. Overrides ORCHESTRATOR_SUBMISSION_MODE.",
     )
     return parser.parse_args()
 
@@ -113,7 +105,7 @@ def main() -> None:
     reasoning = DEFAULT_REASONING_EFFORT
     run_openai = env_bool(ENV_RUN_OPENAI, True)
     run_evals = env_bool(ENV_RUN_EVALS, True)
-    submission_mode = (args.submission_mode or os.getenv(ENV_SUBMISSION_MODE) or "live").lower()
+    submission_mode = (os.getenv(ENV_SUBMISSION_MODE) or "live").lower()
     if submission_mode not in {"live", "batch"}:
         raise ValueError(f"{ENV_SUBMISSION_MODE} must be 'live' or 'batch'.")
     if submission_mode == "batch" and not task.supports_batch:
