@@ -22,9 +22,7 @@ from src.config import (
 ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 ENV_LIMIT_DOCS = "ORCHESTRATOR_LIMIT_DOCS"
 ENV_BATCH_SIZE = "ORCHESTRATOR_BATCH_SIZE"
-ENV_RUN_OPENAI = "ORCHESTRATOR_RUN_OPENAI"
 ENV_SUBMISSION_MODE = "ORCHESTRATOR_SUBMISSION_MODE"
-ENV_TASK = "ORCHESTRATOR_TASK"
 ENV_RUN_EVALS = "ORCHESTRATOR_RUN_EVALS"
 
 
@@ -96,14 +94,13 @@ def main() -> None:
     args = parse_args()
     input_dir: Path = args.input_dir
     run_name: str = args.run_name
-    task_name: str = args.task or os.getenv(ENV_TASK) or "driver"
+    task_name: str = args.task or "driver"
     task = tasks.get_task(task_name)
 
     limit_docs = env_int(ENV_LIMIT_DOCS, 500)
     batch_size = env_int(ENV_BATCH_SIZE, 100)
     model = DEFAULT_MODEL
     reasoning = DEFAULT_REASONING_EFFORT
-    run_openai = env_bool(ENV_RUN_OPENAI, True)
     run_evals = env_bool(ENV_RUN_EVALS, True)
     submission_mode = (os.getenv(ENV_SUBMISSION_MODE) or "live").lower()
     if submission_mode not in {"live", "batch"}:
@@ -148,34 +145,31 @@ def main() -> None:
 
     outputs_ready = False
     submitted: list[dict] = []
-    if run_openai:
-        client = batch_api.build_client()
-        if submission_mode == "live":
-            output_dir = BATCH_OUTPUTS_DIR / run_name
-            submitted.extend(
-                task.run_live(
-                    request_files,
-                    output_dir=output_dir,
-                    client=client,
-                    default_model=model,
-                    default_reasoning=reasoning,
-                    prompts=prompts,
-                )
+    client = batch_api.build_client()
+    if submission_mode == "live":
+        output_dir = BATCH_OUTPUTS_DIR / run_name
+        submitted.extend(
+            task.run_live(
+                request_files,
+                output_dir=output_dir,
+                client=client,
+                default_model=model,
+                default_reasoning=reasoning,
+                prompts=prompts,
             )
-            outputs_ready = True
-        else:
-            for req_path in request_files:
-                info = batch_api.submit_batch(
-                    Path(req_path),
-                    client=client,
-                    metadata=task.batch_metadata(run_name),
-                )
-                info["mode"] = "batch"
-                info["request_path"] = str(req_path)
-                info["task"] = task.name
-                submitted.append(info)
+        )
+        outputs_ready = True
     else:
-        print("Skipping OpenAI submission; set ORCHESTRATOR_RUN_OPENAI=true to submit.")
+        for req_path in request_files:
+            info = batch_api.submit_batch(
+                Path(req_path),
+                client=client,
+                metadata=task.batch_metadata(run_name),
+            )
+            info["mode"] = "batch"
+            info["request_path"] = str(req_path)
+            info["task"] = task.name
+            submitted.append(info)
 
     if submitted:
         print("Submission summary:")
