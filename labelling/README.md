@@ -46,6 +46,20 @@ python -m labelling.orchestrator <input_dir> <run_name> --task ecosystems_biome
 python -m labelling.orchestrator <input_dir> <run_name> --task ecosystems_efg
 ```
 
+## Evals
+
+Evals run automatically after a task completes (both live and batch), unless disabled. They compare model outputs against ground-truth labels and write metrics to disk.
+
+**Output location:** `evals/<run_name>/`
+- `data/` — joined truth + prediction CSV per task
+- `metrics/` — metric files per truth column
+
+**Control via `.env`:**
+- `ORCHESTRATOR_RUN_EVALS=false` — skip evals entirely
+- For the `screening` task, ground-truth labels are read from `input_dir` (the same folder as the input files); all other tasks look up labels from their configured label path
+
+Evals will silently no-op if no ground-truth labels are found for the run — they don't block or fail the pipeline.
+
 ## Output format
 
 **`driver`, `screening`, `geography`, `taxa`, `study`** — raw OpenAI response envelope:
