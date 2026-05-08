@@ -27,85 +27,9 @@ python labelling/orchestrator.py <input_dir> <run_name> --task <task>
 
 ---
 
-## Tasks in label order
+## Available tasks
 
-### L0 — Screening
-
-```bash
-python labelling/orchestrator.py data/labels/l0/train l0_train_<date>_f1 --task screen
-python labelling/orchestrator.py data/labels/l0/dev   l0_dev_<date>_f1   --task screen
-python labelling/orchestrator.py data/labels/l0/test  l0_test_<date>_f1  --task screen
-```
-
-### L1 — Drivers
-
-```bash
-python labelling/orchestrator.py data/labels/l1/train l1_train_<date>_f1 --task driver
-python labelling/orchestrator.py data/labels/l1/dev   l1_dev_<date>_f1   --task driver
-python labelling/orchestrator.py data/labels/l1/test  l1_test_<date>_f1  --task driver
-```
-
-### L2 — Threats (3 sequential steps, same `run_name` across all three)
-
-```bash
-python labelling/orchestrator.py data/labels/l2/train l2_train_<date>_f1 --task threats_l0
-python labelling/orchestrator.py data/labels/l2/train l2_train_<date>_f1 --task threats_l1
-python labelling/orchestrator.py data/labels/l2/train l2_train_<date>_f1 --task threats_l2
-
-python labelling/orchestrator.py data/labels/l2/dev   l2_dev_<date>_f1   --task threats_l0
-python labelling/orchestrator.py data/labels/l2/dev   l2_dev_<date>_f1   --task threats_l1
-python labelling/orchestrator.py data/labels/l2/dev   l2_dev_<date>_f1   --task threats_l2
-
-python labelling/orchestrator.py data/labels/l2/test  l2_test_<date>_f1  --task threats_l0
-python labelling/orchestrator.py data/labels/l2/test  l2_test_<date>_f1  --task threats_l1
-python labelling/orchestrator.py data/labels/l2/test  l2_test_<date>_f1  --task threats_l2
-```
-
-Each level reads the prior level's outputs from `data/artifacts/batch_outputs/<run_name>/`. `threats_l1` and `threats_l2` will skip documents where the prior level has no valid output.
-
-### L3 — Geography
-
-```bash
-python labelling/orchestrator.py data/labels/l3/train l3_train_<date>_f1 --task geography
-python labelling/orchestrator.py data/labels/l3/dev   l3_dev_<date>_f1   --task geography
-python labelling/orchestrator.py data/labels/l3/test  l3_test_<date>_f1  --task geography
-```
-
-### L4 — Ecosystems (3 sequential steps, same `run_name` across all three)
-
-```bash
-python labelling/orchestrator.py data/labels/l4/train l4_train_<date>_f1 --task ecosystems_realm
-python labelling/orchestrator.py data/labels/l4/train l4_train_<date>_f1 --task ecosystems_biome
-python labelling/orchestrator.py data/labels/l4/train l4_train_<date>_f1 --task ecosystems_efg
-
-python labelling/orchestrator.py data/labels/l4/dev   l4_dev_<date>_f1   --task ecosystems_realm
-python labelling/orchestrator.py data/labels/l4/dev   l4_dev_<date>_f1   --task ecosystems_biome
-python labelling/orchestrator.py data/labels/l4/dev   l4_dev_<date>_f1   --task ecosystems_efg
-
-python labelling/orchestrator.py data/labels/l4/test  l4_test_<date>_f1  --task ecosystems_realm
-python labelling/orchestrator.py data/labels/l4/test  l4_test_<date>_f1  --task ecosystems_biome
-python labelling/orchestrator.py data/labels/l4/test  l4_test_<date>_f1  --task ecosystems_efg
-```
-
-### L5 — Study
-
-```bash
-python labelling/orchestrator.py data/labels/l5/train l5_train_<date>_f1 --task study
-python labelling/orchestrator.py data/labels/l5/dev   l5_dev_<date>_f1   --task study
-python labelling/orchestrator.py data/labels/l5/test  l5_test_<date>_f1  --task study
-```
-
-### L6 — Taxa
-
-```bash
-python labelling/orchestrator.py data/labels/l6/train l6_train_<date>_f1 --task taxa
-python labelling/orchestrator.py data/labels/l6/dev   l6_dev_<date>_f1   --task taxa
-python labelling/orchestrator.py data/labels/l6/test  l6_test_<date>_f1  --task taxa
-```
-
----
-
-## All available tasks
+Run tasks in label order. L2 and L4 are multi-step — all steps must share the same `run_name` so each level can find the prior level's outputs.
 
 | Label | Task | Alias(es) | Depends on |
 |---|---|---|---|

@@ -214,10 +214,13 @@ def parse_output_record(rec: dict) -> dict:
     }
 
 
+_SCREENING_OUTPUT_COLS = ["custom_id", "model", "created_at", "raw_output"]
+
+
 def load_screening_outputs(run: str) -> pd.DataFrame:
     out_dir = BATCH_OUTPUTS_DIR / run
     if not out_dir.exists():
-        return pd.DataFrame()
+        return pd.DataFrame(columns=_SCREENING_OUTPUT_COLS)
     files = sorted(out_dir.glob("*.jsonl"))
     rows = []
     for fp in files:
@@ -225,8 +228,10 @@ def load_screening_outputs(run: str) -> pd.DataFrame:
             for line in f:
                 rec = json.loads(line)
                 rows.append(parse_output_record(rec))
+    if not rows:
+        return pd.DataFrame(columns=_SCREENING_OUTPUT_COLS)
     df = pd.DataFrame(rows)
-    if not df.empty and "created_at" in df.columns:
+    if "created_at" in df.columns:
         df["created_at"] = pd.to_datetime(df["created_at"], unit="s", utc=True, errors="coerce")
     return df
 

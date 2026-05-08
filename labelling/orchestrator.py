@@ -14,8 +14,6 @@ from src.config import (
     BATCHES_DIR,
     BATCH_OUTPUTS_DIR,
     DATASETS_DIR,
-    DEFAULT_MODEL,
-    DEFAULT_REASONING_EFFORT,
     ensure_artifact_dirs,
 )
 
@@ -27,7 +25,7 @@ ENV_RUN_EVALS = "ORCHESTRATOR_RUN_EVALS"
 
 
 def load_env_file(path: Path = ENV_FILE) -> None:
-    """Populate os.environ with values from a .env file without overriding existing variables."""
+    """Load .env into os.environ, overriding any stale shell values."""
     if not path.exists():
         return
     for raw_line in path.read_text(encoding="utf-8").splitlines():
@@ -100,8 +98,8 @@ def main() -> None:
 
     limit_docs = env_int(ENV_LIMIT_DOCS, 500)
     batch_size = env_int(ENV_BATCH_SIZE, 100)
-    model = DEFAULT_MODEL
-    reasoning = DEFAULT_REASONING_EFFORT
+    model = os.environ["ORCHESTRATOR_MODEL"]
+    reasoning = os.environ["ORCHESTRATOR_REASONING"]
     run_evals = env_bool(ENV_RUN_EVALS, True)
     submission_mode = (os.getenv(ENV_SUBMISSION_MODE) or "live").lower()
     if submission_mode not in {"live", "batch"}:
