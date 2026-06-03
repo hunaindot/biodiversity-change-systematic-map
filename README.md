@@ -5,7 +5,7 @@ This pipeline generates the structured labels that power the Biodiversity Loss S
 ## Repository structure
 
 ```
-biodiversity/
+root/
 ├── labelling/              # Main pipeline: orchestrator + OpenAI tasks
 │   ├── orchestrator.py     # Entry point — run from here
 │   └── src/                # Batching, API calls, task definitions, config

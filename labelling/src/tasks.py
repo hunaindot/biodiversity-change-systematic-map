@@ -21,7 +21,15 @@ from .config import (
     PROMPT_KEY_TAXA,
     PROMPT_KEY_STUDY,
     PROMPT_KEY_ECOSYSTEMS,
+    PROMPT_KEY_ECOSYSTEMS_CORE,
+    PROMPT_KEY_ECOSYSTEMS_REALM,
+    PROMPT_KEY_ECOSYSTEMS_BIOME,
+    PROMPT_KEY_ECOSYSTEMS_EFG,
     PROMPT_KEY_THREATS,
+    PROMPT_KEY_THREATS_CORE,
+    PROMPT_KEY_THREATS_L0,
+    PROMPT_KEY_THREATS_L1,
+    PROMPT_KEY_THREATS_L2,
 )
 from .batch_api import build_client, format_article
 from .live_api import run_live_requests, serialize_live_body, normalize_request_payload
@@ -60,6 +68,125 @@ def _get_prompt_config(prompts: dict | None, key: str) -> dict:
     if not isinstance(config, dict):
         raise ValueError(f"Prompt config '{key}' must be a mapping.")
     return config
+
+
+def _compose_prompt_config(prompts: dict | None, *keys: str) -> dict:
+    parts: list[str] = []
+    structured_output = None
+    for key in keys:
+        config = _get_prompt_config(prompts, key)
+        text = str(config.get("system_prompt") or "").strip()
+        if text:
+            parts.append(text)
+        if structured_output is None and config.get("structured_output") is not None:
+            structured_output = config.get("structured_output")
+    return {
+        "system_prompt": "\n\n".join(parts).strip(),
+        "structured_output": structured_output,
+    }
+
+
+THREAT_L0_ALLOWED_LABELS = [
+    "Residential & Commercial Development",
+    "Agriculture & Aquaculture",
+    "Energy Production & Mining",
+    "Transportation & Service Corridors",
+    "Biological Resource Use",
+    "Human Intrusions & Disturbance",
+    "Natural System Modifications",
+    "Invasive & Other Problematic Species, Genes & Diseases",
+    "Pollution",
+    "Climate Change & Severe Weather",
+    "Other Options",
+    "Unclear",
+]
+
+ECOSYSTEM_REALM_ALLOWED_LABELS = [
+    "Terrestrial",
+    "Subterranean",
+    "Subterranean-Freshwater",
+    "Subterranean-Marine",
+    "Freshwater-Terrestrial",
+    "Freshwater",
+    "Freshwater-Marine",
+    "Marine",
+    "Marine-Terrestrial",
+    "Marine-Freshwater-Terrestrial",
+    "Not Applicable",
+    "All realms",
+]
+
+
+def _build_threat_text_param(
+    structured_output: Any,
+    allowed_labels: Sequence[str] | None = None,
+) -> dict | None:
+    text_param = _coerce_text_param(structured_output)
+    if text_param is None or allowed_labels is None:
+        return text_param
+    text_param = json.loads(json.dumps(text_param))
+    schema = (
+        text_param.get("format", {})
+        .get("schema", {})
+    )
+    properties = schema.get("properties", {})
+    results = properties.get("results", {})
+    items = results.get("items")
+    if isinstance(items, dict):
+        seen: set[str] = set()
+        enum_values: list[str] = []
+        for label in allowed_labels:
+            value = str(label)
+            if value in seen:
+                continue
+            enum_values.append(value)
+            seen.add(value)
+        items["enum"] = enum_values
+    return text_param
+
+
+def _build_ecosystem_text_param(
+    structured_output: Any,
+    allowed_labels: Sequence[str] | None = None,
+    stop_reason_values: Sequence[str] | None = None,
+) -> dict | None:
+    text_param = _coerce_text_param(structured_output)
+    if text_param is None:
+        return None
+    if allowed_labels is None and stop_reason_values is None:
+        return text_param
+    text_param = json.loads(json.dumps(text_param))
+    schema = text_param.get("format", {}).get("schema", {})
+    properties = schema.get("properties", {})
+
+    if allowed_labels is not None:
+        results = properties.get("results", {})
+        items = results.get("items")
+        if isinstance(items, dict):
+            seen: set[str] = set()
+            enum_values: list[str] = []
+            for label in allowed_labels:
+                value = str(label)
+                if value in seen:
+                    continue
+                enum_values.append(value)
+                seen.add(value)
+            items["enum"] = enum_values
+
+    if stop_reason_values is not None:
+        stop_reason = properties.get("stop_reason")
+        if isinstance(stop_reason, dict):
+            seen: set[str] = set()
+            enum_values: list[str] = []
+            for value in stop_reason_values:
+                value = str(value)
+                if value in seen:
+                    continue
+                enum_values.append(value)
+                seen.add(value)
+            stop_reason["enum"] = enum_values
+
+    return text_param
 
 
 def _build_standard_request(
@@ -125,14 +252,23 @@ def _extract_output_text(resp: Any, body: Any) -> str | None:
         if "output_text" in body:
             return body["output_text"]
         output = body.get("output") or body.get("outputs")
-        if isinstance(output, list) and output:
-            candidate = output[0]
-            if isinstance(candidate, dict):
+        if isinstance(output, list):
+            for candidate in output:
+                if not isinstance(candidate, dict):
+                    continue
                 content = candidate.get("content") or []
-                if isinstance(content, list) and content:
-                    text_block = content[0].get("text")
+                if not isinstance(content, list):
+                    continue
+                for block in content:
+                    if not isinstance(block, dict):
+                        continue
+                    text_block = block.get("text")
                     if isinstance(text_block, dict):
-                        return text_block.get("value") or text_block.get("content")
+                        text_value = text_block.get("value") or text_block.get("content")
+                        if text_value:
+                            return text_value
+                    if isinstance(text_block, str) and text_block:
+                        return text_block
     return None
 
 
@@ -250,8 +386,9 @@ class EcosystemTask(TaskDefinition):
         candidates: list[dict] = []
         lookup: dict[str, list] = {}
         seen: set[str] = set()
+        ci_mapping = {k.lower(): v for k, v in mapping.items()}
         for label in realm_labels:
-            realm_info = mapping.get(label, {})
+            realm_info = mapping.get(label) or ci_mapping.get(label.lower(), {})
             for biome in realm_info.get("biomes", []):
                 name = biome.get("name")
                 if not name or name in seen:
@@ -264,8 +401,9 @@ class EcosystemTask(TaskDefinition):
     def _build_efg_candidates(self, biome_labels: list[str], biome_lookup: dict[str, list]) -> list[dict]:
         candidates: list[dict] = []
         seen: set[str] = set()
+        ci_biome_lookup = {k.lower(): v for k, v in biome_lookup.items()}
         for biome_name in biome_labels:
-            for efg in biome_lookup.get(biome_name, []):
+            for efg in biome_lookup.get(biome_name) or ci_biome_lookup.get(biome_name.lower(), []):
                 name = efg.get("name")
                 if not name or name in seen:
                     continue
@@ -337,6 +475,48 @@ class ThreatTask(TaskDefinition):
 
 # ── Split threat task helpers ──────────────────────────────────────────────────
 
+def _normalize_split_stage_record(rec: dict) -> dict | None:
+    """Normalize either a parsed live split-stage record or raw batch envelope.
+
+    Returns a common shape:
+      {custom_id, response_text, results_payload, candidates_passed, error}
+    """
+    if not isinstance(rec, dict):
+        return None
+
+    custom_id = rec.get("custom_id")
+    if not custom_id:
+        return None
+
+    # Live-mode split tasks already write the normalized shape directly.
+    if any(key in rec for key in ("results_payload", "response_text", "candidates_passed")):
+        return {
+            "custom_id": str(custom_id),
+            "response_text": rec.get("response_text"),
+            "results_payload": rec.get("results_payload"),
+            "candidates_passed": rec.get("candidates_passed"),
+            "error": rec.get("error"),
+        }
+
+    # Batch mode stores the raw response envelope; extract the same parsed fields.
+    response = rec.get("response") if isinstance(rec.get("response"), dict) else {}
+    body = response.get("body") if isinstance(response, dict) else None
+    result_payload, parse_error = _parse_output_payload(None, body)
+    response_text = _extract_output_text(None, body)
+
+    error = rec.get("error")
+    if error is None and parse_error:
+        error = {"message": parse_error}
+
+    return {
+        "custom_id": str(custom_id),
+        "response_text": response_text,
+        "results_payload": result_payload,
+        "candidates_passed": rec.get("candidates_passed"),
+        "error": error,
+    }
+
+
 def _load_threat_level_outputs(run_name: str, level_prefix: str) -> dict[str, dict]:
     """Load all JSONL records from a prior threats level run, keyed by custom_id.
 
@@ -356,9 +536,9 @@ def _load_threat_level_outputs(run_name: str, level_prefix: str) -> dict[str, di
                 rec = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            cid = rec.get("custom_id")
-            if cid:
-                result[str(cid)] = rec
+            normalized = _normalize_split_stage_record(rec)
+            if normalized:
+                result[normalized["custom_id"]] = normalized
     return result
 
 
@@ -495,7 +675,7 @@ class ThreatL0Task(TaskDefinition):
     ) -> Path:
         prompt_config = _get_prompt_config(prompts, self.prompt_key)
         system_prompt = prompt_config["system_prompt"]
-        text_param = _coerce_text_param(prompt_config.get("structured_output"))
+        text_param = _build_threat_text_param(prompt_config.get("structured_output"), THREAT_L0_ALLOWED_LABELS)
         dest = _normalize_request_dest(Path(dest))
         dest.parent.mkdir(parents=True, exist_ok=True)
         with dest.open("w", encoding="utf-8") as f:
@@ -563,9 +743,8 @@ class ThreatL1Task(ThreatTask):
         model: str = DEFAULT_MODEL,
         reasoning_effort: str = DEFAULT_REASONING_EFFORT,
     ) -> Path:
-        prompt_config = _get_prompt_config(prompts, self.prompt_key)
+        prompt_config = _compose_prompt_config(prompts, PROMPT_KEY_THREATS_CORE, self.prompt_key)
         system_prompt = prompt_config["system_prompt"]
-        text_param = _coerce_text_param(prompt_config.get("structured_output"))
         mapping = self._load_mapping()
 
         dest = _normalize_request_dest(Path(dest))
@@ -592,6 +771,11 @@ class ThreatL1Task(ThreatTask):
             l0_results = l0_rec["results_payload"]
             l0_labels = self._extract_labels(l0_results)
             if not l0_labels or not self._should_continue(l0_results):
+                stop_reason = l0_results.get("stop_reason") if isinstance(l0_results, dict) else None
+                print(
+                    f"[threats_l1] Skipping {cid}: terminal threats_l0 output "
+                    f"(labels={l0_labels}, stop_reason={stop_reason})"
+                )
                 skipped += 1
                 continue
 
@@ -615,6 +799,10 @@ class ThreatL1Task(ThreatTask):
             }
             if reasoning_effort:
                 body["reasoning"] = {"effort": reasoning_effort}
+            text_param = _build_threat_text_param(
+                prompt_config.get("structured_output"),
+                [c.get("name") for c in l1_candidates if c.get("name")] + ["Unclear"],
+            )
             if text_param:
                 body["text"] = text_param
 
@@ -686,9 +874,8 @@ class ThreatL2Task(ThreatTask):
         model: str = DEFAULT_MODEL,
         reasoning_effort: str = DEFAULT_REASONING_EFFORT,
     ) -> Path:
-        prompt_config = _get_prompt_config(prompts, self.prompt_key)
+        prompt_config = _compose_prompt_config(prompts, PROMPT_KEY_THREATS_CORE, self.prompt_key)
         system_prompt = prompt_config["system_prompt"]
-        text_param = _coerce_text_param(prompt_config.get("structured_output"))
         mapping = self._load_mapping()
 
         dest = _normalize_request_dest(Path(dest))
@@ -702,6 +889,12 @@ class ThreatL2Task(ThreatTask):
 
         records: list[dict] = []
         skipped = 0
+        skipped_missing_l0 = 0
+        skipped_terminal_l0 = 0
+        skipped_missing_l1 = 0
+        skipped_terminal_l1 = 0
+        skipped_no_l1_candidates = 0
+        skipped_no_l2_candidates = 0
 
         for doc in documents:
             cid = _custom_id(doc)
@@ -710,31 +903,47 @@ class ThreatL2Task(ThreatTask):
 
             if not l0_rec or l0_rec.get("error") or not l0_rec.get("results_payload"):
                 skipped += 1
+                skipped_missing_l0 += 1
                 continue
             l0_results = l0_rec["results_payload"]
             l0_labels = self._extract_labels(l0_results)
             if not l0_labels or not self._should_continue(l0_results):
+                stop_reason = l0_results.get("stop_reason") if isinstance(l0_results, dict) else None
+                print(
+                    f"[threats_l2] Skipping {cid}: terminal threats_l0 output "
+                    f"(labels={l0_labels}, stop_reason={stop_reason})"
+                )
                 skipped += 1
+                skipped_terminal_l0 += 1
                 continue
 
             if not l1_rec or l1_rec.get("error") or not l1_rec.get("results_payload"):
                 skipped += 1
+                skipped_missing_l1 += 1
                 continue
             l1_results = l1_rec["results_payload"]
             l1_labels = self._extract_labels(l1_results)
             if not l1_labels or not self._should_continue(l1_results):
+                stop_reason = l1_results.get("stop_reason") if isinstance(l1_results, dict) else None
+                print(
+                    f"[threats_l2] Skipping {cid}: terminal threats_l1 output "
+                    f"(labels={l1_labels}, stop_reason={stop_reason})"
+                )
                 skipped += 1
+                skipped_terminal_l1 += 1
                 continue
 
             # Re-derive L1 candidates (for history reconstruction) and L2 lookup
             l1_candidates, l2_lookup = self._build_l1_candidates(l0_labels, mapping)
             if not l1_candidates:
                 skipped += 1
+                skipped_no_l1_candidates += 1
                 continue
 
             l2_candidates = self._build_l2_candidates(l1_labels, l2_lookup)
             if not l2_candidates:
                 skipped += 1
+                skipped_no_l2_candidates += 1
                 continue
 
             article_text = format_article(doc)
@@ -754,6 +963,10 @@ class ThreatL2Task(ThreatTask):
             }
             if reasoning_effort:
                 body["reasoning"] = {"effort": reasoning_effort}
+            text_param = _build_threat_text_param(
+                prompt_config.get("structured_output"),
+                [c.get("name") for c in l2_candidates if c.get("name")] + ["Unclear"],
+            )
             if text_param:
                 body["text"] = text_param
 
@@ -775,6 +988,15 @@ class ThreatL2Task(ThreatTask):
 
         if skipped:
             print(f"[threats_l2] Skipped {skipped} documents (missing L0/L1 outputs or terminal labels)")
+            print(
+                "[threats_l2] Skip summary: "
+                f"missing/bad L0={skipped_missing_l0}, "
+                f"terminal L0={skipped_terminal_l0}, "
+                f"missing/bad L1={skipped_missing_l1}, "
+                f"terminal L1={skipped_terminal_l1}, "
+                f"no L1 candidates={skipped_no_l1_candidates}, "
+                f"no L2 candidates={skipped_no_l2_candidates}"
+            )
 
         return dest
 
@@ -821,9 +1043,9 @@ def _load_ecosystem_level_outputs(run_name: str, level_prefix: str) -> dict[str,
                 rec = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            cid = rec.get("custom_id")
-            if cid:
-                result[str(cid)] = rec
+            normalized = _normalize_split_stage_record(rec)
+            if normalized:
+                result[normalized["custom_id"]] = normalized
     return result
 
 
@@ -942,9 +1164,13 @@ class EcosystemRealmTask(TaskDefinition):
         model: str = DEFAULT_MODEL,
         reasoning_effort: str = DEFAULT_REASONING_EFFORT,
     ) -> Path:
-        prompt_config = _get_prompt_config(prompts, self.prompt_key)
+        prompt_config = _compose_prompt_config(prompts, PROMPT_KEY_ECOSYSTEMS_CORE, self.prompt_key)
         system_prompt = prompt_config["system_prompt"]
-        text_param = _coerce_text_param(prompt_config.get("structured_output"))
+        text_param = _build_ecosystem_text_param(
+            prompt_config.get("structured_output"),
+            allowed_labels=ECOSYSTEM_REALM_ALLOWED_LABELS,
+            stop_reason_values=["stop", "continue"],
+        )
         dest = _normalize_request_dest(Path(dest))
         dest.parent.mkdir(parents=True, exist_ok=True)
         with dest.open("w", encoding="utf-8") as f:
@@ -1012,9 +1238,8 @@ class EcosystemBiomeTask(EcosystemTask):
         model: str = DEFAULT_MODEL,
         reasoning_effort: str = DEFAULT_REASONING_EFFORT,
     ) -> Path:
-        prompt_config = _get_prompt_config(prompts, self.prompt_key)
+        prompt_config = _compose_prompt_config(prompts, PROMPT_KEY_ECOSYSTEMS_CORE, self.prompt_key)
         system_prompt = prompt_config["system_prompt"]
-        text_param = _coerce_text_param(prompt_config.get("structured_output"))
         mapping = self._load_mapping()
 
         dest = _normalize_request_dest(Path(dest))
@@ -1028,6 +1253,9 @@ class EcosystemBiomeTask(EcosystemTask):
 
         records: list[dict] = []
         skipped = 0
+        skipped_missing_realm = 0
+        skipped_terminal_realm = 0
+        skipped_no_biome_candidates = 0
 
         for doc in documents:
             cid = _custom_id(doc)
@@ -1036,18 +1264,26 @@ class EcosystemBiomeTask(EcosystemTask):
             if not realm_rec or realm_rec.get("error") or not realm_rec.get("results_payload"):
                 print(f"[ecosystems_biome] Skipping {cid}: no valid ecosystems_realm output")
                 skipped += 1
+                skipped_missing_realm += 1
                 continue
 
             realm_results = realm_rec["results_payload"]
             realm_labels = self._extract_labels(realm_results)
             if not realm_labels or not self._should_continue(realm_results):
+                stop_reason = realm_results.get("stop_reason") if isinstance(realm_results, dict) else None
+                print(
+                    f"[ecosystems_biome] Skipping {cid}: terminal ecosystems_realm output "
+                    f"(labels={realm_labels}, stop_reason={stop_reason})"
+                )
                 skipped += 1
+                skipped_terminal_realm += 1
                 continue
 
             biome_candidates, _biome_lookup = self._build_biome_candidates(realm_labels, mapping)
             if not biome_candidates:
                 print(f"[ecosystems_biome] Skipping {cid}: no biome candidates for realm labels {realm_labels}")
                 skipped += 1
+                skipped_no_biome_candidates += 1
                 continue
 
             article_text = format_article(doc)
@@ -1064,6 +1300,11 @@ class EcosystemBiomeTask(EcosystemTask):
             }
             if reasoning_effort:
                 body["reasoning"] = {"effort": reasoning_effort}
+            text_param = _build_ecosystem_text_param(
+                prompt_config.get("structured_output"),
+                allowed_labels=[c.get("name") for c in biome_candidates if c.get("name")] + ["Unclear", "Not Applicable"],
+                stop_reason_values=["stop", "continue"],
+            )
             if text_param:
                 body["text"] = text_param
 
@@ -1088,6 +1329,12 @@ class EcosystemBiomeTask(EcosystemTask):
 
         if skipped:
             print(f"[ecosystems_biome] Skipped {skipped} documents (no valid realm output or terminal labels)")
+            print(
+                "[ecosystems_biome] Skip summary: "
+                f"missing/bad realm={skipped_missing_realm}, "
+                f"terminal realm={skipped_terminal_realm}, "
+                f"no biome candidates={skipped_no_biome_candidates}"
+            )
 
         return dest
 
@@ -1135,9 +1382,8 @@ class EcosystemEFGTask(EcosystemTask):
         model: str = DEFAULT_MODEL,
         reasoning_effort: str = DEFAULT_REASONING_EFFORT,
     ) -> Path:
-        prompt_config = _get_prompt_config(prompts, self.prompt_key)
+        prompt_config = _compose_prompt_config(prompts, PROMPT_KEY_ECOSYSTEMS_CORE, self.prompt_key)
         system_prompt = prompt_config["system_prompt"]
-        text_param = _coerce_text_param(prompt_config.get("structured_output"))
         mapping = self._load_mapping()
 
         dest = _normalize_request_dest(Path(dest))
@@ -1151,6 +1397,12 @@ class EcosystemEFGTask(EcosystemTask):
 
         records: list[dict] = []
         skipped = 0
+        skipped_missing_realm = 0
+        skipped_terminal_realm = 0
+        skipped_missing_biome = 0
+        skipped_terminal_biome = 0
+        skipped_no_biome_candidates = 0
+        skipped_no_efg_candidates = 0
 
         for doc in documents:
             cid = _custom_id(doc)
@@ -1159,31 +1411,47 @@ class EcosystemEFGTask(EcosystemTask):
 
             if not realm_rec or realm_rec.get("error") or not realm_rec.get("results_payload"):
                 skipped += 1
+                skipped_missing_realm += 1
                 continue
             realm_results = realm_rec["results_payload"]
             realm_labels = self._extract_labels(realm_results)
             if not realm_labels or not self._should_continue(realm_results):
+                stop_reason = realm_results.get("stop_reason") if isinstance(realm_results, dict) else None
+                print(
+                    f"[ecosystems_efg] Skipping {cid}: terminal ecosystems_realm output "
+                    f"(labels={realm_labels}, stop_reason={stop_reason})"
+                )
                 skipped += 1
+                skipped_terminal_realm += 1
                 continue
 
             if not biome_rec or biome_rec.get("error") or not biome_rec.get("results_payload"):
                 skipped += 1
+                skipped_missing_biome += 1
                 continue
             biome_results = biome_rec["results_payload"]
             biome_labels = self._extract_labels(biome_results)
             if not biome_labels or not self._should_continue(biome_results):
+                stop_reason = biome_results.get("stop_reason") if isinstance(biome_results, dict) else None
+                print(
+                    f"[ecosystems_efg] Skipping {cid}: terminal ecosystems_biome output "
+                    f"(labels={biome_labels}, stop_reason={stop_reason})"
+                )
                 skipped += 1
+                skipped_terminal_biome += 1
                 continue
 
             # Re-derive biome candidates (for history reconstruction) and biome→EFG lookup
             biome_candidates, biome_lookup = self._build_biome_candidates(realm_labels, mapping)
             if not biome_candidates:
                 skipped += 1
+                skipped_no_biome_candidates += 1
                 continue
 
             efg_candidates = self._build_efg_candidates(biome_labels, biome_lookup)
             if not efg_candidates:
                 skipped += 1
+                skipped_no_efg_candidates += 1
                 continue
 
             article_text = format_article(doc)
@@ -1203,6 +1471,11 @@ class EcosystemEFGTask(EcosystemTask):
             }
             if reasoning_effort:
                 body["reasoning"] = {"effort": reasoning_effort}
+            text_param = _build_ecosystem_text_param(
+                prompt_config.get("structured_output"),
+                allowed_labels=[c.get("name") for c in efg_candidates if c.get("name")] + ["Unclear", "Not Applicable"],
+                stop_reason_values=["stop"],
+            )
             if text_param:
                 body["text"] = text_param
 
@@ -1224,6 +1497,15 @@ class EcosystemEFGTask(EcosystemTask):
 
         if skipped:
             print(f"[ecosystems_efg] Skipped {skipped} documents (missing realm/biome outputs or terminal labels)")
+            print(
+                "[ecosystems_efg] Skip summary: "
+                f"missing/bad realm={skipped_missing_realm}, "
+                f"terminal realm={skipped_terminal_realm}, "
+                f"missing/bad biome={skipped_missing_biome}, "
+                f"terminal biome={skipped_terminal_biome}, "
+                f"no biome candidates={skipped_no_biome_candidates}, "
+                f"no EFG candidates={skipped_no_efg_candidates}"
+            )
 
         return dest
 
@@ -1254,12 +1536,12 @@ SCREENING_TASK = SimpleTask(name="screening", prompt_key=PROMPT_KEY_SCREENING, o
 GEOGRAPHY_TASK = SimpleTask(name="geography", prompt_key=PROMPT_KEY_GEOGRAPHY, output_prefix="geography")
 TAXA_TASK = SimpleTask(name="taxa", prompt_key=PROMPT_KEY_TAXA, output_prefix="taxa")
 STUDY_TASK = SimpleTask(name="study", prompt_key=PROMPT_KEY_STUDY, output_prefix="study")
-ECOSYSTEM_REALM_TASK = EcosystemRealmTask(name="ecosystems_realm", prompt_key=PROMPT_KEY_ECOSYSTEMS, supports_batch=True, output_prefix="ecosystems_realm")
-ECOSYSTEM_BIOME_TASK = EcosystemBiomeTask(name="ecosystems_biome", prompt_key=PROMPT_KEY_ECOSYSTEMS, supports_batch=True, output_prefix="ecosystems_biome")
-ECOSYSTEM_EFG_TASK   = EcosystemEFGTask(name="ecosystems_efg",  prompt_key=PROMPT_KEY_ECOSYSTEMS, supports_batch=True, output_prefix="ecosystems_efg")
-THREAT_L0_TASK = ThreatL0Task(name="threats_l0", prompt_key=PROMPT_KEY_THREATS, supports_batch=True, output_prefix="threats_l0")
-THREAT_L1_TASK = ThreatL1Task(name="threats_l1", prompt_key=PROMPT_KEY_THREATS, supports_batch=True, output_prefix="threats_l1")
-THREAT_L2_TASK = ThreatL2Task(name="threats_l2", prompt_key=PROMPT_KEY_THREATS, supports_batch=True, output_prefix="threats_l2")
+ECOSYSTEM_REALM_TASK = EcosystemRealmTask(name="ecosystems_realm", prompt_key=PROMPT_KEY_ECOSYSTEMS_REALM, supports_batch=True, output_prefix="ecosystems_realm")
+ECOSYSTEM_BIOME_TASK = EcosystemBiomeTask(name="ecosystems_biome", prompt_key=PROMPT_KEY_ECOSYSTEMS_BIOME, supports_batch=True, output_prefix="ecosystems_biome")
+ECOSYSTEM_EFG_TASK   = EcosystemEFGTask(name="ecosystems_efg",  prompt_key=PROMPT_KEY_ECOSYSTEMS_EFG, supports_batch=True, output_prefix="ecosystems_efg")
+THREAT_L0_TASK = ThreatL0Task(name="threats_l0", prompt_key=PROMPT_KEY_THREATS_L0, supports_batch=True, output_prefix="threats_l0")
+THREAT_L1_TASK = ThreatL1Task(name="threats_l1", prompt_key=PROMPT_KEY_THREATS_L1, supports_batch=True, output_prefix="threats_l1")
+THREAT_L2_TASK = ThreatL2Task(name="threats_l2", prompt_key=PROMPT_KEY_THREATS_L2, supports_batch=True, output_prefix="threats_l2")
 
 TASK_ALIASES = {
     "driver": DRIVER_TASK,

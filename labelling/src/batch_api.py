@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 from pathlib import Path
@@ -116,10 +117,30 @@ def build_client(api_key: str | None = None) -> OpenAI:
     return OpenAI(api_key=key)
 
 
+def _sanitize_batch_request_bytes(requests_path: Path) -> io.BytesIO:
+    """Return a file-like object containing only Batch API supported request fields."""
+    allowed_keys = {"custom_id", "method", "url", "body"}
+    buf = io.BytesIO()
+    with requests_path.open("r", encoding="utf-8") as src:
+        for line in src:
+            if not line.strip():
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                buf.write(line.encode("utf-8"))
+                continue
+            sanitized = {key: payload[key] for key in allowed_keys if key in payload}
+            buf.write((json.dumps(sanitized, ensure_ascii=False) + "\n").encode("utf-8"))
+    buf.name = requests_path.name
+    buf.seek(0)
+    return buf
+
+
 def submit_batch(requests_path: Path, client: OpenAI | None = None, completion_window: str = "24h", metadata: dict | None = None) -> dict:
     client = client or build_client()
-    with requests_path.open("rb") as f:
-        upload = client.files.create(file=f, purpose="batch")
+    upload_stream = _sanitize_batch_request_bytes(requests_path)
+    upload = client.files.create(file=upload_stream, purpose="batch")
     batch = client.batches.create(
         input_file_id=upload.id,
         endpoint="/v1/responses",
