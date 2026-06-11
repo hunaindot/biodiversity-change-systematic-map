@@ -22,12 +22,12 @@ def _resolve_prompts_path(path: Path | None) -> Path:
 
 
 def _iter_prompt_files(directory: Path) -> list[Path]:
-    txt_files = sorted(directory.glob("*.txt"))
-    if txt_files:
-        return txt_files
-    # fallback for older md prompts if any linger
     md_files = sorted(directory.glob("*.md"))
-    return md_files
+    if md_files:
+        return md_files
+    # compatibility fallback for prompt directories not yet migrated
+    txt_files = sorted(directory.glob("*.txt"))
+    return txt_files
 
 
 def _load_prompts_from_dir(directory: Path) -> dict:

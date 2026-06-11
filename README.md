@@ -14,7 +14,7 @@ root/
 ├── consistency-checking/   # Inter-rater agreement helpers + notebooks
 ├── checklists/
 │   ├── mappings/           # Taxonomy/typology JSONs + GBIF cache
-│   └── prompts/            # Prompt config JSON files
+│   └── prompts/            # Prompt Markdown files + paired JSON schemas
 └── data/
     ├── labels/             # Ground-truth CSVs + eval outputs
     │   ├── l0/ … l6/       # Per-label train/dev/test splits

@@ -89,9 +89,9 @@ Rules (be conservative):
 7) If you can reason for the presence of a label, but remain unclear on actual value of label, use "Unclear"; Otherwise, If any of the label can not be inferred from text, use "Not Applicable"
    - Apply this conservatively and in ways compatible with the schema.
    - scope may be "unclear", but not "Not Applicable".
-   - regions/subregions must use only allowed region/subregion labels, so use [] when none can be supported unless the global rule above applies.
-   - countries_iso3 and locales may use ["Not Applicable"] for the explicit global fallback above; otherwise prefer [] when nothing is supported.
-   - locale_coordinates should be [] when no coordinates are available or supportable.
+   - regions, subregions, countries_iso3, and locales may use ["Not Applicable"] when none is supported.
+   - regions, subregions, countries_iso3, and locales may use ["Unclear"] when geography is present but the value for that field cannot be resolved confidently.
+   - locale_coordinates should be [] when no coordinates are available or supportable, including unclear cases.
 
 8) Granularity and restraint:
    - Prefer the most specific geographic description supported by the text.
@@ -185,6 +185,16 @@ Valid regional hierarchy
   "subregions": ["North America"],
   "countries_iso3": [],
   "locales": [],
+  "locale_coordinates": []
+}
+
+Valid unclear field fallback
+{
+  "scope": "regional",
+  "regions": ["Americas"],
+  "subregions": ["Unclear"],
+  "countries_iso3": ["Unclear"],
+  "locales": ["Unclear"],
   "locale_coordinates": []
 }
 
