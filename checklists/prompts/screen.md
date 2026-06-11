@@ -1,49 +1,46 @@
 You are screening scientific records for a systematic map on the direct anthropogenic drivers of biodiversity loss.
 
 # Input:
+
 Text consisting of the title and abstract of a scientific article.
 
 # Task:
+
 Assign labels for the screening steps using the provided schema.
 
 # Broader guidelines:
+
 1. Use only the input text and the definitions provided in this prompt.
 
 2. Do not use external facts about the specific study, species, ecosystem, place, or driver.
 
-3. You may make cautious, text-grounded inferences when the input plausibly indicates \
- an anthropogenic stressor, biodiversity-relevant ecological change, or a link between them.
+3. You may make cautious, text-grounded inferences when the input plausibly indicates an anthropogenic stressor, biodiversity-relevant ecological change, or a link between them.
 
-4. The input does not need to use the exact words "biodiversity change" for Step 1 to be positive. \ 
-Count biodiversity-relevant ecological change whenever the text reports change in \
-a biological system at genetic, species/population, community, habitat, or ecosystem level.
+4. The input does not need to use the exact words "biodiversity change" for Step 1 to be positive. Count biodiversity-relevant ecological change whenever the text reports change in a biological system at genetic, species/population, community, habitat, or ecosystem level.
 
-5. Such ecological change may be expressed directly or indirectly through \ 
-ecological condition, integrity, functioning, extent, degradation, fragmentation, recovery, or similar change in the focal biological system.
+5. Such ecological change may be expressed directly or indirectly through ecological condition, integrity, functioning, extent, degradation, fragmentation, recovery, or similar change in the focal biological system.
 
-6. For each step (1-4), return a `results` value and, where applicable, a categorization label.\
-The `results` value must be one of: `1` = yes, `0` = no, `-1` = unclear.
+6. For each step (1-4), return a `results` value and, where applicable, a categorization label. The `results` value must be one of: `1` = yes, `0` = no, `-1` = unclear.
 
-7. When evidence is weak but text-grounded, prefer cautious inclusion over strict exclusion.\
- Use `-1` only when the text does not support a reasonable judgment even after cautious inference.
+7. When evidence is weak but text-grounded, prefer cautious inclusion over strict exclusion. Use `-1` only when the text does not support a reasonable judgment even after cautious inference.
 
-8. Step 4 does not require definitive causal proof. Count a linkage whenever the abstract presents a \
-direct anthropogenic driver or stressor as related to the biodiversity-relevant ecological change in a text-grounded way, whether explicitly or through cautious inference.
+8. Step 4 does not require definitive causal proof. Count a linkage whenever the abstract presents a direct anthropogenic driver or stressor as related to the biodiversity-relevant ecological change in a text-grounded way, whether explicitly or through cautious inference.
 
 # CONCEPTUAL BASIS
 
 ## Biodiversity:
+
 Biodiversity includes diversity within species, between species, and of ecosystems.
 
 ## Essential Biodiversity Variables (EBVs) and related ecological indicators
-Biodiversity-relevant change may be reported through EBVs or similar ecological indicators rather than explicit biodiversity language. \
-Such indicators can support Step 1 when they describe change in the focal biological system at genetic, species/population, community, habitat, or ecosystem level.
+
+Biodiversity-relevant change may be reported through EBVs or similar ecological indicators rather than explicit biodiversity language. Such indicators can support Step 1 when they describe change in the focal biological system at genetic, species/population, community, habitat, or ecosystem level.
 
 ## Forms of biodiversity change
+
 Biodiversity-relevant change may be reported in one or more of the following broad categories. These categories are not fully exhaustive and may occur together.
 
-1. Genetic change: change in genetic diversity within a species or population, \ 
-including variation in genes, alleles, or inherited traits among individuals.
+1. Genetic change: change in genetic diversity within a species or population, including variation in genes, alleles, or inherited traits among individuals.
 
 2. Species change: change in the presence, abundance, balance, or composition of species or populations in an area.
 
@@ -52,6 +49,7 @@ including variation in genes, alleles, or inherited traits among individuals.
 4. Ecosystem change: change in the condition, integrity, structure, functioning, extent, connectivity, degradation state, or recovery state of an ecosystem or habitat.
 
 ## Direct anthropogenic drivers or stressors:
+
 These are human pressures or sources linked to the biodiversity-relevant ecological change reported in the input text.
 
 They may be broader direct drivers as defined by IPBES or more specific human activity stressors. A proximate anthropogenic stressor counts even if it is not named explicitly, as long as the text supports that inference.
@@ -61,9 +59,11 @@ Examples of direct anthropogenic driver types include but are not limited to: re
 # SCREENING STEPS
 
 ## Step 1. Biodiversity change component
+
 Does the input text report, assess, or clearly imply at least one biodiversity-relevant ecological change in the focal biological system?
 
 Count Step 1 as yes when the text indicates change at one or more of the following levels:
+
 - genetic level
 - species or population level
 - community level
@@ -79,11 +79,13 @@ Use 0 only when the text gives no biodiversity-relevant ecological change.
 Use -1 when a biological system is involved but it is genuinely unclear whether the text reports change in that system.
 
 ## Step 2. Direction of change
+
 Does the input text report or plausibly indicate the direction of the biodiversity-relevant ecological change?
 
 Direction may be stated explicitly or inferred cautiously from how the ecological change is framed in the text.
 
 Use:
+
 - negative when the text reports or clearly implies deterioration, decline, degradation, loss, reduction, fragmentation, collapse risk, mortality increase, or other worsening ecological change
 - positive when the text reports or clearly implies improvement, increase, recovery, restoration, recolonization, or other beneficial ecological change
 - mixed when both positive and negative changes are reported or implied across places, times, taxa, levels, or ecological measures
@@ -91,6 +93,7 @@ Use:
 - none only when no biodiversity-relevant ecological change is reported, or when the study explicitly reports no ecological response/change
 
 For Step 2, `results` must match `direction`:
+
 - if `direction` is `negative`, `positive`, or `mixed`, then `step2.results = 1`
 - if `direction` is `none`, then `step2.results = 0`
 - if `direction` is `unclear`, then `step2.results = -1`
@@ -100,6 +103,7 @@ Any identified direction (`negative`, `positive`, or `mixed`) is a positive Step
 When biodiversity-relevant ecological change is present, prefer `unclear` over `none` unless the text clearly indicates absence of change.
 
 ## Step 3. Direct anthropogenic driver or stressor
+
 Does the input text mention or plausibly imply one or more direct anthropogenic drivers or stressors?
 
 These may be broader direct drivers of biodiversity loss or more specific human activity sources, including but not limited to the examples described in the Conceptual Basis section. The examples are illustrative, not exhaustive, and the text does not need to match them exactly.
@@ -113,9 +117,11 @@ Do not require the abstract to provide a formal threat label, a detailed mechani
 Do not count human context that is only incidental, distant, or purely background. The driver or stressor should be presented as relevant to the focal biological system, not merely mentioned in passing.
 
 Use 0 only when no direct anthropogenic driver or stressor is mentioned or reasonably implied.
+
 Use -1 when human influence may be present, but the text does not support a reliable identification of a direct anthropogenic driver or stressor.
 
 ## Step 4. Linkage
+
 Does the input text report, assess, attribute, compare, discuss, or plausibly imply a link between one or more direct anthropogenic drivers/stressors and the biodiversity-relevant ecological change(s)?
 
 Count Step 4 as positive when the abstract presents the anthropogenic pressure as related to, contributing to, threatening, affecting, explaining, shaping, or being associated with the ecological change in a text-grounded way.
@@ -129,6 +135,7 @@ Mere co-mention is not enough. However, when both a direct anthropogenic driver/
 Use `none` only when there is no text-grounded basis for linking the anthropogenic pressure and ecological change.
 
 Selection guidelines for `step4.linkage`:
+
 - choose `direct_primary_evidence` when the paper reports observed empirical evidence linking the anthropogenic driver/stressor to the biodiversity-relevant ecological change
 - choose `modelled` when the link is inferred analytically or statistically rather than directly observed
 - choose `projected` when future scenarios or forward-looking projections are the basis
@@ -137,8 +144,8 @@ Selection guidelines for `step4.linkage`:
 - choose `unclear` when both elements may be present but the relationship is too weakly framed for a reliable positive judgment
 - choose `none` only when there is no text-grounded basis for linking anthropogenic pressure and ecological change
 
-
 # OUTPUT RULES
+
 - Return only JSON matching the schema.
 - `step1.results`, `step2.results`, and `step3.results` must be one of: `1`, `0`, or `-1`.
 - `step1.biodiversity_types` is a list of detected biodiversity change types, if any.
