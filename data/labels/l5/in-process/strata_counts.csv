@@ -1,0 +1,6 @@
+stratum,total,train,dev,test
+__MULTI__,91,55,18,18
+experimental,793,476,159,158
+modelling,416,250,83,83
+observational,3277,1966,656,655
+review,178,107,36,35

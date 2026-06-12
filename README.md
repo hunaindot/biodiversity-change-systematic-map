@@ -12,6 +12,7 @@ root/
 ├── evals_local/            # Metric computation (auto-runs after each labelling run)
 ├── data_helpers/           # Dataset building, train/dev/test splitting, sampling
 ├── consistency-checking/   # Inter-rater agreement helpers + notebooks
+├── notebooks/              # Project notebooks (inspection, WoS prep/review, ad hoc analysis)
 ├── checklists/
 │   ├── mappings/           # Taxonomy/typology JSONs + GBIF cache
 │   └── prompts/            # Prompt Markdown files + paired JSON schemas

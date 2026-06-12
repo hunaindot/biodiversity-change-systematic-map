@@ -1,0 +1,6 @@
+stratum,total,train,dev,test
+jaureguiberry et al,128,77,26,25
+keck et al,1711,1027,342,342
+murphy et al,130,78,26,26
+rle database,31,19,6,6
+shaw et al,418,251,84,83

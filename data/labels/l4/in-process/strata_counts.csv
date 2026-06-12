@@ -1,0 +1,9 @@
+stratum,total,train,dev,test
+__MULTI__,38,23,8,7
+all realms,9,5,2,2
+freshwater,600,360,120,120
+freshwater-marine,5,3,1,1
+freshwater-terrestrial,8,5,2,1
+marine,772,463,155,154
+marine-terrestrial,1,1,0,0
+terrestrial,2769,1661,554,554

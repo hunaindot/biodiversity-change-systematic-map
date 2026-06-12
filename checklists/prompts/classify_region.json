@@ -28,9 +28,7 @@
                 "Asia and the Pacific",
                 "Africa",
                 "Europe and Central Asia",
-                "Antarctica",
-                "Not Applicable",
-                "Unclear"
+                "Antarctica"
               ]
             }
           },
@@ -55,9 +53,7 @@
                 "North Africa",
                 "Central and Western Europe",
                 "Eastern Europe",
-                "Central Asia",
-                "Not Applicable",
-                "Unclear"
+                "Central Asia"
               ]
             }
           },
@@ -104,60 +100,6 @@
           "countries_iso3",
           "locales",
           "locale_coordinates"
-        ],
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "regions": {
-                  "type": "array",
-                  "contains": {
-                    "const": "All Regions"
-                  }
-                }
-              },
-              "required": [
-                "regions"
-              ]
-            },
-            "then": {
-              "properties": {
-                "scope": {
-                  "const": "global"
-                },
-                "regions": {
-                  "type": "array",
-                  "minItems": 1,
-                  "maxItems": 1,
-                  "items": {
-                    "const": "All Regions"
-                  }
-                },
-                "subregions": {
-                  "type": "array",
-                  "items": {
-                    "const": "Not Applicable"
-                  }
-                },
-                "countries_iso3": {
-                  "type": "array",
-                  "items": {
-                    "const": "Not Applicable"
-                  }
-                },
-                "locales": {
-                  "type": "array",
-                  "items": {
-                    "const": "Not Applicable"
-                  }
-                },
-                "locale_coordinates": {
-                  "type": "array",
-                  "maxItems": 0
-                }
-              }
-            }
-          }
         ]
       }
     }

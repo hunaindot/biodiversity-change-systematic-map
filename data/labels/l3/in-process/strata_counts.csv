@@ -1,0 +1,11 @@
+stratum,total,train,dev,test
+"[""americas",7,4,2,1
+"[""europe and central asia",15,9,3,3
+__MULTI__,43,26,9,8
+africa,126,76,25,25
+all regions,29,17,6,6
+americas,1247,748,250,249
+antarctica,1,1,0,0
+asia and the pacific,324,194,65,65
+europe and central asia,557,334,112,111
+unclear or not specified,1,1,0,0
