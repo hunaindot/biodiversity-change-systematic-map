@@ -15,6 +15,7 @@
 /checklists/mappings/*.pkl
 /archive*
 .env
+.DS_Store
 .claude
 .agents.md
 eval_notes.txt
