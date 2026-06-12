@@ -112,7 +112,3 @@ The code is provided so the cache can be recreated if needed. In normal use, it 
 
 Everything else (sheet names, column names, label configs, sample size) is in
 [`checklists/mappings/dataset_config.json`](../checklists/mappings/dataset_config.json).
-
-Notes:
-- The splitter supports `--env` to point at a non-default `.env` file.
-- The sampling scripts read the repo-root `.env` at runtime.
