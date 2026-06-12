@@ -2,6 +2,8 @@
 
 Utilities for building, splitting, and sampling the biodiversity literature label datasets (L0–L6).
 
+At a high level, this package is the dataset-preparation layer for the repository. It takes the reference annotated screening and coding workbooks, turns them into per-label CSV datasets under `data/labels/`, splits those datasets into `train/dev/test`, and creates manual-review samples used for consistency checking. In the wider repo workflow, `data_helpers` sits upstream of the labelling and eval pipelines: it prepares the datasets that those later stages consume.
+
 ## Package layout
 
 ```
