@@ -18,9 +18,9 @@
 eval_notes.txt
 
 # Notebooks
-run_evals_local.ipynb
-test_gbif_lookup.ipynb
-run_partitions.ipynb
 notebooks/inspect_batch_output.ipynb
+notebooks/run_evals_local.ipynb
+notebooks/test_gbif_lookup.ipynb
+notebooks/run_partitions.ipynb
 
 __pycache__/
