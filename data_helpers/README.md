@@ -60,7 +60,7 @@ python -m data_helpers.build_coding l2
 python -m data_helpers
 ```
 
-Split ratios and paths are read from `.env` (see [Configuration](#configuration)).
+Split ratios and label-root overrides are read from `.env` (see [Configuration](#configuration)).
 Run a subset of labels:
 
 ```bash
@@ -98,7 +98,7 @@ Reads `data/gbif/curated/gbif_curated.csv`, writes `checklists/mappings/gbif_loo
 
 ## Configuration
 
-`.env` keys read by the splitter:
+`.env` keys read by the splitter and samplers:
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -110,3 +110,7 @@ Reads `data/gbif/curated/gbif_curated.csv`, writes `checklists/mappings/gbif_loo
 
 Everything else (sheet names, column names, label configs, sample size) is in
 [`checklists/mappings/dataset_config.json`](../checklists/mappings/dataset_config.json).
+
+Notes:
+- The splitter supports `--env` to point at a non-default `.env` file.
+- The sampling scripts read the repo-root `.env` at runtime.
