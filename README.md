@@ -1,4 +1,4 @@
-This repository implements LLM-based screening and coding of bibliographic records retrieved from Web of Science for the Biodiversity Loss Systematic Map. Records are first screened for eligibility (`L0`), then coded across six downstream label sets (`L1`-`L6`). For detailed label definitions and task-specific behavior, see the package READMEs linked below and the systematic mapping protocol.
+This repository implements LLM-based screening and coding of bibliographic records retrieved from Web of Science for the Biodiversity Change Systematic Map. Records are first screened for eligibility (`L0`), then coded across six downstream label sets (`L1`-`L6`). For detailed label definitions and task-specific behavior, see the package READMEs linked below and the systematic mapping protocol.
 
 ## Repository structure
 
@@ -61,7 +61,7 @@ Example:
 python labelling/orchestrator.py data/labels/l1/train l1_train_170426_f1 --task driver
 ```
 
-In plain English, this command:
+Or, simply:
 
 - loads the provided `l1` training split from `data/labels/l1/train`
 - runs the `driver` coding task over every record in that split

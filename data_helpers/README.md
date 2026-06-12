@@ -4,6 +4,8 @@ Utilities for building, splitting, and sampling the biodiversity literature labe
 
 At a high level, this package is the dataset-preparation layer for the repository. It takes the reference annotated screening and coding workbooks, turns them into per-label CSV datasets under `data/labels/`, splits those datasets into `train/dev/test`, and creates manual-review samples used for consistency checking. In the wider repo workflow, `data_helpers` sits upstream of the labelling and eval pipelines: it prepares the datasets that those later stages consume.
 
+The code here is included mainly for reproducibility. In normal use, you usually do not need to rerun it because the prepared `data/labels/` datasets are already provided in the repository. If you do want to reproduce those datasets from the reference sources, you can run the build and split commands documented below.
+
 ## Package layout
 
 ```
@@ -22,30 +24,25 @@ Configuration is split across:
 - [`checklists/mappings/dataset_config.json`](../checklists/mappings/dataset_config.json) for workbook sources, label metadata, sample size, and manual-sample output locations
 - `.env` for runtime split settings and optional `LABELS_<L>_PATH` overrides
 
----
-
-## Labels
-
-| Label | Task | Stratification column |
-|-------|------|-----------------------|
-| L0 | Screening (eligibility) | `source` |
-| L1 | Driver | `driver` |
-| L2 | Threats | `threats_l0` |
-| L3 | Geography | `region` |
-| L4 | Ecosystems | `realm` |
-| L5 | Study design | `study_design` |
-| L6 | Taxa | `phylum` |
+The same `dataset_config.json` file also defines the label-specific split metadata, including which stratification column is used for each of `L0` through `L6`.
 
 ---
 
 ## Split behavior
 
-- All labels are split by stratifying on the configured column and then applying the train/dev/test ratios within each stratum.
-- For `l0`, the stratum is `source`, so the split preserves the observed source distribution in the dataset. It is not reweighted to target source proportions.
+- Each label is split independently.
+- For each label, the splitter uses the stratification column defined in `dataset_config.json`.
+- Rows are grouped by stratum first, then the configured `train` / `dev` / `test` ratios from `.env` are applied within each stratum.
+- This means the overall split aims to preserve the label distribution of that stratification column across `train`, `dev`, and `test`, rather than assigning records completely at random.
+- The default ratios are `60/20/20`, and the default seed is `42`, both configurable through `.env`.
 
 ## Usage
 
 ### 1. Build raw CSVs from Excel sources
+
+Goal: convert the reference screening and coding workbooks into the per-label CSV files that the rest of the repo uses.
+
+Expected outcome: raw label datasets appear under `data/labels/l0` through `data/labels/l6`.
 
 ```bash
 # Screening dataset (L0)
@@ -57,6 +54,10 @@ python -m data_helpers.build_coding l2
 ```
 
 ### 2. Split into train / dev / test
+
+Goal: take the raw per-label CSVs and create reproducible `train`, `dev`, and `test` splits for each label.
+
+Expected outcome: each label directory gets `train/`, `dev/`, `test/`, and `in-process/` outputs.
 
 ```bash
 python -m data_helpers
@@ -74,6 +75,10 @@ Each label writes to `data/labels/<label>/train|dev|test/` and an `in-process/` 
 
 ### 3. Sample for manual labelling
 
+Goal: draw a smaller subset from the training splits for manual review and consistency-checking workflows.
+
+Expected outcome: sample files are written to the manual-labelling output directories configured in `dataset_config.json`.
+
 ```bash
 python -m data_helpers.sample_screening
 python -m data_helpers.sample_coding
@@ -87,6 +92,10 @@ Sampler inputs are read from `<resolved label path>/train`, where `<resolved lab
 Outputs go to `data/consistency-check-datasets/*/to-manual-label/`.
 
 ### 4. Build GBIF lookup cache
+
+Goal: recreate the GBIF taxonomic lookup cache used by taxa-related workflows.
+
+Expected outcome: `checklists/mappings/gbif_lookup_cache.pkl` is written from the curated GBIF source file.
 
 Only needed once (or when the GBIF source file changes):
 
