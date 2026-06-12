@@ -2,8 +2,7 @@ stratum,total,train,dev,test
 __MULTI__,206,124,41,41
 agriculture & aquaculture,19,11,4,4
 biological resource use,144,86,29,29
-climate change & severe weather,13,8,3,2
-climate change & severe weather,1,1,0,0
+climate change & severe weather,14,8,3,3
 human intrusions & disturbance,5,3,1,1
 "invasive & other problematic species, genes & diseases",110,66,22,22
 natural system modifications,24,14,5,5

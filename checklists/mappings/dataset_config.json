@@ -32,13 +32,6 @@
       "drop_if_all_missing": ["kingdom", "phylum", "class", "order", "specie"]
     }
   },
-  "l0_source_weights": {
-    "Jaureguiberry et al": 0.25,
-    "Keck et al": 0.125,
-    "shaw et al": 0.25,
-    "murphy et al": 0.125,
-    "RLE Database": 0.25
-  },
   "sampling": {
     "n_sample": 100
   },

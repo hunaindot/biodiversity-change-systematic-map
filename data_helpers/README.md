@@ -16,8 +16,9 @@ data_helpers/
 └── sample_coding.py    # sample L1–L6 train splits for manual labelling
 ```
 
-All dataset paths, label configs, sheet names, and special keys live in one place:
-[`checklists/mappings/dataset_config.json`](../checklists/mappings/dataset_config.json)
+Configuration is split across:
+- [`checklists/mappings/dataset_config.json`](../checklists/mappings/dataset_config.json) for workbook sources, label metadata, sample size, and manual-sample output locations
+- `.env` for runtime split settings and optional `LABELS_<L>_PATH` overrides
 
 ---
 
@@ -34,6 +35,11 @@ All dataset paths, label configs, sheet names, and special keys live in one plac
 | L6 | Taxa | `phylum` |
 
 ---
+
+## Split behavior
+
+- All labels are split by stratifying on the configured column and then applying the train/dev/test ratios within each stratum.
+- For `l0`, the stratum is `source`, so the split preserves the observed source distribution in the dataset. It is not reweighted to target source proportions.
 
 ## Usage
 
@@ -75,6 +81,7 @@ python -m data_helpers.sample_coding l4
 ```
 
 Samples 100 records from the train split (configurable via `dataset_config.json`).
+Sampler inputs are read from `<resolved label path>/train`, where `<resolved label path>` follows the same `.env` `LABELS_<L>_PATH` override rules as the splitter.
 Outputs go to `data/consistency-check-datasets/*/to-manual-label/`.
 
 ### 4. Build GBIF lookup cache
@@ -101,5 +108,5 @@ Reads `data/gbif/curated/gbif_curated.csv`, writes `checklists/mappings/gbif_loo
 | `DATASETS_LABELS_SEED` | `42` | Random seed |
 | `LABELS_<L>_PATH` | `data/labels/<l>` | Override input path for label `<l>` (e.g. `LABELS_L0_PATH`) |
 
-Everything else (sheet names, column names, label configs, source weights, sample size) is in
+Everything else (sheet names, column names, label configs, sample size) is in
 [`checklists/mappings/dataset_config.json`](../checklists/mappings/dataset_config.json).

@@ -30,3 +30,11 @@ def get_env_int(env: dict[str, str], key: str, default: int) -> int:
         return int(value)
     except ValueError:
         return default
+
+
+def get_label_path(env: dict[str, str], label: str) -> Path:
+    env_key = f"LABELS_{label.upper()}_PATH"
+    raw = env.get(env_key)
+    if raw:
+        return Path(raw)
+    return Path("data") / "labels" / label

@@ -11,12 +11,11 @@ from typing import Iterable
 
 from ._config import (
     LABEL_CONFIGS_RAW as _LABEL_CONFIGS_RAW,
-    L0_SOURCE_WEIGHTS as _L0_SOURCE_WEIGHTS,
     MISSING_KEY,
     MULTI_LABEL_KEY,
     NO_KINGDOM_KEY,
 )
-from .env import get_env_int, load_env
+from .env import get_env_int, get_label_path, load_env
 
 SPLITS = ("train", "dev", "test")
 
@@ -245,11 +244,7 @@ def _get_ratios(env: dict[str, str]) -> dict[str, float]:
 
 
 def _get_label_path(env: dict[str, str], label: str) -> Path:
-    env_key = f"LABELS_{label.upper()}_PATH"
-    raw = env.get(env_key)
-    if raw:
-        return Path(raw)
-    return Path("data") / "labels" / label
+    return get_label_path(env, label)
 
 
 def _stratum_from_value(value: str, missing_key: str) -> tuple[str, list[str]]:

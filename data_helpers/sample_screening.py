@@ -14,30 +14,23 @@ from ._config import (
     N_SAMPLE,
     SCREENING_CFG as _SCREENING_CFG,
 )
+from .env import get_env_int, get_label_path, load_env
 
 ROOT = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 ENV_PATH = ROOT / ".env"
 
 OUT_DIR = ROOT / _SCREENING_CFG["manual_sample_output_dir"]
-TRAIN_PATH = ROOT / "data/labels/l0/train"
 STRAT_COL = _LABEL_CONFIGS_RAW["l0"]["strat_column"]
 
 
 def _load_env_seed() -> int:
-    if not ENV_PATH.exists():
-        return 42
-    env: dict[str, str] = {}
-    for line in ENV_PATH.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        env[k.strip()] = v.strip().strip("\"").strip("'")
-    raw = env.get("DATASETS_LABELS_SEED", "")
-    try:
-        return int(raw)
-    except ValueError:
-        return 42
+    env = load_env(ENV_PATH)
+    return get_env_int(env, "DATASETS_LABELS_SEED", 42)
+
+
+def _get_train_path() -> Path:
+    env = load_env(ENV_PATH)
+    return ROOT / get_label_path(env, "l0") / "train"
 
 
 def _parse_labels(raw: str) -> list[str]:
@@ -94,9 +87,10 @@ def _cell(row: list[str], idx: int) -> str:
 
 
 def sample_l0(seed: int) -> dict:
-    csv_files = list(TRAIN_PATH.glob("*.csv"))
+    train_path = _get_train_path()
+    csv_files = list(train_path.glob("*.csv"))
     if not csv_files:
-        raise FileNotFoundError(f"No CSV in {TRAIN_PATH}")
+        raise FileNotFoundError(f"No CSV in {train_path}")
     src = csv_files[0]
     header, rows = _read_csv(src)
 

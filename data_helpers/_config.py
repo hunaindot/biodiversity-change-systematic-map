@@ -20,9 +20,6 @@ BASE_COLS: list[str] = _cfg["base_columns"]
 # Sampling
 N_SAMPLE: int = _cfg["sampling"]["n_sample"]
 
-# L0 source weights
-L0_SOURCE_WEIGHTS: dict[str, float] = _cfg["l0_source_weights"]
-
 # Raw label configs — used by splitter and samplers to rebuild their own formats
 LABEL_CONFIGS_RAW: dict = _cfg["label_configs"]
 
