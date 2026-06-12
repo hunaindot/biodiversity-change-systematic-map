@@ -1,7 +1,5 @@
 # data_helpers
 
-Utilities for building, splitting, and sampling the biodiversity literature label datasets (L0–L6).
-
 At a high level, this package is the dataset-preparation layer for the repository. It takes the reference annotated screening and coding workbooks, turns them into per-label CSV datasets under `data/labels/`, splits those datasets into `train/dev/test`, and creates manual-review samples used for consistency checking. In the wider repo workflow, `data_helpers` sits upstream of the labelling and eval pipelines: it prepares the datasets that those later stages consume.
 
 The code here is included mainly for reproducibility. In normal use, you usually do not need to rerun it because the prepared `data/labels/` datasets are already provided in the repository. If you do want to reproduce those datasets from the reference sources, you can run the build and split commands documented below.
@@ -21,6 +19,7 @@ data_helpers/
 ```
 
 Configuration is split across:
+
 - [`checklists/mappings/dataset_config.json`](../checklists/mappings/dataset_config.json) for workbook sources, label metadata, sample size, and manual-sample output locations
 - `.env` for runtime split settings and optional `LABELS_<L>_PATH` overrides
 
@@ -113,13 +112,13 @@ The code is provided so the cache can be recreated if needed. In normal use, it 
 
 `.env` keys read by the splitter and samplers:
 
-| Key | Default | Description |
-|-----|---------|-------------|
-| `train` | `60` | Train split % |
-| `dev` | `20` | Dev split % |
-| `test` | `20` | Test split % |
-| `DATASETS_LABELS_SEED` | `42` | Random seed |
-| `LABELS_<L>_PATH` | `data/labels/<l>` | Override input path for label `<l>` (e.g. `LABELS_L0_PATH`) |
+| Key                    | Default           | Description                                                 |
+| ---------------------- | ----------------- | ----------------------------------------------------------- |
+| `train`                | `60`              | Train split %                                               |
+| `dev`                  | `20`              | Dev split %                                                 |
+| `test`                 | `20`              | Test split %                                                |
+| `DATASETS_LABELS_SEED` | `42`              | Random seed                                                 |
+| `LABELS_<L>_PATH`      | `data/labels/<l>` | Override input path for label `<l>` (e.g. `LABELS_L0_PATH`) |
 
 Everything else (sheet names, column names, label configs, sample size) is in
 [`checklists/mappings/dataset_config.json`](../checklists/mappings/dataset_config.json).
