@@ -11,7 +11,7 @@ data_helpers/
 ├── splitter.py         # core train/dev/test split logic
 ├── build_screening.py  # create L0 screening CSV from Excel source
 ├── build_coding.py     # create L1–L6 coding CSVs from Excel source
-├── build_gbif.py       # build GBIF canonical-name lookup cache
+├── build_gbif.py       # recreate the GBIF canonical-name lookup cache if needed
 ├── sample_screening.py # sample L0 train split for manual labelling
 └── sample_coding.py    # sample L1–L6 train splits for manual labelling
 ```
@@ -93,6 +93,8 @@ python -m data_helpers.build_gbif
 ```
 
 Reads `data/gbif/curated/gbif_curated.csv`, writes `checklists/mappings/gbif_lookup_cache.pkl`.
+
+The code is provided so the cache can be recreated if needed. In normal use, it is recommended to download the prebuilt `gbif_lookup_cache.pkl` from the supplementary data and place it manually at `checklists/mappings/gbif_lookup_cache.pkl`.
 
 ---
 

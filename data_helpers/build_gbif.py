@@ -7,7 +7,7 @@ Usage:
     python data_helpers/build_gbif.py
 
 Reads:  data/gbif/curated/gbif_curated.csv
-Writes: data/gbif/gbif_lookup_cache.pkl
+Writes: checklists/mappings/gbif_lookup_cache.pkl
 """
 
 from __future__ import annotations
