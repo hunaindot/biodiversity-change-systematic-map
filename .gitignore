@@ -3,6 +3,8 @@
 !/data/labels/**
 /data/labels/eval/
 /data/labels/eval/**
+!/data/consistency-check-datasets/
+!/data/consistency-check-datasets/**
 !/data/partitions-mock/
 !/data/partitions-mock/**
 /venv
