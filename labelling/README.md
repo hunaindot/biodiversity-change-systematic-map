@@ -1,14 +1,15 @@
 # Labelling Package
 
-Orchestrates OpenAI classification runs over train/dev/test label sets, writes JSONL outputs, and automatically runs evals on completion.
+This package runs the main screening and coding workflow for the repository. It takes a folder of WoS-style records, applies one labelling task, writes the run outputs, and can automatically run evals against the reference labels afterward.
 
-**Assumes:**
-- Label data is already present under `data/labels/` (built by the `data_helpers` package — see the [root README](../README.md) for setup)
-- `.env` is configured with your API key, model, submission mode, and paths — see [`.env.sample`](../.env.sample)
+In the normal repo workflow, this package is used on the prepared splits under `data/labels/`. It can also be used on other input folders, such as screened partitions or consistency-checking samples, as long as the expected input fields are present.
 
----
+## Quick use
 
-## Usage
+Before running:
+
+- configure `.env` using [`.env.sample`](../.env.sample)
+- for the standard reproducibility workflow, make sure the prepared `data/labels/` splits are already present as described in the [root README](../README.md)
 
 Run from the repo root:
 
@@ -16,77 +17,114 @@ Run from the repo root:
 python labelling/orchestrator.py <input_dir> <run_name> --task <task>
 ```
 
-- `input_dir` — a directory of WoS export files. Typically one of:
-  - `data/labels/l{0-6}/{train|dev|test}` — label splits for a specific label level (built by `data_helpers`)
-  - a raw screening or coding dataset folder for running against unannotated inputs
-- `run_name` — tag applied to all outputs for this run. Follow the convention `{partition}-{type}-{label_level}-v{n}`, e.g.:
-  - `train-screening-l0-v1`
-  - `dev-coding-l2-v1`
-  - `test-coding-l4-v2`
-- `--task` — classification task to run (required; see table below)
+Example:
 
----
-
-## Available tasks
-
-Run tasks in label order. L2 and L4 are multi-step — all steps must share the same `run_name` so each level can find the prior level's outputs.
-
-| Label | Task | Alias(es) | Depends on |
-|---|---|---|---|
-| L0 | `screening` | `screen`, `eligibility` | — |
-| L1 | `driver` | `drivers`, `direct_driver` | — |
-| L2 | `threats_l0` | — | — |
-| L2 | `threats_l1` | — | `threats_l0` |
-| L2 | `threats_l2` | — | `threats_l1` |
-| L3 | `geography` | `geo`, `region` | — |
-| L4 | `ecosystems_realm` | `ecosystem_realm` | — |
-| L4 | `ecosystems_biome` | `ecosystem_biome` | `ecosystems_realm` |
-| L4 | `ecosystems_efg` | `ecosystem_efg` | `ecosystems_biome` |
-| L5 | `study` | `studies` | — |
-| L6 | `taxa` | — | — |
-
----
-
-## Evals
-
-Evals run automatically after each task completes and write metrics to `$EVALS_OUTPUT_DIR/<run_name>/`:
-- `data/` — joined truth + prediction CSV
-- `metrics/` — metric files per truth column
-
-For `screening`, ground-truth labels are read from `input_dir` directly. All other tasks resolve labels from the configured `EVALS_LABELS_DIR`.
-
-Evals silently no-op if no ground-truth labels are found — they don't block the pipeline. Set `ORCHESTRATOR_RUN_EVALS=false` to skip entirely.
-
----
-
-## Output format
-
-**L0, L1, L3, L5, L6** (`screening`, `driver`, `geography`, `study`, `taxa`) — raw OpenAI response envelope:
-```json
-{"custom_id": "...", "response": {"body": {"output": [...]}}}
+```bash
+python labelling/orchestrator.py data/labels/l1/train l1_train_170426_f1 --task driver
 ```
 
-**L2, L4** (`threats_*`, `ecosystems_*`) — parsed record with labelling metadata:
-```json
-{
-  "custom_id": "...",
-  "response_text": "<raw model output>",
-  "results_payload": {"results": ["Label A", "Label B"], "stop_reason": "continue"},
-  "candidates_passed": [{"name": "...", "desc": "..."}, ...],
-  "error": null
-}
-```
+Or, simply:
 
-All outputs land in `$ORCHESTRATOR_BATCH_OUTPUTS_DIR/<run_name>/`. The level-specific prefix on L2/L4 output files (e.g. `threats_l0-`, `ecosystems_biome-`) is how each subsequent step finds the prior level's outputs.
+- loads the `l1` train split from `data/labels/l1/train`
+- runs the `driver` task on every record in that folder
+- writes outputs under the run name `l1_train_170426_f1`
+- then, if enabled in `.env`, runs evals against the reference labels
 
----
+## Inputs
 
-## Environment variables
+`input_dir` should be a folder containing `.xls`, `.xlsx`, or `.csv` WoS-style export files.
 
-See [`.env.sample`](../.env.sample) for all variables and defaults. Key toggles:
+Common input locations in this repo include:
 
-| Variable | Description |
-|---|---|
-| `ORCHESTRATOR_SUBMISSION_MODE` | `live` (synchronous) or `batch` (async, ~50% cheaper) |
-| `ORCHESTRATOR_RUN_EVALS` | Set `false` to skip automatic evals |
-| `ORCHESTRATOR_LIMIT_DOCS` | Cap documents per run (`none` for all) |
+- `data/labels/l{0-6}/{train|dev|test}` for the prepared label splits
+- `data/partitions-mock/...` for lightweight end-to-end checks
+- consistency-checking or screening-derived folders for custom runs
+
+The loader requires a document ID column and accepts these common variants:
+
+- `UT`
+- `ut`
+- `UT (Unique WOS ID)`
+- `custom_id`
+
+It also reads common metadata fields using flexible matching, including:
+
+- title
+- abstract
+- authors
+- source or publisher
+- publication year
+- WoS categories
+- DOI
+
+## Run naming
+
+`run_name` is the tag used across datasets, batch files, outputs, and eval artifacts for a run.
+
+In this repo, runs are typically named like:
+
+- `l1_train_170426_f1`
+- `l3_dev_170426_f2`
+
+The trailing `f1`, `f2`, `f3`, and so on are simple version markers. For multi-step tasks, reuse the same `run_name` across all steps so later stages can find earlier outputs.
+
+## Tasks
+
+Use these task names with `--task`:
+
+| Label | Task name          | Depends on         |
+| ----- | ------------------ | ------------------ |
+| L0    | `screen`           | —                  |
+| L1    | `driver`           | —                  |
+| L2    | `threats_l0`       | —                  |
+| L2    | `threats_l1`       | `threats_l0`       |
+| L2    | `threats_l2`       | `threats_l1`       |
+| L3    | `geography`        | —                  |
+| L4    | `ecosystems_realm` | —                  |
+| L4    | `ecosystems_biome` | `ecosystems_realm` |
+| L4    | `ecosystems_efg`   | `ecosystems_biome` |
+| L5    | `study`            | —                  |
+| L6    | `taxa`             | —                  |
+
+For `L2` and `L4`, run the steps in order and keep the same `run_name` throughout.
+
+## Outputs and evals
+
+All run outputs are written under:
+
+`$ORCHESTRATOR_BATCH_OUTPUTS_DIR/<run_name>/`
+
+Simple tasks (`screen`, `driver`, `geography`, `study`, `taxa`) write the raw response envelope. Multi-step tasks (`threats_*`, `ecosystems_*`) write parsed records that also include intermediate labelling metadata needed by downstream levels.
+
+Evals run automatically after each task if `ORCHESTRATOR_RUN_EVALS=true`.
+
+Eval outputs are written under:
+
+`$EVALS_OUTPUT_DIR/<run_name>/`
+
+That folder typically contains:
+
+- `data/` for joined truth and prediction outputs
+- `metrics/` for metric files by truth column
+
+For screening runs, evals read the truth labels from `input_dir` directly. For the other tasks, evals resolve truth labels from `EVALS_LABELS_DIR`.
+
+If no ground-truth labels are found, evals do not block the run. Set `ORCHESTRATOR_RUN_EVALS=false` if you want to skip evals entirely.
+
+## Environment
+
+Most runtime behavior is controlled through `.env`. See [`.env.sample`](../.env.sample) for the full reference.
+
+Key variables:
+
+| Variable                       | Description                                                                                              |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `ORCHESTRATOR_SUBMISSION_MODE` | `live` or `batch`; both are supported, but `batch` is the recommended default when you want to save cost |
+| `ORCHESTRATOR_RUN_EVALS`       | Set `false` to skip automatic evals                                                                      |
+| `ORCHESTRATOR_LIMIT_DOCS`      | Cap documents per run (`none` for all)                                                                   |
+
+## Notes
+
+- This README focuses on the normal workflow used in this repo.
+- The root [README](../README.md) explains how this package fits into the full project flow.
+- [`evals_local/README.md`](../evals_local/README.md) covers standalone eval usage in more detail.

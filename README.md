@@ -46,7 +46,7 @@ cp .env.sample .env
 Open `.env` and replace the placeholder with your OpenAI API key:
 
 ```
-OPENAI_API_KEY=<ADD YOUR OPENAI API KEY HERE>  =  OPENAI_API_KEY=sk-...
+OPENAI_API_KEY=<ADD YOUR OPENAI API KEY HERE>  ->  OPENAI_API_KEY=sk-...
 ```
 
 Most of the repository behavior is driven by `.env`. For a normal first run, you usually only need to set `OPENAI_API_KEY`; the remaining defaults in `.env.sample` are set up to work with the provided `data/labels/` splits. The inline comments in `.env.sample` are the detailed reference for what each variable controls.
@@ -61,7 +61,7 @@ Example:
 python labelling/orchestrator.py data/labels/l1/train l1_train_170426_f1 --task driver
 ```
 
-Or, simply:
+In plain English, this command:
 
 - loads the provided `l1` training split from `data/labels/l1/train`
 - runs the `driver` coding task over every record in that split
@@ -69,6 +69,8 @@ Or, simply:
 - then, if evals are enabled in `.env`, compares the predicted labels against the true labels and writes metrics under `data/labels/eval/`
 
 This same pattern is used across the repo: pick an input split, choose a task, run the labelling workflow, and optionally evaluate the outputs against the reference labels.
+
+While Quick Start uses the provided `data/labels/` splits, the labelling package can also run on other folders of WoS-style export files as long as they contain the expected record fields. See [`labelling/README.md`](labelling/README.md) for those input requirements and the full task list.
 
 ---
 
