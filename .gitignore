@@ -1,4 +1,3 @@
-/archive
 /data/*
 !/data/labels/
 !/data/labels/**
@@ -6,31 +5,20 @@
 /data/labels/eval/**
 !/data/partitions-mock/
 !/data/partitions-mock/**
-/evals
 /venv
 /labelling/artifacts
 /labelling/__pycache__
-/mappings/prompts_templates.json
-/checklists/mappings/gbif_lookup_cache.pkl
 /checklists/mappings/*.pkl
 /archive*
 .env
 .DS_Store
 .claude
-.agents.md
 eval_notes.txt
-final_data_format_fields.txt
 
 # Notebooks
-fill_taxa_labels.ipynb
 run_evals_local.ipynb
 test_gbif_lookup.ipynb
 run_partitions.ipynb
-retrieval_test.ipynb
-iucn_rle_scraper.ipynb
-figures.ipynb
-upload_to_osf.ipynb
 notebooks/inspect_batch_output.ipynb
 
 __pycache__/
-archive-2
