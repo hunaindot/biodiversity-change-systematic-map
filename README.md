@@ -189,6 +189,7 @@ Output lands in `data/labels/eval/<run_name>/metrics/` as Excel files.
 ## Building / updating the dataset
 
 Before running labelling, ground-truth label CSVs need to be built from source Excel files and split into train/dev/test. See [`data_helpers/README.md`](data_helpers/README.md) for the full workflow.
+The reference screening and coding workbooks used to build these datasets live under `data/consistency-check-datasets/`.
 
 Short version:
 
