@@ -1,4 +1,5 @@
 /data/*
+!/data/README.md
 !/data/labels/
 !/data/labels/**
 /data/labels/eval/
