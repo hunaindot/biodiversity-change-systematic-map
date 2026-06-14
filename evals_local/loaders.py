@@ -449,23 +449,30 @@ def load_predictions(task: str, run_name: str) -> pd.DataFrame:
     return df
 
 
-def load_labels(task: str, label_path: Path | None = None) -> pd.DataFrame:
+def load_labels(task: str, label_path: Path | None = None, label_sheet: str | None = None) -> pd.DataFrame:
     cfg = TASK_CONFIG[task]
     path: Path = Path(label_path) if label_path is not None else cfg["label_path"]
     if cfg["task_type"] == "screening":
         return load_screening_labels(path)
-    # Handle both CSV and Excel files
+    # Handle both CSV and Excel files. Workbook sheet selection is opt-in so
+    # existing single-sheet Excel and CSV workflows remain unchanged.
     if path.suffix == ".csv":
         df = pd.read_csv(path)
     else:
-        df = pd.read_excel(path)
+        read_kwargs = {"sheet_name": label_sheet} if label_sheet else {}
+        df = pd.read_excel(path, **read_kwargs)
     df = df.rename(columns={"UT (Unique WOS ID)": "custom_id"})
     return df
 
 
-def join_truth_pred(task: str, run_name: str, label_path: Path | None = None) -> pd.DataFrame:
+def join_truth_pred(
+    task: str,
+    run_name: str,
+    label_path: Path | None = None,
+    label_sheet: str | None = None,
+) -> pd.DataFrame:
     preds = load_predictions(task, run_name)
-    labels = load_labels(task, label_path=label_path)
+    labels = load_labels(task, label_path=label_path, label_sheet=label_sheet)
 
     # Restrict labels to the records we actually have predictions for
     if "custom_id" in preds.columns:

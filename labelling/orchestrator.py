@@ -145,8 +145,18 @@ def main() -> None:
     outputs_ready = False
     submitted: list[dict] = []
     client = batch_api.build_client()
+    output_dir = BATCH_OUTPUTS_DIR / run_name
+
+    non_empty: list[Path] = []
+    for req_path in request_files:
+        if req_path.stat().st_size == 0:
+            print(f"[{task.name}] Skipping empty request file: {req_path.name}")
+            submitted.append(batch_api.create_empty_output(req_path, output_dir))
+        else:
+            non_empty.append(req_path)
+    request_files = non_empty
+
     if submission_mode == "live":
-        output_dir = BATCH_OUTPUTS_DIR / run_name
         submitted.extend(
             task.run_live(
                 request_files,
@@ -161,7 +171,7 @@ def main() -> None:
     else:
         for req_path in request_files:
             info = batch_api.submit_batch(
-                Path(req_path),
+                req_path,
                 client=client,
                 metadata=task.batch_metadata(run_name),
             )

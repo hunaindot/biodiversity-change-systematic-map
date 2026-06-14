@@ -64,8 +64,18 @@ def _normalizer_for(task: str, col: str):
     return to_label_set  # covers ecosystems, ecosystems_realm/biome/efg, driver, study, taxa, etc.
 
 
-def run_task(task: str, run_name: str, label_path: str | Path | None = None) -> dict:
-    df = join_truth_pred(task, run_name, label_path=Path(label_path) if label_path is not None else None)
+def run_task(
+    task: str,
+    run_name: str,
+    label_path: str | Path | None = None,
+    label_sheet: str | None = None,
+) -> dict:
+    df = join_truth_pred(
+        task,
+        run_name,
+        label_path=Path(label_path) if label_path is not None else None,
+        label_sheet=label_sheet,
+    )
     df, col_map = normalize_truth_pred(task, df)
 
     # Optional per-truth-column include masks to skip rows with placeholder labels
@@ -154,8 +164,6 @@ def run_task(task: str, run_name: str, label_path: str | Path | None = None) -> 
     metric_paths = {}
     if task == "screening":
         truth_col, pred_col = next(iter(col_map.items()))
-        truth_col = truth_col
-        pred_col = pred_col
 
         df["true_label"] = df[truth_col]
         df["pred_label"] = df[pred_col]
@@ -239,23 +247,13 @@ def run_task(task: str, run_name: str, label_path: str | Path | None = None) -> 
     return {"task": task, "rows": len(df), "data_path": str(data_path), "metric_paths": metric_paths}
 
 
-def _parse_run_name_map(raw: list[str]) -> Dict[str, str]:
+def _parse_task_map(raw: list[str], value_label: str = "value") -> Dict[str, str]:
     out: Dict[str, str] = {}
     for item in raw:
         if "=" not in item:
-            raise ValueError(f"Invalid mapping '{item}', expected task=run_name")
-        task, name = item.split("=", 1)
-        out[_normalize_task_name(task)] = name.strip()
-    return out
-
-
-def _parse_path_map(raw: list[str]) -> Dict[str, str]:
-    out: Dict[str, str] = {}
-    for item in raw:
-        if "=" not in item:
-            raise ValueError(f"Invalid mapping '{item}', expected task=path")
-        task, path = item.split("=", 1)
-        out[_normalize_task_name(task)] = path.strip()
+            raise ValueError(f"Invalid mapping '{item}', expected task={value_label}")
+        task, val = item.split("=", 1)
+        out[_normalize_task_name(task)] = val.strip()
     return out
 
 
@@ -287,18 +285,27 @@ def run_tasks_with_mapping(
     tasks: Iterable[str] | str | None = None,
     run_name_map: Dict[str, str] | None = None,
     label_path_map: Dict[str, str] | None = None,
+    label_sheet_map: Dict[str, str] | None = None,
     base_run_name: str | None = None,
     use_suffixes: bool = False,
 ) -> list[dict]:
     tasks = _normalize_tasks(tasks)
     run_name_map = _normalize_task_key_map(run_name_map)
     label_path_map = _normalize_task_key_map(label_path_map)
+    label_sheet_map = _normalize_task_key_map(label_sheet_map)
     summaries = []
     for task in tasks:
         if task not in TASK_CONFIG:
             raise ValueError(f"Unknown task '{task}'")
         resolved = resolve_run_name(task, run_name, run_name_map, base_run_name, use_suffixes)
-        summaries.append(run_task(task, resolved, label_path=label_path_map.get(task) if label_path_map else None))
+        summaries.append(
+            run_task(
+                task,
+                resolved,
+                label_path=label_path_map.get(task) if label_path_map else None,
+                label_sheet=label_sheet_map.get(task) if label_sheet_map else None,
+            )
+        )
     return summaries
 
 
@@ -308,6 +315,7 @@ def run_tasks(
     use_suffixes: bool = False,
     per_task_run_names: Dict[str, str] | None = None,
     per_task_label_paths: Dict[str, str] | None = None,
+    per_task_label_sheets: Dict[str, str] | None = None,
 ) -> list[dict]:
     """Wrapper that applies the suffix/auto-fallback logic by default."""
     return run_tasks_with_mapping(
@@ -315,6 +323,7 @@ def run_tasks(
         tasks=tasks,
         run_name_map=per_task_run_names,
         label_path_map=per_task_label_paths,
+        label_sheet_map=per_task_label_sheets,
         base_run_name=run_name,
         use_suffixes=use_suffixes,
     )
@@ -339,15 +348,22 @@ def main(argv: list[str] | None = None) -> None:
         nargs="*",
         help="Explicit mapping like screening=data/labels/l0-custom driver=data/labels/l1/custom.csv",
     )
+    parser.add_argument(
+        "--per-task-label-sheets",
+        nargs="*",
+        help="Explicit mapping like driver=l1_manual_sample geography=l3_manual_sample when a task truth source is a multi-sheet workbook.",
+    )
     args = parser.parse_args(argv)
 
-    run_name_map = _parse_run_name_map(args.per_task_run_names) if args.per_task_run_names else None
-    label_path_map = _parse_path_map(args.per_task_label_paths) if args.per_task_label_paths else None
+    run_name_map = _parse_task_map(args.per_task_run_names, "run_name") if args.per_task_run_names else None
+    label_path_map = _parse_task_map(args.per_task_label_paths, "path") if args.per_task_label_paths else None
+    label_sheet_map = _parse_task_map(args.per_task_label_sheets, "sheet_name") if args.per_task_label_sheets else None
     summaries = run_tasks_with_mapping(
         run_name=args.run_name,
         tasks=args.tasks,
         run_name_map=run_name_map,
         label_path_map=label_path_map,
+        label_sheet_map=label_sheet_map,
         base_run_name=args.run_name if args.use_default_suffixes else None,
         use_suffixes=args.use_default_suffixes,
     )

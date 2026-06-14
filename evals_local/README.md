@@ -1,89 +1,126 @@
 # evals_local
 
-Computes evaluation metrics from labelling run outputs, comparing model predictions against ground-truth label CSVs. Runs automatically at the end of each `orchestrator.py` run, or can be invoked standalone.
+This package evaluates labelling runs by comparing predicted labels against the reference labels and writing metric files. In the normal repo workflow, it runs automatically at the end of `labelling/orchestrator.py`. You only need to call it directly when you want to rerun evals for an existing run.
 
-## Package layout
+## Quick use
 
-```
-evals_local/
-├── config.py       # paths, task registry, default run-name suffixes
-├── loaders.py      # joins truth CSVs with prediction JSONL outputs
-├── metrics.py      # per-label and binary metric computations
-├── normalizers.py  # label normalisation (geography, threats, taxa, …)
-└── run.py          # CLI entry point + run_tasks() API
-```
-
-## Usage
-
-### Standalone CLI
+Standalone evals are run from the repo root:
 
 ```bash
-python -m evals_local <run_name> [--tasks <task> …]
+python -m evals_local <run_name> --tasks <task>
 ```
 
-Examples from recent eval runs:
+Example:
 
 ```bash
-# Single task
 python -m evals_local l1_train_170426_f1 --tasks driver
+```
 
-# Multiple tasks from one run
-python -m evals_local l3_train_170426_f2 --tasks geography
+In plain English, this command:
 
-# Screening (label path must be the input dir used during labelling)
+- loads the saved outputs for the run `l1_train_170426_f1`
+- compares the predicted `driver` labels against the reference labels
+- writes merged prediction-vs-truth files and metric spreadsheets under `data/labels/eval/l1_train_170426_f1/`
+
+For screening, manual eval reruns may need the original input folder passed again as the truth-label path:
+
+```bash
 python -m evals_local l0_cc2a_train_170426_f1 --tasks screening \
     --per-task-label-paths screening=data/labels/l0/train
 ```
 
-### Per-task run names (when outputs are spread across multiple run names)
+For coding tasks, you can also point evals at a multi-sheet workbook by passing both the workbook path and the sheet name for that task:
 
 ```bash
-python -m evals_local --per-task-run-names \
-    driver=l1_train_170426_f1 \
-    geography=l3_train_170426_f1
+python -m evals_local l1_manual_sample_run --tasks driver \
+    --per-task-label-paths driver=data/consistency-check-datasets/data-coding/annotated_coding_dataset.xlsx \
+    --per-task-label-sheets driver=l1_manual_sample
 ```
 
-### Default suffix mode (shared base name)
+If you do not pass a custom label path, evals continue to use the default truth sources under `data/labels/`.
 
-```bash
-# Expects batch_outputs/<base>/, batch_outputs/<base>-screen/, etc.
-python -m evals_local my_base_run --use-default-suffixes
-```
+## Normal workflow
 
-Default suffixes: `driver=""`, `screening="-screen"`, `geography="-geography"`, `threats="-threats"`, `ecosystems="-ecosystem"`, `study="-study"`, `taxa="-taxa"`.
+Most users do not need to run this package separately. The usual flow is:
 
-## Output
+- run a labelling task with `labelling/orchestrator.py`
+- let evals run automatically if `ORCHESTRATOR_RUN_EVALS=true`
+- inspect the outputs written under `data/labels/eval/<run_name>/`
 
-All outputs land in `data/labels/eval/<run_name>/`:
+Direct use of `evals_local` is mainly helpful when:
 
-```
+- an earlier labelling run finished but evals failed
+- you changed eval logic and want to rerun metrics
+- you want to point a task at a custom label path or workbook sheet
+
+## Supported tasks
+
+Use these task names with `--tasks`:
+
+| Task               | Default truth source                                  | Metrics produced                                         |
+| ------------------ | ----------------------------------------------------- | -------------------------------------------------------- |
+| `driver`           | `data/labels/l1/L1) driver set.csv`                   | `driver`                                                 |
+| `screening`        | `data/labels/l0/` or custom screening label directory | `eligibility`                                            |
+| `threats`          | `data/labels/l2/L2) threats set.csv`                  | `threats_l0`, `threats_l1`                               |
+| `threats_l0`       | `data/labels/l2/L2) threats set.csv`                  | `threats_l0`                                             |
+| `threats_l1`       | `data/labels/l2/L2) threats set.csv`                  | `threats_l1`                                             |
+| `threats_l2`       | `data/labels/l2/L2) threats set.csv`                  | no ground-truth metrics                                  |
+| `geography`        | `data/labels/l3/L3) geography set.csv`                | `region`, `sub-region`, `country`                        |
+| `ecosystems`       | `data/labels/l4/L4) ecosystem set.csv`                | `realm`, `biome`                                         |
+| `ecosystems_realm` | `data/labels/l4/L4) ecosystem set.csv`                | `realm`                                                  |
+| `ecosystems_biome` | `data/labels/l4/L4) ecosystem set.csv`                | `biome`                                                  |
+| `ecosystems_efg`   | `data/labels/l4/L4) ecosystem set.csv`                | no ground-truth metrics                                  |
+| `study`            | `data/labels/l5/L5) study set.csv`                    | `study_design`                                           |
+| `taxa`             | `data/labels/l6/L6) taxa set.csv`                     | `kingdom`, `phylum`, `class`, `order`, `genus`, `specie` |
+
+The CLI also accepts a few convenience aliases internally, but this README only lists the main task names used in the repo workflow.
+
+## Outputs
+
+All eval outputs are written under:
+
+`data/labels/eval/<run_name>/`
+
+That folder contains:
+
+- `data/` for merged truth-and-prediction spreadsheets
+- `metrics/` for per-column metric spreadsheets
+
+Typical file structure:
+
+```text
 data/labels/eval/<run_name>/
 ├── data/
-│   └── <task>.xlsx          # merged truth + prediction rows with confusion columns
+│   └── <task>.xlsx
 └── metrics/
     ├── <task>_<col>_label_metrics.xlsx
-    └── <task>_<col>_confusion.xlsx   # screening only
+    └── <task>_<col>_confusion.xlsx
 ```
 
-## Available tasks
+Confusion spreadsheets are only written for the screening-style binary metrics.
 
-| Task | Truth CSV (default) | Metrics columns |
-|---|---|---|
-| `driver` | `data/labels/l1/L1) driver set.csv` | `driver` |
-| `screening` | `data/labels/l0/` (directory) | `eligibility` |
-| `threats` / `threats_l0/l1/l2` | `data/labels/l2/L2) threats set.csv` | `threats_l0`, `threats_l1` |
-| `geography` | `data/labels/l3/L3) geography set.csv` | `region`, `sub-region`, `country` |
-| `ecosystems` / `ecosystems_realm/biome/efg` | `data/labels/l4/L4) ecosystem set.csv` | `realm`, `biome` |
-| `study` | `data/labels/l5/L5) study set.csv` | `study_design` |
-| `taxa` | `data/labels/l6/L6) taxa set.csv` | `kingdom`, `phylum`, `class`, `order`, `genus`, `specie` |
+## Other CLI modes
 
-## Configuration
+The normal manual pattern is one `run_name` plus one `--tasks` value. The CLI also supports some advanced modes:
 
-Paths are read from `.env` via `evals_local/config.py`:
+- `--per-task-run-names` when different tasks live under different run names
+- `--use-default-suffixes` when several task outputs share a common base run name
+- `--per-task-label-paths` when a task should evaluate against a non-default truth path
+- `--per-task-label-sheets` when that custom truth path is a multi-sheet workbook and the task should use a specific sheet
 
-| Key | Description |
-|---|---|
-| `EVALS_LABELS_DIR` | Root directory for ground-truth CSVs (default: `data/labels`) |
-| `EVALS_OUTPUT_DIR` | Where eval output Excel files are written (default: `data/labels/eval`) |
-| `EVALS_GBIF_CACHE_PATH` | Pickle cache for GBIF taxon lookups (default: `checklists/mappings/gbif_lookup_cache.pkl`) |
-| `ORCHESTRATOR_BATCH_OUTPUTS_DIR` | Where labelling JSONL outputs are read from |
+`--per-task-label-sheets` is only meaningful together with `--per-task-label-paths`.
+
+Those modes are mainly there for flexible reruns and older run layouts rather than day-to-day use.
+
+## Environment
+
+Most behavior is controlled through `.env`. See [`.env.sample`](../.env.sample) for the full reference.
+
+Key variables:
+
+| Key                              | Description                                           |
+| -------------------------------- | ----------------------------------------------------- |
+| `EVALS_LABELS_DIR`               | Root directory for ground-truth labels                |
+| `EVALS_OUTPUT_DIR`               | Directory where eval output files are written         |
+| `EVALS_GBIF_CACHE_PATH`          | GBIF lookup cache used by taxa-related eval logic     |
+| `ORCHESTRATOR_BATCH_OUTPUTS_DIR` | Directory from which labelling JSONL outputs are read |

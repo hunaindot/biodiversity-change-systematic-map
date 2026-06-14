@@ -23,7 +23,7 @@ Example:
 python labelling/orchestrator.py data/labels/l1/train l1_train_170426_f1 --task driver
 ```
 
-Or, simply:
+In plain English, this command:
 
 - loads the `l1` train split from `data/labels/l1/train`
 - runs the `driver` task on every record in that folder
@@ -107,7 +107,7 @@ That folder typically contains:
 - `data/` for joined truth and prediction outputs
 - `metrics/` for metric files by truth column
 
-For screening runs, evals read the truth labels from `input_dir` directly. For the other tasks, evals resolve truth labels from `EVALS_LABELS_DIR`.
+For screening runs, automatic evals read the truth labels from `input_dir` directly. For the other tasks, evals resolve truth labels from `EVALS_LABELS_DIR`.
 
 If no ground-truth labels are found, evals do not block the run. Set `ORCHESTRATOR_RUN_EVALS=false` if you want to skip evals entirely.
 

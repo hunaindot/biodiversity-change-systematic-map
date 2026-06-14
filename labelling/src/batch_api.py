@@ -132,15 +132,21 @@ def _sanitize_batch_request_bytes(requests_path: Path) -> io.BytesIO:
                 continue
             sanitized = {key: payload[key] for key in allowed_keys if key in payload}
             buf.write((json.dumps(sanitized, ensure_ascii=False) + "\n").encode("utf-8"))
-    buf.name = requests_path.name
     buf.seek(0)
     return buf
+
+
+def create_empty_output(req_path: Path, output_dir: Path) -> dict:
+    out_name = req_path.name.replace("-requests.jsonl", "-output.jsonl")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / out_name).touch()
+    return {"mode": "skipped", "request_path": str(req_path), "output_path": str(output_dir / out_name), "status": "empty"}
 
 
 def submit_batch(requests_path: Path, client: OpenAI | None = None, completion_window: str = "24h", metadata: dict | None = None) -> dict:
     client = client or build_client()
     upload_stream = _sanitize_batch_request_bytes(requests_path)
-    upload = client.files.create(file=upload_stream, purpose="batch")
+    upload = client.files.create(file=(requests_path.name, upload_stream), purpose="batch")
     batch = client.batches.create(
         input_file_id=upload.id,
         endpoint="/v1/responses",

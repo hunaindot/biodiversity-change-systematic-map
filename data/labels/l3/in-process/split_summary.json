@@ -15,8 +15,8 @@
   },
   "split_counts": {
     "train": 1410,
-    "dev": 472,
-    "test": 468
+    "dev": 471,
+    "test": 469
   },
   "stratification": {
     "column": "region",
