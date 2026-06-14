@@ -1,5 +1,3 @@
-# data
-
 This folder holds the main datasets and generated artifacts used across the repository.
 
 At a high level, the default repo workflow is:
@@ -113,11 +111,13 @@ Although `data_helpers` can rebuild these datasets from the reference workbooks,
 `data/labels/eval/` stores the evaluation outputs produced for labelling runs.
 
 In the normal workflow:
+
 - `labelling/` runs a task and writes its model outputs under `data/artifacts/`
 - `evals_local/` then compares those outputs against the reference labels
 - the resulting evaluation files are written under `data/labels/eval/<run_name>/`
 
 At a broad level, this folder is organized by run name. Each run folder typically contains:
+
 - `data/`
   - merged prediction-vs-truth outputs for that run
 - `metrics/`
