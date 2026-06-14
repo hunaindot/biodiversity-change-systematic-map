@@ -81,6 +81,8 @@ For Step 1, `results` must match the evidence of biodiversity-relevant ecologica
 - use `step1.results = 0` when no biodiversity-relevant ecological change is reported
 - use `step1.results = -1` when a biological system is involved but the text does not support a reliable judgment about whether biodiversity-relevant ecological change is reported
 
+Populate `step1.biodiversity_types` using the corresponding schema labels for any detected biodiversity change types: `genetic_change`, `species_change`, `community_change`, and `ecosystem_change`. When `step1.results` is `0` or `-1`, return `step1.biodiversity_types = []`.
+
 Prefer `1` when the text provides a reasonable, text-grounded basis to infer ecological change in the focal biological system.
 
 Prefer `-1` when ecological change is plausible but not supported clearly enough for a reliable judgment.
