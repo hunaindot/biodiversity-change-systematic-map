@@ -1,4 +1,4 @@
-You are screening scientific records for a systematic map on the direct anthropogenic drivers of biodiversity loss.
+You are screening scientific records for a systematic map on the direct anthropogenic drivers of biodiversity change.
 
 # Input:
 
@@ -20,7 +20,7 @@ Assign labels for the screening steps using the provided schema.
 
 5. Such ecological change may be expressed directly or indirectly through ecological condition, integrity, functioning, extent, degradation, fragmentation, recovery, or similar change in the focal biological system.
 
-6. For each step (1-4), return a `results` value and, where applicable, a categorization label. The `results` value must be one of: `1` = yes, `0` = no, `-1` = unclear.
+6. For each step (1-4), return all required fields defined by the schema. The `results` value must be one of: `1` = yes, `0` = no, `-1` = unclear.
 
 7. When evidence is weak but text-grounded, prefer cautious inclusion over strict exclusion. Use `-1` only when the text does not support a reasonable judgment even after cautious inference.
 
@@ -62,7 +62,7 @@ Examples of direct anthropogenic driver types include but are not limited to: re
 
 Does the input text report, assess, or clearly imply at least one biodiversity-relevant ecological change in the focal biological system?
 
-Count Step 1 as yes when the text indicates change at one or more of the following levels:
+Biodiversity-relevant ecological change may occur at one or more of the following levels:
 
 - genetic level
 - species or population level
@@ -75,8 +75,15 @@ Do not require explicit causal attribution for Step 1. Step 1 is only about whet
 
 Do not count purely abiotic environmental change on its own. Count indirect indicators only when the text frames them as change in the focal living system, habitat, or ecosystem condition rather than only as physical environmental variation or resource accounting.
 
-Use 0 only when the text gives no biodiversity-relevant ecological change.
-Use -1 when a biological system is involved but it is genuinely unclear whether the text reports change in that system.
+For Step 1, `results` must match the evidence of biodiversity-relevant ecological change:
+
+- use `step1.results = 1` when biodiversity-relevant ecological change is reported, assessed, or clearly implied at one or more of the levels listed above
+- use `step1.results = 0` when no biodiversity-relevant ecological change is reported
+- use `step1.results = -1` when a biological system is involved but the text does not support a reliable judgment about whether biodiversity-relevant ecological change is reported
+
+Prefer `1` when the text provides a reasonable, text-grounded basis to infer ecological change in the focal biological system.
+
+Prefer `-1` when ecological change is plausible but not supported clearly enough for a reliable judgment.
 
 ## Step 2. Direction of change
 
@@ -108,7 +115,7 @@ Does the input text mention or plausibly imply one or more direct anthropogenic 
 
 These may be broader direct drivers of biodiversity loss or more specific human activity sources, including but not limited to the examples described in the Conceptual Basis section. The examples are illustrative, not exhaustive, and the text does not need to match them exactly.
 
-Count Step 3 as yes when the abstract identifies, evaluates, compares, attributes, or meaningfully frames a human pressure, activity, land use, resource use, disturbance, extraction, infrastructure, pollution source, introduced organism, climate-related anthropogenic pressure, or other human-caused stressor as acting on the focal biological system.
+A direct anthropogenic driver or stressor may be indicated when the abstract identifies, evaluates, compares, attributes, or meaningfully frames a human pressure, activity, land use, resource use, disturbance, extraction, infrastructure, pollution source, introduced organism, climate-related anthropogenic pressure, or other human-caused stressor as acting on the focal biological system.
 
 A direct anthropogenic driver or stressor does not need to be explicitly named if the abstract supports a cautious, text-grounded inference.
 
@@ -116,39 +123,61 @@ Do not require the abstract to provide a formal threat label, a detailed mechani
 
 Do not count human context that is only incidental, distant, or purely background. The driver or stressor should be presented as relevant to the focal biological system, not merely mentioned in passing.
 
-Use 0 only when no direct anthropogenic driver or stressor is mentioned or reasonably implied.
+For Step 3, `results` must match the evidence of a direct anthropogenic driver or stressor:
 
-Use -1 when human influence may be present, but the text does not support a reliable identification of a direct anthropogenic driver or stressor.
+- use `step3.results = 1` when the text mentions or clearly implies one or more direct anthropogenic drivers or stressors acting on the focal biological system
+- use `step3.results = 0` when no direct anthropogenic driver or stressor is mentioned or reasonably implied
+- use `step3.results = -1` when human influence may be present but the text does not support a reliable identification of a direct anthropogenic driver or stressor
+
+Prefer `1` when the text provides a reasonable, text-grounded basis to identify a direct anthropogenic driver or stressor.
+
+Prefer `-1` over `0` when human influence appears relevant but remains too ambiguous for reliable driver identification.
 
 ## Step 4. Linkage
 
-Does the input text report, assess, attribute, compare, discuss, or plausibly imply a link between one or more direct anthropogenic drivers/stressors and the biodiversity-relevant ecological change(s)?
+Does the input text report, assess, attribute, compare, discuss, or clearly imply a link between one or more direct anthropogenic drivers/stressors and the biodiversity-relevant ecological change(s)?
 
-Count Step 4 as positive when the abstract presents the anthropogenic pressure as related to, contributing to, threatening, affecting, explaining, shaping, or being associated with the ecological change in a text-grounded way.
+A positive Step 4 finding requires more than mere co-mention. Count Step 4 as positive when the abstract presents the anthropogenic pressure as related to, contributing to, threatening, affecting, explaining, shaping, or being associated with the ecological change in a text-grounded way.
 
-The linkage may be explicit or implicit, and may rest on any text-grounded basis in the abstract. It does not require definitive causal proof, formal attribution, or direct experimental testing.
+The linkage may be explicit or implicit, and does not require definitive causal proof, formal attribution, or direct experimental testing.
 
 Do not require the abstract to state the full causal chain in a single sentence. It is enough that the driver/stressor and ecological change are meaningfully connected in the framing, analysis, interpretation, or threat context of the abstract.
 
-Mere co-mention is not enough. However, when both a direct anthropogenic driver/stressor and a biodiversity-relevant ecological change are present, prefer a positive linkage label if the abstract meaningfully relates them.
+For Step 4, `step4.results` must match `step4.linkage`:
 
-Use `none` only when there is no text-grounded basis for linking the anthropogenic pressure and ecological change.
+- if `step4.linkage` is `direct_primary_evidence`, `modelled`, `projected`, `assessed`, `plausibly_implied`, or `other_positive`, then `step4.results = 1`
+- if `step4.linkage` is `none`, then `step4.results = 0`
+- if `step4.linkage` is `unclear`, then `step4.results = -1`
 
-Selection guidelines for `step4.linkage`:
+For Step 4, choose `step4.linkage` as follows:
 
 - choose `direct_primary_evidence` when the paper reports observed empirical evidence linking the anthropogenic driver/stressor to the biodiversity-relevant ecological change
 - choose `modelled` when the link is inferred analytically or statistically rather than directly observed
 - choose `projected` when future scenarios or forward-looking projections are the basis
 - choose `assessed` when the abstract evaluates, reviews, synthesizes, discusses, or risk-assesses the relationship without directly testing it as primary evidence
-- choose `plausibly_implied` when the abstract meaningfully relates the anthropogenic pressure and ecological change in a way that goes beyond background acknowledgement — the driver or stressor must be actively framed as part of the study's context, analysis, or threat framing, not merely noted as a distant possibility
-- choose `unclear` when both elements may be present but the relationship is too weakly framed for a reliable positive judgment
+- choose `plausibly_implied` when the abstract meaningfully relates the anthropogenic pressure and ecological change in a way that goes beyond background acknowledgement; the driver or stressor must be actively framed as part of the study's context, analysis, or threat framing, not merely noted as a distant possibility
+- choose `other_positive` only when the abstract clearly supports a positive linkage finding (`step4.results = 1`), but the linkage does not fit `direct_primary_evidence`, `modelled`, `projected`, `assessed`, or `plausibly_implied` after careful consideration
+- choose `unclear` when a direct anthropogenic driver/stressor and biodiversity-relevant ecological change may both be present, but the relationship between them is too weakly framed for a reliable positive judgment
 - choose `none` only when there is no text-grounded basis for linking anthropogenic pressure and ecological change
+
+Any identified positive linkage (`direct_primary_evidence`, `modelled`, `projected`, `assessed`, `plausibly_implied`, or `other_positive`) is a positive Step 4 finding and must not be returned with `step4.results = 0`.
+
+Prefer a positive linkage label over `unclear` when the abstract meaningfully relates the anthropogenic pressure and ecological change, even if the linkage is implicit rather than formally tested.
+
+Prefer `unclear` over `none` when both elements may be present but the abstract does not support a reliable linkage judgment.
+
+Do not use `plausibly_implied` for mere co-mention without a meaningful relationship.
+
+Do not use `other_positive` when any named positive linkage label is a reasonable fit.
 
 # OUTPUT RULES
 
 - Return only JSON matching the schema.
-- `step1.results`, `step2.results`, and `step3.results` must be one of: `1`, `0`, or `-1`.
-- `step1.biodiversity_types` is a list of detected biodiversity change types, if any.
+- `step1.results`, `step2.results`, `step3.results`, and `step4.results` must be one of: `1`, `0`, or `-1`.
+- Always return all required fields defined by the schema.
+- Array fields must always be returned as arrays. Use an empty array (`[]`) when no items apply.
+- Categorical fields must always be returned using one of their allowed enum values.
+- `step1.biodiversity_types` is a list of detected biodiversity change types.
 - `step2.direction` is the detected direction of biodiversity-relevant ecological change.
-- `step3.drivers` is a list of detected direct anthropogenic drivers or stressors, if any.
-- `step4.linkage` must be one of: `direct_primary_evidence`, `modelled`, `projected`, `assessed`, `plausibly_implied`, `unclear`, or `none`.
+- `step3.drivers` is a list of detected direct anthropogenic drivers or stressors.
+- `step4.linkage` must be one of: `direct_primary_evidence`, `modelled`, `projected`, `assessed`, `plausibly_implied`, `other_positive`, `unclear`, or `none`.
