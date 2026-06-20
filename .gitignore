@@ -25,3 +25,4 @@ notebooks/test_gbif_lookup.ipynb
 notebooks/run_partitions.ipynb
 
 __pycache__/
+data/consistency-check-datasets/screening/combined-train-search/combined.csv

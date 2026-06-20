@@ -59,10 +59,16 @@ def _safe_series(values) -> pd.Series:
     return pd.Series(values)
 
 
-def binary_metrics(truth, pred, labels: list[str] | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Compute binary/multiclass metrics without Jaccard and return (metrics_df, confusion_df).
-    truth/pred should be 1D iterables of canonical label strings.
+def screening_summary_metrics(
+    truth,
+    pred,
+    pos_label: str = "ELIGIBLE",
+    neg_label: str = "NOT_ELIGIBLE",
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Return a screening-only summary plus the binary confusion table.
+
+    The summary is intentionally compact: confusion counts and positive-class
+    recall for the ELIGIBLE class. Rows with empty truth labels are excluded.
     """
     truth = _safe_series(truth).fillna("").astype(str)
     pred = _safe_series(pred).fillna("").astype(str)
@@ -70,9 +76,7 @@ def binary_metrics(truth, pred, labels: list[str] | None = None) -> tuple[pd.Dat
     truth = truth[mask].reset_index(drop=True)
     pred = pred[mask].reset_index(drop=True)
 
-    if labels is None:
-        labels = sorted(set(truth) | set(pred))
-    total = len(truth)
+    labels = [pos_label, neg_label]
     confusion_rows = []
     for actual in labels:
         for predicted in labels:
@@ -80,89 +84,29 @@ def binary_metrics(truth, pred, labels: list[str] | None = None) -> tuple[pd.Dat
             confusion_rows.append({"actual": actual, "predicted": predicted, "count": count})
     confusion_df = pd.DataFrame(confusion_rows)
 
-    rows = []
-    tp_sum = fp_sum = fn_sum = 0
-    support_sum = total
-    for label in labels:
-        tp = int(((truth == label) & (pred == label)).sum())
-        fp = int(((truth != label) & (pred == label)).sum())
-        fn = int(((truth == label) & (pred != label)).sum())
-        tn = int(total - tp - fp - fn)
-        prec = tp / (tp + fp) if (tp + fp) else 0.0
-        rec = tp / (tp + fn) if (tp + fn) else 0.0
-        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
-        support = int((truth == label).sum())
-        rows.append(
+    tp = int(((truth == pos_label) & (pred == pos_label)).sum())
+    fp = int(((truth != pos_label) & (pred == pos_label)).sum())
+    fn = int(((truth == pos_label) & (pred != pos_label)).sum())
+    tn = int(((truth == neg_label) & (pred == neg_label)).sum())
+    positive_support = int((truth == pos_label).sum())
+    scored_rows = int(len(truth))
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+
+    summary_df = pd.DataFrame(
+        [
             {
-                "label": label,
+                "positive_label": pos_label,
                 "tp": tp,
                 "fp": fp,
                 "fn": fn,
                 "tn": tn,
-                "precision": prec,
-                "recall": rec,
-                "f1": f1,
-                "support": support,
+                "eligible_recall": recall,
+                "positive_support": positive_support,
+                "scored_rows": scored_rows,
             }
-        )
-        tp_sum += tp
-        fp_sum += fp
-        fn_sum += fn
-
-    # Macro and weighted averages
-    label_count = len(rows) or 1
-    macro = {
-        "label": "_macro",
-        "tp": None,
-        "fp": None,
-        "fn": None,
-        "tn": None,
-        "precision": sum(r["precision"] for r in rows) / label_count,
-        "recall": sum(r["recall"] for r in rows) / label_count,
-        "f1": sum(r["f1"] for r in rows) / label_count,
-        "support": support_sum,
-    }
-    weighted = {
-        "label": "_weighted",
-        "tp": None,
-        "fp": None,
-        "fn": None,
-        "tn": None,
-        "precision": sum(r["precision"] * r["support"] for r in rows) / support_sum if support_sum else 0.0,
-        "recall": sum(r["recall"] * r["support"] for r in rows) / support_sum if support_sum else 0.0,
-        "f1": sum(r["f1"] * r["support"] for r in rows) / support_sum if support_sum else 0.0,
-        "support": support_sum,
-    }
-    micro_denom_prec = tp_sum + fp_sum
-    micro_denom_rec = tp_sum + fn_sum
-    micro_precision = tp_sum / micro_denom_prec if micro_denom_prec else 0.0
-    micro_recall = tp_sum / micro_denom_rec if micro_denom_rec else 0.0
-    micro_f1 = 2 * micro_precision * micro_recall / (micro_precision + micro_recall) if (micro_precision + micro_recall) else 0.0
-    micro = {
-        "label": "_micro",
-        "tp": tp_sum,
-        "fp": fp_sum,
-        "fn": fn_sum,
-        "tn": None,
-        "precision": micro_precision,
-        "recall": micro_recall,
-        "f1": micro_f1,
-        "support": support_sum,
-    }
-    accuracy = {
-        "label": "_accuracy",
-        "tp": None,
-        "fp": None,
-        "fn": None,
-        "tn": None,
-        "precision": None,
-        "recall": None,
-        "f1": micro_f1,  # accuracy equals micro-F1 in binary, but keep as convenience
-        "support": support_sum,
-    }
-    rows.extend([macro, weighted, micro, accuracy])
-    metrics_df = pd.DataFrame(rows)
-    return metrics_df, confusion_df
+        ]
+    )
+    return summary_df, confusion_df
 
 
 def label_metrics(

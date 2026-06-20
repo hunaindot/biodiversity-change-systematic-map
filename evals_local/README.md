@@ -99,6 +99,16 @@ data/labels/eval/<run_name>/
 
 Confusion spreadsheets are only written for the screening-style binary metrics.
 
+For `screening`, the summary workbook `screening_eligibility_label_metrics.xlsx`
+is intentionally compact. It contains only confusion-derived counts and
+`ELIGIBLE` recall (`TP / (TP + FN)`). The separate
+`screening_eligibility_confusion.xlsx` workbook still contains the 2x2 confusion
+table.
+
+For non-screening tasks, the `*_label_metrics.xlsx` workbooks still contain the
+per-label metrics plus aggregate rows such as `_macro`, `_weighted`, and
+`_micro`.
+
 ## Other CLI modes
 
 The normal manual pattern is one `run_name` plus one `--tasks` value. The CLI also supports some advanced modes:

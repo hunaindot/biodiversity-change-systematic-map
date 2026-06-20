@@ -1,11 +1,14 @@
 # Review of protocol consistency checks
 
 - Primary metric = Recall
-  TP/ TP + FP where TP is the "Eligible" label.
+  `TP / (TP + FN)` where `ELIGIBLE` is the positive class.
 - CC1 = Compare LLM Labels v. Reference Expert Labels in forms of Train, Dev, Test sets
 - CC2 = Compare LLM Labels v. Mnaual Labels assigned based on abstract reading
 
 - Cmd to run eval: python -m evals_local l0_train_140626_low_f1 --tasks screening
+- Screening eval outputs to inspect:
+  - `metrics/screening_eligibility_confusion.xlsx`
+  - `metrics/screening_eligibility_label_metrics.xlsx` with confusion counts plus `ELIGIBLE` recall only
 
 ## [Train, Dev, Test] Commands to reproduce
 

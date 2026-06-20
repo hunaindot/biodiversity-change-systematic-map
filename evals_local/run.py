@@ -8,7 +8,7 @@ import pandas as pd
 
 from .config import EVAL_OUTPUT_DIR, TASK_CONFIG, DEFAULT_RUN_SUFFIXES, BATCH_OUTPUTS_DIR
 from .loaders import join_truth_pred, normalize_truth_pred
-from .metrics import label_metrics, record_confusion, binary_metrics
+from .metrics import label_metrics, record_confusion, screening_summary_metrics
 from .normalizers import normalize_geo_labels, normalize_region_labels, to_label_set, normalize_screening_label, normalize_threat_labels
 
 
@@ -57,8 +57,6 @@ def _normalizer_for(task: str, col: str):
         if col == "sub-region":
             return to_label_set
         return normalize_geo_labels
-    if task == "screening":
-        return lambda v: {normalize_screening_label(v)}
     if task in ("threats", "threats_l0", "threats_l1", "threats_l2"):
         return normalize_threat_labels
     return to_label_set  # covers ecosystems, ecosystems_realm/biome/efg, driver, study, taxa, etc.
@@ -185,10 +183,9 @@ def run_task(
         df.loc[has_truth, "fn"] = (~pred_pos & true_pos & has_truth).astype("Int64")
         df.loc[has_truth, "tn"] = (~pred_pos & ~true_pos & has_truth).astype("Int64")
 
-        metrics_df, confusion_df = binary_metrics(
+        metrics_df, confusion_df = screening_summary_metrics(
             truth_norm,
             pred_norm,
-            labels=["ELIGIBLE", "NOT_ELIGIBLE"],
         )
         metrics_path = metrics_dir / f"{task}_{truth_col}_label_metrics.xlsx"
         confusion_path = metrics_dir / f"{task}_{truth_col}_confusion.xlsx"
