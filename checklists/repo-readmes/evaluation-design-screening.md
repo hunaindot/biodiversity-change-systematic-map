@@ -16,27 +16,34 @@
 - Screening eval outputs to inspect:
   - `metrics/screening_eligibility_confusion.xlsx`
   - `metrics/screening_eligibility_label_metrics.xlsx` with confusion counts plus `ELIGIBLE` recall only
+- Status
+  [Completed]: Implies that run is run is executed, data is download, and evals are added
+
+## CC1 A
 
 ## CC1 B
 
-python labelling/orchestrator.py data/consistency-check-datasets/screening/combined-train-search l0_cc1_combined_010726_medium_f1 --task screen
+[Completed] python labelling/orchestrator.py data/consistency-check-datasets/screening/combined-train-search l0_cc1_combined_010726_medium_f1 --task screen
 
 ## CC2 [Train, Dev, Test] Commands to reproduce
 
 ### Dev sets executed for different reasoning [low, medium, high] (In order)
 
-python labelling/orchestrator.py data/labels/l0/dev l0_dev_010726_low_f1 --task screen
-python labelling/orchestrator.py data/labels/l0/dev l0_dev_010726_medium_f1 --task screen
-python labelling/orchestrator.py data/labels/l0/dev l0_dev_010726_high_f1 --task screen
+[Completed] python labelling/orchestrator.py data/labels/l0/dev l0_dev_010726_low_f1 --task screen
+[Completed] python labelling/orchestrator.py data/labels/l0/dev l0_dev_010726_medium_f1 --task screen
+[Completed] python labelling/orchestrator.py data/labels/l0/dev l0_dev_010726_high_f1 --task screen
 
 #### What performs well in dev?
 
-[TBA]
+Recall for low/medium/high: 88.42/ 90.28/ 90.28
+final config = [medium]
 
-### Train set executed for reasoning with highest recall
+### Train set executed - Reasoning = medium
 
-python labelling/orchestrator.py data/labels/l0/train l0_train_010726_medium_f1 --task screen
+[Completed] python labelling/orchestrator.py data/labels/l0/train l0_train_010726_medium_f1 --task screen
+Recall = 89.66
 
 ### Test set executed for reasoning with highest recall
 
-python labelling/orchestrator.py data/labels/l0/test l0_test_010726_medium_f1 --task screen
+[Completed] python labelling/orchestrator.py data/labels/l0/test l0_test_010726_medium_f1 --task screen
+Recall = 90.45
