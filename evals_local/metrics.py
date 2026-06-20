@@ -14,7 +14,7 @@ def record_confusion(
     normalizer: LabelNormalizer,
     include_mask: pd.Series | None = None,
 ) -> pd.DataFrame:
-    """Add per-record tp/fp/fn/jaccard columns.
+    """Add per-record tp/fp/fn columns.
 
     include_mask: optional boolean Series aligned to df; rows set to False
     are skipped (metrics columns are left as None for those records).
@@ -26,30 +26,24 @@ def record_confusion(
     pred_sets = df[pred_col].apply(normalizer)
     mask_values = include_mask.loc[truth_sets.index].values if include_mask is not None else None
 
-    tps, fps, fns, jaccs = [], [], [], []
+    tps, fps, fns = [], [], []
     for idx, (t, p) in enumerate(zip(truth_sets, pred_sets)):
         included = True if mask_values is None else bool(mask_values[idx])
         if not included:
             tp = fp = fn = None
-            jacc = None
         elif not t:  # skip metrics when truth is empty
             tp = fp = fn = None
-            jacc = None
         else:
             tp = len(t & p)
             fp = len(p - t)
             fn = len(t - p)
-            union = t | p
-            jacc = tp / len(union) if union else 0.0
         tps.append(tp)
         fps.append(fp)
         fns.append(fn)
-        jaccs.append(jacc)
 
     df[f"{base}_tp"] = tps
     df[f"{base}_fp"] = fps
     df[f"{base}_fn"] = fns
-    df[f"{base}_jaccard"] = jaccs
     return df
 
 
@@ -116,7 +110,7 @@ def label_metrics(
     normalizer: LabelNormalizer,
     include_mask: pd.Series | None = None,
 ) -> pd.DataFrame:
-    """Return per-label precision/recall/F1/Jaccard plus macro/weighted/micro rows."""
+    """Return per-label precision/recall/F1 plus macro/weighted/micro rows."""
     truth_sets = df[truth_col].apply(normalizer)
     pred_sets = df[pred_col].apply(normalizer)
     # Exclude rows with empty truth from scoring; optionally skip via include_mask
@@ -127,7 +121,7 @@ def label_metrics(
     truth_sets = truth_sets[mask]
     pred_sets = pred_sets[mask]
     if truth_sets.empty:
-        return pd.DataFrame(columns=["label", "tp", "fp", "fn", "precision", "recall", "f1", "jaccard", "support"])
+        return pd.DataFrame(columns=["label", "tp", "fp", "fn", "precision", "recall", "f1", "support"])
 
     labels = sorted(set().union(*truth_sets, *pred_sets))
 
@@ -139,9 +133,8 @@ def label_metrics(
         prec = tp / (tp + fp) if (tp + fp) else 0.0
         rec = tp / (tp + fn) if (tp + fn) else 0.0
         f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
-        jacc = tp / (tp + fp + fn) if (tp + fp + fn) else 0.0
         rows.append(
-            {"label": label, "tp": tp, "fp": fp, "fn": fn, "precision": prec, "recall": rec, "f1": f1, "jaccard": jacc, "support": tp + fn}
+            {"label": label, "tp": tp, "fp": fp, "fn": fn, "precision": prec, "recall": rec, "f1": f1, "support": tp + fn}
         )
 
     support_sum = sum(r["support"] for r in rows) or 1
@@ -153,7 +146,6 @@ def label_metrics(
         "precision": sum(r["precision"] * r["support"] for r in rows) / support_sum,
         "recall": sum(r["recall"] * r["support"] for r in rows) / support_sum,
         "f1": sum(r["f1"] * r["support"] for r in rows) / support_sum,
-        "jaccard": sum(r["jaccard"] * r["support"] for r in rows) / support_sum,
         "support": support_sum,
     }
     macro = {
@@ -164,7 +156,6 @@ def label_metrics(
         "precision": sum(r["precision"] for r in rows) / len(rows),
         "recall": sum(r["recall"] for r in rows) / len(rows),
         "f1": sum(r["f1"] for r in rows) / len(rows),
-        "jaccard": sum(r["jaccard"] for r in rows) / len(rows),
         "support": support_sum,
     }
     # micro: sum tp/fp/fn across labels
@@ -174,7 +165,6 @@ def label_metrics(
     micro_precision = tp_sum / (tp_sum + fp_sum) if (tp_sum + fp_sum) else 0.0
     micro_recall = tp_sum / (tp_sum + fn_sum) if (tp_sum + fn_sum) else 0.0
     micro_f1 = 2 * micro_precision * micro_recall / (micro_precision + micro_recall) if (micro_precision + micro_recall) else 0.0
-    micro_jaccard = tp_sum / (tp_sum + fp_sum + fn_sum) if (tp_sum + fp_sum + fn_sum) else 0.0
     micro = {
         "label": "_micro",
         "tp": tp_sum,
@@ -183,7 +173,6 @@ def label_metrics(
         "precision": micro_precision,
         "recall": micro_recall,
         "f1": micro_f1,
-        "jaccard": micro_jaccard,
         "support": support_sum,
     }
     rows.extend([macro, weighted, micro])

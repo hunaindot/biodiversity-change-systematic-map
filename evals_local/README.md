@@ -106,8 +106,8 @@ is intentionally compact. It contains only confusion-derived counts and
 table.
 
 For non-screening tasks, the `*_label_metrics.xlsx` workbooks still contain the
-per-label metrics plus aggregate rows such as `_macro`, `_weighted`, and
-`_micro`.
+per-label precision/recall/F1 metrics plus aggregate rows such as `_macro`,
+`_weighted`, and `_micro`.
 
 ## Other CLI modes
 
