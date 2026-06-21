@@ -1,5 +1,12 @@
 # Screening Evaluation Notes
 
+- Navigation
+  - Scope: screening consistency checks and selected screening eval results
+  - Metrics reference: [evaluation-metrics-overview.md](/Users/hunain/d/coding-projects/biodiversity/checklists/repo-readmes/evaluation-metrics-overview.md)
+  - `CC1A`: human baseline recall from annotated abstract-only screening labels vs expert full-text labels
+  - `CC1B`: LLM screening labels compared against the annotated/reference combined screening set
+  - `CC2`: train, dev, and test screening eval runs used for prompt/config selection and final recall reporting
+
 - Primary metric
   `TP / (TP + FN)` where `ELIGIBLE` is the positive class.
 
@@ -14,7 +21,6 @@
 
 # General Notes
 
-- For metric definitions, formulas, aggregation behavior, and eval output files, see [evaluation-metrics-overview.md](/Users/hunain/d/coding-projects/biodiversity/checklists/repo-readmes/evaluation-metrics-overview.md)
 - Status
   `Completed`: Implies that run is executed, data is downloaded, and evals are added
 

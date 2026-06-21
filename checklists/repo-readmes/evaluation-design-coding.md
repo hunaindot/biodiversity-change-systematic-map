@@ -1,5 +1,11 @@
 # Coding Evaluation Notes
 
+- Navigation
+  - Scope: coding consistency checks and selected coding eval results
+  - Metrics reference: [evaluation-metrics-overview.md](/Users/hunain/d/coding-projects/biodiversity/checklists/repo-readmes/evaluation-metrics-overview.md)
+  - `CC1`: manual baseline notebook results comparing abstract-only human coding labels against expert full-text labels
+  - `CC2`: task-by-task coding eval runs for `L1` to `L6`
+
 - Consistency Checks
   - `CC1`: Compare author-assigned coding labels based on abstracts only against expert full-text labels across all six label sets (`L1` to `L6`) to establish a human-performance baseline. No LLM execution is required here.
     - Data: `data/consistency-check-datasets/data-coding/annotated_coding_dataset.xlsx`
@@ -7,11 +13,9 @@
 
 # General Notes
 
-- For metric definitions, formulas, aggregation behavior, exclusions, and eval output files, see [evaluation-metrics-overview.md](/Users/hunain/d/coding-projects/biodiversity/checklists/repo-readmes/evaluation-metrics-overview.md)
 - Status
   `Completed`: Implies that run is run is executed, data is download, and evals are added
-
-- In execution noteso only weighted summaries are reported; inspect per label and micro + macro summaries in evals files for details
+- In execution notes only weighted summaries are reported; inspect per label and micro + macro summaries in evals files for details
 
 # CC1 Executions
 
