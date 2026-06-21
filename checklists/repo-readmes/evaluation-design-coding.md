@@ -80,13 +80,13 @@ Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats cl
 
 `Completed`
 
-### Dev set execution
+#### Dev set execution
 
 - `Completed` - `python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_low_f1 --task threats_l0`
 - `Completed` - `python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_medium_f1 --task threats_l0`
 - `Completed` - `python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_high_f1 --task threats_l0`
 
-### What performs well in dev (based on F1) [= medium]
+#### What performs well in dev (based on F1) [= medium]
 
 | Run                       | Precision | Recall |     F1 |  Kappa |
 | ------------------------- | --------: | -----: | -----: | -----: |
@@ -94,7 +94,7 @@ Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats cl
 | `l2_dev_010726_medium_f1` |    82.31% | 70.56% | 73.67% | 66.66% |
 | `l2_dev_010726_high_f1`   |    79.70% | 70.17% | 72.84% | 65.32% |
 
-### Train set execution
+#### Train set execution
 
 - `Completed` - `python labelling/orchestrator.py data/labels/l2/train l2_train_010726_medium_f1 --task threats_l0`
 
@@ -102,7 +102,7 @@ Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats cl
 | --------------------------- | --------: | -----: | -----: | -----: |
 | `l2_train_010726_medium_f1` |    77.76% | 65.77% | 70.84% | 63.19% |
 
-### Test set execution
+#### Test set execution
 
 - `Completed` - `python labelling/orchestrator.py data/labels/l2/test l2_test_010726_medium_f1 --task threats_l0`
 
@@ -114,18 +114,52 @@ Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats cl
 
 ### Dev set execution
 
-python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_low_f1 --task threats_l1
-python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_medium_f1 --task threats_l1
-python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_high_f1 --task threats_l1
+- `Completed` - `python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_low_f1 --task threats_l1`
+- `Completed` - `python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_medium_f1 --task threats_l1`
+- `Completed` - `python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_high_f1 --task threats_l1`
 
-### What performs well in dev (based on F1) [= ??]
+### What performs well in dev (based on F1) [= High]
 
-See weighted summaries below; inspect per label and micro + macro summaries in evals files
+| Run                       | Precision | Recall |     F1 |  Kappa |
+| ------------------------- | --------: | -----: | -----: | -----: |
+| `l2_dev_010726_low_f1`    |    63.68% | 56.12% | 56.42% | 51.42% |
+| `l2_dev_010726_medium_f1` |    65.27% | 56.49% | 57.58% | 51.98% |
+| `l2_dev_010726_high_f1`   |    64.94% | 58.97% | 58.60% | 53.34% |
 
 ### Train set execution
 
-python labelling/orchestrator.py data/labels/l2/train l2_train_010726_medium_f1 --task threats_l1
+- `Completed` - `python labelling/orchestrator.py data/labels/l2/train l2_train_010726_medium_f1 --task threats_l1`
+- Named medium for consistency with earlier run and path mgt; in reality, high reasoning parameters is passed in request files
+
+| Run                         | Precision | Recall |     F1 |  Kappa |
+| --------------------------- | --------: | -----: | -----: | -----: |
+| `l2_train_010726_medium_f1` |    69.63% | 54.32% | 59.09% | 54.54% |
 
 ### Test set execution
 
-python labelling/orchestrator.py data/labels/l2/test l2_test_010726_medium_f1 --task threats_l1
+- `Completed` - `python labelling/orchestrator.py data/labels/l2/test l2_test_010726_medium_f1 --task threats_l1`
+- Named medium for consistency with earlier run and path mgt; in reality, high reasoning parameters is passed in request files
+
+| Run                        | Precision | Recall |     F1 |  Kappa |
+| -------------------------- | --------: | -----: | -----: | -----: |
+| `l2_test_010726_medium_f1` |    63.58% | 56.13% | 57.52% | 51.71% |
+
+## L3 - Geography
+
+Estimate the Region, Sub-region, and Country labels as defined by IPBES [See more at: https://zenodo.org/records/3928281 ]
+
+### Dev set execution
+
+- `inprogress` - `python labelling/orchestrator.py data/labels/l3/dev l3_dev_010726_low_f1 --task geography`
+- `inprogress` - `python labelling/orchestrator.py data/labels/l3/dev l3_dev_010726_medium_f1 --task geography`
+- `inprogress` - `python labelling/orchestrator.py data/labels/l3/dev l3_dev_010726_high_f1 --task geography`
+
+### What performs well in dev (based on F1) [= xxx]
+
+### Train set execution
+
+- `xx` - `python labelling/orchestrator.py data/labels/l3/train l3_train_010726_low_f1 --task geography`
+
+### Test set execution
+
+- `xx` - `python labelling/orchestrator.py data/labels/l3/dev l3_test_010726_low_f1 --task geography`
