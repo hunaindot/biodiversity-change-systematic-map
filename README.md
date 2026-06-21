@@ -7,7 +7,6 @@ root/
 ├── labelling/              # Core package that applies the LLM screening and coding workflow to bibliographic records
 ├── evals_local/            # Checks whether the model outputs reproduce the reference labels and expected metrics
 ├── data_helpers/           # Creates the prepared datasets and splits that make the labelling workflow reproducible
-├── consistency-checking/   # Supports agreement and quality checks on the human-labelled reference data
 ├── notebooks/              # Broad notebook workspace used across the codebase, mostly for validation and data analysis
 ├── checklists/             # Holds prompts, mappings, and reference assets the classification workflow depends on
 └── data/                   # Carries the datasets and generated artifacts through preparation, labelling, and evaluation
@@ -81,6 +80,8 @@ Quick start assumes the normal path for this repo: use the provided `data/labels
 - [`labelling/README.md`](labelling/README.md) explains the orchestrator, available tasks, run outputs, and environment settings for screening and coding runs.
 - [`evals_local/README.md`](evals_local/README.md) explains how to rerun evals manually and how prediction-vs-truth metrics are written.
 - [`data_helpers/README.md`](data_helpers/README.md) explains how to rebuild datasets from the reference screening/coding workbooks under `data/consistency-check-datasets/`, recreate train/dev/test splits, and sample review sets.
-- [`consistency-checking/README.md`](consistency-checking/README.md) explains the agreement-analysis helpers used for validating the reference labels.
+- [`checklists/repo-readmes/evaluation-metrics-overview.md`](checklists/repo-readmes/evaluation-metrics-overview.md) explains the current screening and coding metrics, aggregation rules, and output files.
+- [`checklists/repo-readmes/evaluation-design-screening.md`](checklists/repo-readmes/evaluation-design-screening.md) records the current screening consistency-check and eval workflow.
+- [`checklists/repo-readmes/evaluation-design-coding.md`](checklists/repo-readmes/evaluation-design-coding.md) records the current coding consistency-check and eval workflow.
 
 Other valid workflows in this repo include running on `data/partitions-mock/` for lightweight checks or rebuilding from the reference and supplementary source data when fuller reproduction is needed, but those are better handled in the dedicated package READMEs than in the root guide.

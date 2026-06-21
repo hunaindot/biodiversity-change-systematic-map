@@ -74,7 +74,7 @@ Each label writes to `data/labels/<label>/train|dev|test/` and an `in-process/` 
 
 ### 3. Sample for manual labelling
 
-Goal: draw a smaller subset from the training splits for manual review and consistency-checking workflows.
+Goal: draw a smaller subset from the training splits for manual review and current consistency-check workflows.
 
 Expected outcome: sample files are written to the manual-labelling output directories configured in `dataset_config.json`.
 
@@ -88,6 +88,8 @@ python -m data_helpers.sample_coding l4
 
 Samples 100 records from the train split (configurable via `dataset_config.json`).
 Sampler inputs are read from `<resolved label path>/train`, where `<resolved label path>` follows the same `.env` `LABELS_<L>_PATH` override rules as the splitter.
+
+These samples feed the current consistency-check notes and notebooks rather than the default labelling path.
 Outputs go to `data/consistency-check-datasets/*/to-manual-label/`.
 
 ### 4. Build GBIF lookup cache

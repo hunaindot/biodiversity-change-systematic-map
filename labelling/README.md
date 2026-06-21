@@ -2,7 +2,7 @@
 
 This package runs the main screening and coding workflow for the repository. It takes a folder of WoS-style records, applies one labelling task, writes the run outputs, and can automatically run evals against the reference labels afterward.
 
-In the normal repo workflow, this package is used on the prepared splits under `data/labels/`. It can also be used on other input folders, such as screened partitions or consistency-checking samples, as long as the expected input fields are present.
+In the normal repo workflow, this package is used on the prepared splits under `data/labels/`. It can also be used on other input folders, such as screened partitions or manual-review / consistency-check samples, as long as the expected input fields are present.
 
 ## Quick use
 
@@ -38,7 +38,7 @@ Common input locations in this repo include:
 
 - `data/labels/l{0-6}/{train|dev|test}` for the prepared label splits
 - `data/partitions-mock/...` for lightweight end-to-end checks
-- consistency-checking or screening-derived folders for custom runs
+- manual-review, consistency-check, or screening-derived folders for custom runs
 
 The loader requires a document ID column and accepts these common variants:
 

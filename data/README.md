@@ -70,7 +70,7 @@ What we verified:
 - `screening/search-sample/search-sample.csv` is an exact export of the workbook `search-sample` sheet
 - the workbook `train-sample` sheet is fully drawn from `data/labels/l0/train` once identifier formatting is normalized
 
-The annotated datasets are used in consistency-check workflows rather than the default labelling path. More detail on the CC1 and CC2 consistency-check design belongs in the protocol and the `consistency-checking/` notebooks.
+The annotated datasets are used in consistency-check workflows rather than the default labelling path. More detail on the current CC1 and CC2 workflow lives in the protocol, the repo-readmes under `checklists/repo-readmes/`, and the current notebooks under `notebooks/`.
 
 ## labels
 
