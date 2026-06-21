@@ -69,7 +69,7 @@
 | `genus`    |    96.72% | 94.25% | 95.31% | 94.57% |
 | `specie`   |    78.48% | 76.03% | 76.65% | 76.42% |
 
-# CC2 Executions (For each Label)
+# CC2 Executions
 
 ## L1 - Driver
 
@@ -197,7 +197,7 @@ Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats cl
 
 ## L3 - Geography
 
-[Completed]
+`Completed`
 
 Estimate the Region, Sub-region, and Country labels as defined by IPBES [See more at: https://zenodo.org/records/3928281 ]
 
@@ -264,7 +264,7 @@ Results for `l3_dev_010726_high_f1`
 
 ## L4 Ecosystems
 
-[Completed]
+`Completed`
 
 - Coverage
   - Current execution note covers `ecosystems_realm`
