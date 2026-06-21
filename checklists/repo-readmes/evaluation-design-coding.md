@@ -72,9 +72,7 @@
 
 ## L2 - Threats
 
-Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats classification. Over 10+ labels with nested hierarchy
-
-`[See more at: https://www.iucnredlist.org/resources/threat-classification-scheme ]`
+Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats classification. Over 10+ labels with nested hierarchy [See more at: https://www.iucnredlist.org/resources/threat-classification-scheme ]
 
 ### threats_l0 (Broadest level)
 
@@ -150,16 +148,145 @@ Estimate the Region, Sub-region, and Country labels as defined by IPBES [See mor
 
 ### Dev set execution
 
-- `inprogress` - `python labelling/orchestrator.py data/labels/l3/dev l3_dev_010726_low_f1 --task geography`
-- `inprogress` - `python labelling/orchestrator.py data/labels/l3/dev l3_dev_010726_medium_f1 --task geography`
-- `inprogress` - `python labelling/orchestrator.py data/labels/l3/dev l3_dev_010726_high_f1 --task geography`
+- `Completed` - `python labelling/orchestrator.py data/labels/l3/dev l3_dev_010726_low_f1 --task geography`
+- `Completed` - `python labelling/orchestrator.py data/labels/l3/dev l3_dev_010726_medium_f1 --task geography`
+- `Completed` - `python labelling/orchestrator.py data/labels/l3/dev l3_dev_010726_high_f1 --task geography`
 
-### What performs well in dev (based on F1) [= xxx]
+### What performs well in dev [= Low]
+
+Results for `l3_dev_010726_low_f1`
+
+| Geography Level | Precision | Recall |     F1 |  Kappa |
+| --------------- | --------: | -----: | -----: | -----: |
+| `region`        |    92.22% | 89.60% | 90.53% | 85.99% |
+| `sub-region`    |    84.32% | 89.50% | 86.31% | 80.12% |
+| `country`       |    94.23% | 75.53% | 82.57% | 76.68% |
+
+Results for `l3_dev_010726_medium_f1`
+
+| Geography Level | Precision | Recall |     F1 |  Kappa |
+| --------------- | --------: | -----: | -----: | -----: |
+| `region`        |    90.23% | 87.53% | 88.54% | 82.47% |
+| `sub-region`    |    83.83% | 89.98% | 86.18% | 80.24% |
+| `country`       |    94.69% | 74.12% | 82.15% | 75.84% |
+
+Results for `l3_dev_010726_high_f1`
+
+| Geography Level | Precision | Recall |     F1 |  Kappa |
+| --------------- | --------: | -----: | -----: | -----: |
+| `region`        |    91.33% | 89.19% | 89.74% | 84.16% |
+| `sub-region`    |    83.59% | 91.41% | 86.65% | 81.42% |
+| `country`       |    94.37% | 74.35% | 82.15% | 75.84% |
 
 ### Train set execution
 
-- `xx` - `python labelling/orchestrator.py data/labels/l3/train l3_train_010726_low_f1 --task geography`
+- `Completed` - `python labelling/orchestrator.py data/labels/l3/train l3_train_010726_low_f1 --task geography`
+
+| Geography Level | Precision | Recall |     F1 |  Kappa |
+| --------------- | --------: | -----: | -----: | -----: |
+| `region`        |    92.25% | 90.08% | 90.76% | 86.10% |
+| `sub-region`    |    86.04% | 91.28% | 88.13% | 83.85% |
+| `country`       |    92.20% | 77.52% | 83.57% | 78.92% |
 
 ### Test set execution
 
-- `xx` - `python labelling/orchestrator.py data/labels/l3/dev l3_test_010726_low_f1 --task geography`
+- `Completed` - `python labelling/orchestrator.py data/labels/l3/test l3_test_010726_low_f1 --task geography`
+
+| Geography Level | Precision | Recall |     F1 |  Kappa |
+| --------------- | --------: | -----: | -----: | -----: |
+| `region`        |    91.76% | 90.02% | 90.38% | 85.64% |
+| `sub-region`    |    86.99% | 91.21% | 88.41% | 83.49% |
+| `country`       |    91.05% | 77.08% | 82.97% | 77.47% |
+
+## L4 Ecosystems
+
+## L5 Study Design
+
+- `Completed`
+- Assigned study design among: experimental, modelling, observational, review
+
+### Dev set execution
+
+- `Completed` - `python labelling/orchestrator.py data/labels/l5/dev l5_dev_010726_low_f1 --task study`
+- `Completed` - `python labelling/orchestrator.py data/labels/l5/dev l5_dev_010726_medium_f1 --task study`
+- `Completed` - `python labelling/orchestrator.py data/labels/l5/dev l5_dev_010726_high_f1 --task study`
+
+### What performs well in dev (=Low)
+
+| Run                       | Precision | Recall |     F1 |  Kappa |
+| ------------------------- | --------: | -----: | -----: | -----: |
+| `l5_dev_010726_low_f1`    |    86.74% | 82.89% | 84.30% | 66.75% |
+| `l5_dev_010726_medium_f1` |    86.32% | 82.06% | 83.63% | 65.17% |
+| `l5_dev_010726_high_f1`   |    86.10% | 81.34% | 83.06% | 64.05% |
+
+### Train set execution
+
+- `Completed` - `python labelling/orchestrator.py data/labels/l5/train l5_train_010726_low_f1 --task study`
+
+| Run                      | Precision | Recall |     F1 |  Kappa |
+| ------------------------ | --------: | -----: | -----: | -----: |
+| `l5_train_010726_low_f1` |    88.36% | 84.99% | 86.37% | 70.48% |
+
+### Test set execution
+
+- `Completed` - `python labelling/orchestrator.py data/labels/l5/test l5_test_010726_low_f1 --task study`
+
+| Run                     | Precision | Recall |     F1 |  Kappa |
+| ----------------------- | --------: | -----: | -----: | -----: |
+| `l5_test_010726_low_f1` |    86.94% | 82.97% | 84.60% | 67.27% |
+
+## L6 Taxa
+
+`completed`
+
+### Dev set execution
+
+- `Completed` - `python labelling/orchestrator.py data/labels/l6/dev l6_dev_010726_low_f1 --task taxa`
+- `Completed` - `python labelling/orchestrator.py data/labels/l6/dev l6_dev_010726_medium_f1 --task taxa`
+- `Completed` - `python labelling/orchestrator.py data/labels/l6/dev l6_dev_010726_high_f1 --task taxa`
+
+### What performs well in dev
+
+Results for `l6_dev_010726_low_f1`
+
+| Taxa Level | Precision | Recall |     F1 |  Kappa |
+| ---------- | --------: | -----: | -----: | -----: |
+| `order`    |    91.85% | 88.15% | 89.71% | 86.35% |
+| `genus`    |    96.03% | 96.55% | 96.02% | 95.31% |
+| `specie`   |    75.68% | 69.23% | 70.35% | 69.98% |
+
+Results for `l6_dev_010726_medium_f1`
+
+| Taxa Level | Precision | Recall |     F1 |  Kappa |
+| ---------- | --------: | -----: | -----: | -----: |
+| `order`    |    91.91% | 86.76% | 89.09% | 77.55% |
+| `genus`    |    95.97% | 95.69% | 95.51% | 94.69% |
+| `specie`   |    74.56% | 69.74% | 70.95% | 70.50% |
+
+Results for `l6_dev_010726_high_f1`
+
+| Taxa Level | Precision | Recall |     F1 |  Kappa |
+| ---------- | --------: | -----: | -----: | -----: |
+| `order`    |    91.11% | 88.15% | 89.43% | 83.12% |
+| `genus`    |    96.77% | 97.39% | 96.85% | 96.30% |
+| `specie`   |    74.32% | 70.26% | 71.22% | 70.92% |
+
+### Train set execution
+
+- `Completed` - `python labelling/orchestrator.py data/labels/l6/train l6_train_010726_high_f1 --task taxa`
+
+| Taxa Level | Precision | Recall |     F1 |  Kappa |
+| ---------- | --------: | -----: | -----: | -----: |
+| `order`    |    90.93% | 88.75% | 89.36% | 75.28% |
+| `genus`    |    93.92% | 92.43% | 92.67% | 91.67% |
+| `specie`   |    61.27% | 53.42% | 55.03% | 54.57% |
+
+### Test set execution
+
+- `Completed` - `python labelling/orchestrator.py data/labels/l6/test l6_test_010726_high_f1 --task taxa`
+
+| Taxa Level | Precision | Recall |     F1 |  Kappa |
+| ---------- | --------: | -----: | -----: | -----: |
+| `order`    |    95.96% | 93.55% | 94.54% | 63.62% |
+| `genus`    |    92.27% | 95.76% | 93.88% | 93.37% |
+| `specie`   |    59.77% | 58.29% | 57.95% | 57.69% |
