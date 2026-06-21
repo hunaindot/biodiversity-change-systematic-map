@@ -20,6 +20,11 @@
 
 `Completed` : Estimate the direct anthropogenic driver of biodiveristy change - 5 labels
 
+- Coverage
+  - Task covers the direct anthropogenic driver of biodiversity change
+  - Label count = 5
+  - Evaluated labels: `climate change`, `direct exploitation and resource extraction`, `invasive alien species`, `land/sea use change`, `pollution`
+
 ### Dev set execution
 
 - `Completed` - `python labelling/orchestrator.py data/labels/l1/dev l1_dev_010726_low_f1 --task driver`
@@ -58,6 +63,11 @@ Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats cl
 
 `Completed`
 
+- Coverage
+  - Broad IUCN threat families
+  - Label count = 11
+  - Evaluated labels: `agriculture & aquaculture`, `biological resource use`, `climate change & severe weather`, `energy production & mining`, `human intrusions & disturbance`, `invasive & other problematic species, genes & diseases`, `natural system modifications`, `other options`, `pollution`, `residential & commercial development`, `transportation & service corridors`
+
 #### Dev set execution
 
 - `Completed` - `python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_low_f1 --task threats_l0`
@@ -88,7 +98,15 @@ Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats cl
 | -------------------------- | --------: | -----: | -----: | -----: |
 | `l2_test_010726_medium_f1` |    72.99% | 65.73% | 68.43% | 58.22% |
 
-### threats_l1 (Mid level) [not-started]
+### threats_l1
+
+[Completed]
+
+- Coverage
+  - Mid-level IUCN threat categories nested under the broader `threats_l0` families
+  - Label count = 31
+  - Evaluated values span categories such as crops, livestock, aquaculture, logging, fishing, mining, roads, utility lines, recreation, effluents, invasive species, diseases, droughts, storms, fire, temperature extremes, and other ecosystem modifications
+  - Full label set is in the per-label eval workbook rather than repeated here because the list is longer: 31 values
 
 #### Dev set execution
 
@@ -124,7 +142,18 @@ Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats cl
 
 ## L3 - Geography
 
+[Completed]
+
 Estimate the Region, Sub-region, and Country labels as defined by IPBES [See more at: https://zenodo.org/records/3928281 ]
+
+- Coverage
+  - Geography is evaluated at 3 levels: `region`, `sub-region`, and `country`
+  - Region label count = 6
+  - Region values in current eval outputs: `africa`, `americas`, `antarctica`, `asia and the pacific`, `europe and central asia`, `all region`.
+  - Sub-region label count = 17
+  - Sub-region values: `caribbean`, `central africa`, `central and western europe`, `central asia`, `east africa and adjacent islands`, `eastern europe`, `mesoamerica`, `north africa`, `north america`, `north-east asia`, `oceania`, `south america`, `south asia`, `south-east asia`, `southern africa`, `west africa`, `western asia`
+  - Country label count = 59
+  - Country values are mostly ISO3 country codes; current eval outputs also include `not applicable` and `unclear`
 
 ### Dev set execution
 
@@ -180,6 +209,13 @@ Results for `l3_dev_010726_high_f1`
 
 ## L4 Ecosystems
 
+[Completed]
+
+- Coverage
+  - Current execution note covers `ecosystems_realm`
+  - Realm label count = 10
+  - Evaluated labels: `all realms`, `freshwater`, `freshwater-marine`, `freshwater-terrestrial`, `marine`, `marine-terrestrial`, `not applicable`, `subterranean`, `subterranean-freshwater`, `terrestrial`
+
 ### Dev set execution
 
 - `Completed` - `python labelling/orchestrator.py data/labels/l4/dev l4_dev_010726_low_f1 --task ecosystems_realm`
@@ -212,8 +248,12 @@ Results for `l3_dev_010726_high_f1`
 
 ## L5 Study Design
 
-- `Completed`
-- Assigned study design among: experimental, modelling, observational, review
+`Completed`
+
+- Coverage
+  - This evaluations covers study-design classification
+  - Label count = 5
+  - Evaluated labels: `experimental`, `modelling`, `observational`, `review`, `unclear`
 
 ### Dev set execution
 
@@ -248,6 +288,11 @@ Results for `l3_dev_010726_high_f1`
 ## L6 Taxa
 
 `completed`
+
+- Coverage
+  - Taxa is evaluated at 6 ranks: `kingdom`, `phylum`, `class`, `order`, `genus`, `specie`
+  - Each label can have multiple values
+  - Task predicts the taxon rank and taxon value as lowest level; upstream values are inferred from GBIF Taxonomy look up.
 
 ### Dev set execution
 
