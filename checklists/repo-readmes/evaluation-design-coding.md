@@ -30,13 +30,13 @@
 # General Notes
 
 - Status
-  [Completed]: Implies that run is run is executed, data is download, and evals are added
+  `Completed`: Implies that run is run is executed, data is download, and evals are added
 
 - In execution noteso only weighted summaries are reported; inspect per label and micro + macro summaries in evals files for details
 
 # CC2 Executions (For each Label)
 
-## L1 - Driver [Completed]
+## L1 - Driver `Completed`
 
 Estimate the direct anthropogenic driver of biodiveristy change - 5 labels
 
@@ -96,7 +96,7 @@ python labelling/orchestrator.py data/labels/l2/train l2_train_010726_medium_f1 
 
 ### Test set execution
 
-python labelling/orchestrator.py data/labels/l2/test l2_test_010726_medium_f1 --task threats_l0
+[Completed] python labelling/orchestrator.py data/labels/l2/test l2_test_010726_medium_f1 --task threats_l0
 
 | Run                        | Precision | Recall |     F1 |  Kappa |
 | -------------------------- | --------: | -----: | -----: | -----: |
