@@ -109,6 +109,14 @@ For non-screening tasks, the `*_label_metrics.xlsx` workbooks still contain the
 per-label precision/recall/F1/Kappa metrics plus aggregate rows such as
 `_macro`, `_weighted`, and `_micro`.
 
+## Related notes
+
+For repo-level evaluation notes and interpretation guides, see:
+
+- [`checklists/repo-readmes/evaluation-metrics-overview.md`](../checklists/repo-readmes/evaluation-metrics-overview.md) for the canonical explanation of screening and coding-task metrics, formulas, aggregations, exclusions, and output files
+- [`checklists/repo-readmes/evaluation-design-screening.md`](../checklists/repo-readmes/evaluation-design-screening.md) for screening execution notes and chosen run configurations
+- [`checklists/repo-readmes/evaluation-design-coding.md`](../checklists/repo-readmes/evaluation-design-coding.md) for coding-task execution notes, weighted summaries, and selected configs by task
+
 ## Other CLI modes
 
 The normal manual pattern is one `run_name` plus one `--tasks` value. The CLI also supports some advanced modes:

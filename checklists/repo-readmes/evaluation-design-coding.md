@@ -1,26 +1,5 @@
 # Review of protocol consistency checks
 
-- Primary metrics:
-  - Per label and aggregated: Precision, Recall, F1, Cohen's Keppa
-  - Aggregated summaries: [macro, micro, weighted]
-
-  - Tp/ Fp/ Fn/ Tn defintions
-    tp = |truth ∩ pred|
-    fp = |pred - truth|
-    fn = |truth - pred|
-    tn = |label_universe - (truth ∪ pred)|
-
-  - Support = TP + FN = All rows wehre the labels is truly present - Used for weight in summaries
-
-  - Keppa-per-label and interpretations:
-    Raw agreement to be very high: tp+tn/N where TN is quite large
-    A lot of that agreement comes from the label being absent in many rows
-    kappa corrects for that chance/background agreement using Pe:
-    P(True positives)_ P(Predicted positives) + P(True negatives)_ P(Predicted negatives)
-    Pe exepected to be lower
-
-    Final Keppa being Po - Pe / (1-Pe)
-
 - Consistency Checks
   CC1: What are human labelled baseline metrics when comparing abstract based labelling v. expert labels? (No LLM execution required here)
   [Data: data/consistency-check-datasets/data-coding/annotated_coding_dataset.xlsx]
@@ -29,6 +8,7 @@
 
 # General Notes
 
+- For metric definitions, formulas, aggregation behavior, exclusions, and eval output files, see [evaluation-metrics-overview.md](/Users/hunain/d/coding-projects/biodiversity/checklists/repo-readmes/evaluation-metrics-overview.md)
 - Status
   `Completed`: Implies that run is run is executed, data is download, and evals are added
 

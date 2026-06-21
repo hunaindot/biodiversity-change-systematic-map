@@ -12,10 +12,8 @@
 
 # General notes
 
+- For metric definitions, formulas, aggregation behavior, and eval output files, see [evaluation-metrics-overview.md](/Users/hunain/d/coding-projects/biodiversity/checklists/repo-readmes/evaluation-metrics-overview.md)
 - Cmd to run eval: python -m evals_local <execution-name> --tasks screening
-- Screening eval outputs to inspect:
-  - `metrics/screening_eligibility_confusion.xlsx`
-  - `metrics/screening_eligibility_label_metrics.xlsx` with confusion counts plus `ELIGIBLE` recall only
 - Status
   [Completed]: Implies that run is run is executed, data is download, and evals are added
 
