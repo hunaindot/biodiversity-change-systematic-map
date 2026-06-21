@@ -13,6 +13,62 @@
 
 - In execution noteso only weighted summaries are reported; inspect per label and micro + macro summaries in evals files for details
 
+## CC1 Executions
+
+- Notebook: [coding_cc1_manual_baseline.ipynb](/Users/hunain/d/coding-projects/biodiversity/notebooks/coding_cc1_manual_baseline.ipynb)
+- Input workbook:
+  - `data/consistency-check-datasets/data-coding/annotated_coding_dataset.xlsx`
+- Reference truth files:
+  - `data/labels/l1/L1) driver set.csv`
+  - `data/labels/l2/L2) threats set.csv`
+  - `data/labels/l3/L3) geography set.csv`
+  - `data/labels/l4/L4) ecosystem set.csv`
+  - `data/labels/l5/L5) study set.csv`
+  - `data/labels/l6/L6) taxa set.csv`
+- Metric implementation: reuses `evals_local` package
+
+### CC1 Weighted Summaries
+
+#### L1 - Driver
+
+| Label Set | Precision | Recall |     F1 |  Kappa |
+| --------- | --------: | -----: | -----: | -----: |
+| `driver`  |    86.60% | 79.44% | 81.94% | 76.05% |
+
+#### L2 - Threats
+
+| Label Set    | Precision | Recall |     F1 |  Kappa |
+| ------------ | --------: | -----: | -----: | -----: |
+| `threats_l0` |    82.22% | 70.15% | 75.06% | 67.66% |
+
+#### L3 - Geography
+
+| Geography Level | Precision | Recall |     F1 |  Kappa |
+| --------------- | --------: | -----: | -----: | -----: |
+| `region`        |    95.02% | 90.20% | 92.38% | 89.54% |
+| `sub-region`    |    96.35% | 91.40% | 93.33% | 90.81% |
+| `country`       |    95.10% | 81.91% | 87.39% | 84.61% |
+
+#### L4 - Ecosystems
+
+| Label Set | Precision | Recall |     F1 |  Kappa |
+| --------- | --------: | -----: | -----: | -----: |
+| `realm`   |   100.00% | 93.07% | 96.14% | 93.65% |
+
+#### L5 - Study Design
+
+| Label Set      | Precision | Recall |     F1 |  Kappa |
+| -------------- | --------: | -----: | -----: | -----: |
+| `study_design` |    82.31% | 76.47% | 76.76% | 52.66% |
+
+#### L6 - Taxa
+
+| Taxa Level | Precision | Recall |     F1 |  Kappa |
+| ---------- | --------: | -----: | -----: | -----: |
+| `order`    |    92.65% | 93.55% | 93.06% | 80.85% |
+| `genus`    |    96.72% | 94.25% | 95.31% | 94.57% |
+| `specie`   |    78.48% | 76.03% | 76.65% | 76.42% |
+
 # CC2 Executions (For each Label)
 
 ## L1 - Driver
