@@ -38,15 +38,15 @@
 
 ## L1 - Driver
 
-`Completed`
-
-Estimate the direct anthropogenic driver of biodiveristy change - 5 labels
+`Completed` : Estimate the direct anthropogenic driver of biodiveristy change - 5 labels
 
 ### Dev set execution
 
-[Completed] python labelling/orchestrator.py data/labels/l1/dev l1_dev_010726_low_f1 --task driver
-[Completed] python labelling/orchestrator.py data/labels/l1/dev l1_dev_010726_medium_f1 --task driver
-[Completed] python labelling/orchestrator.py data/labels/l1/dev l1_dev_010726_high_f1 --task driver
+`Completed` - `python labelling/orchestrator.py data/labels/l1/dev l1_dev_010726_low_f1 --task driver`
+
+`Completed` - `python labelling/orchestrator.py data/labels/l1/dev l1_dev_010726_medium_f1 --task driver`
+
+`Completed` - `python labelling/orchestrator.py data/labels/l1/dev l1_dev_010726_high_f1 --task driver`
 
 ### What performs well in dev (based on F1) [= Low]
 
@@ -58,7 +58,7 @@ Estimate the direct anthropogenic driver of biodiveristy change - 5 labels
 
 ### Train set execution
 
-[Completed] python labelling/orchestrator.py data/labels/l1/train l1_train_010726_low_f1 --task driver
+`Completed` - `python labelling/orchestrator.py data/labels/l1/train l1_train_010726_low_f1 --task driver`
 
 | Run                      | Precision | Recall |     F1 |  Kappa |
 | ------------------------ | --------: | -----: | -----: | -----: |
@@ -66,7 +66,7 @@ Estimate the direct anthropogenic driver of biodiveristy change - 5 labels
 
 ### Test set execution
 
-[Completed] python labelling/orchestrator.py data/labels/l1/test l1_test_010726_low_f1 --task driver
+`Completed` - `python labelling/orchestrator.py data/labels/l1/test l1_test_010726_low_f1 --task driver`
 
 | Run                     | Precision | Recall |     F1 |  Kappa |
 | ----------------------- | --------: | -----: | -----: | -----: |
@@ -74,15 +74,21 @@ Estimate the direct anthropogenic driver of biodiveristy change - 5 labels
 
 ## L2 - Threats
 
-Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats classification. Over 10+ labels with nested hierarchy [See more at: https://www.iucnredlist.org/resources/threat-classification-scheme ]
+Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats classification. Over 10+ labels with nested hierarchy
 
-### threats_l0 (Broadest level) [In-progress]
+`[See more at: https://www.iucnredlist.org/resources/threat-classification-scheme ]`
+
+### threats_l0 (Broadest level)
+
+`Completed`
 
 ### Dev set execution
 
-[Completed] python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_low_f1 --task threats_l0
-[Completed] python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_medium_f1 --task threats_l0
-[Completed] python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_high_f1 --task threats_l0
+`Completed` - `python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_low_f1 --task threats_l0`
+
+`Completed` - `python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_medium_f1 --task threats_l0`
+
+`Completed` - `python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_high_f1 --task threats_l0`
 
 ### What performs well in dev (based on F1) [= medium]
 
@@ -94,11 +100,15 @@ Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats cl
 
 ### Train set execution
 
-python labelling/orchestrator.py data/labels/l2/train l2_train_010726_medium_f1 --task threats_l0
+`Completed` - `python labelling/orchestrator.py data/labels/l2/train l2_train_010726_medium_f1 --task threats_l0`
+
+| Run                         | Precision | Recall |     F1 |  Kappa |
+| --------------------------- | --------: | -----: | -----: | -----: |
+| `l2_train_010726_medium_f1` |    77.76% | 65.77% | 70.84% | 63.19% |
 
 ### Test set execution
 
-[Completed] python labelling/orchestrator.py data/labels/l2/test l2_test_010726_medium_f1 --task threats_l0
+`Completed` - `python labelling/orchestrator.py data/labels/l2/test l2_test_010726_medium_f1 --task threats_l0`
 
 | Run                        | Precision | Recall |     F1 |  Kappa |
 | -------------------------- | --------: | -----: | -----: | -----: |
