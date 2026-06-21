@@ -1,19 +1,19 @@
-# Review of protocol consistency checks
+# Screening Evaluation Notes
 
 - Primary metric = Recall
   `TP / (TP + FN)` where `ELIGIBLE` is the positive class.
 
-- CC1 = Compare LLM Labels and Expert v. Manual Labels assigned based on abstract reading
-  - A) What is human baseline recall when comparing manually assigned labels v. expert labels? (No LLM execution required) [Data: l0-sample]
-  - B) How well does LLM replicate human baseline labelling? (Manual labelling v. LLM execution required) [Data: combined]
-    See executions: [l0_cc1_combined_010726_medium_f1]
+- CC1 = Compare author-assigned labels based on abstracts only against expert full-text and LLM labels to establish a human recall baseline
+  - A) What is human baseline recall when comparing author-assigned abstract labels against expert full-text labels? No LLM execution is required here.
+    - Data: annotated screening sample
+  - B) How well do LLM screening labels align with the author-assigned abstract labels used in CC1?
+    - Data: combined annotated/reference screening set
 
-- CC2 = Compare LLM Labels v. Reference Expert Labels in forms of Train, Dev, Test sets
+- CC2 = Compare LLM labels against expert full-text labels across train, dev, and test splits of the reference screening dataset
 
 # General notes
 
 - For metric definitions, formulas, aggregation behavior, and eval output files, see [evaluation-metrics-overview.md](/Users/hunain/d/coding-projects/biodiversity/checklists/repo-readmes/evaluation-metrics-overview.md)
-- Cmd to run eval: python -m evals_local <execution-name> --tasks screening
 - Status
   [Completed]: Implies that run is run is executed, data is download, and evals are added
 

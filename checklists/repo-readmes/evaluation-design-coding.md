@@ -1,10 +1,9 @@
-# Review of protocol consistency checks
+# Coding Evaluation Notes
 
 - Consistency Checks
-  CC1: What are human labelled baseline metrics when comparing abstract based labelling v. expert labels? (No LLM execution required here)
-  [Data: data/consistency-check-datasets/data-coding/annotated_coding_dataset.xlsx]
-
-  CC2: Compare LLM Labels v. Reference Expert Labels in forms of Train, Dev, Test sets
+  - `CC1`: Compare author-assigned coding labels based on abstracts only against expert full-text labels across all six label sets (`L1` to `L6`) to establish a human-performance baseline. No LLM execution is required here.
+    - Data: `data/consistency-check-datasets/data-coding/annotated_coding_dataset.xlsx`
+  - `CC2`: Compare LLM coding labels against expert full-text labels across train, dev, and test splits for all six label sets (`L1` to `L6`).
 
 # General Notes
 
@@ -100,7 +99,7 @@ Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats cl
 
 ### threats_l1
 
-[Completed]
+`Completed`
 
 - Coverage
   - Mid-level IUCN threat categories nested under the broader `threats_l0` families
