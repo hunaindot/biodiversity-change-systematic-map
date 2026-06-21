@@ -110,13 +110,13 @@ Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats cl
 
 ### threats_l1 (Mid level) [not-started]
 
-### Dev set execution
+#### Dev set execution
 
 - `Completed` - `python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_low_f1 --task threats_l1`
 - `Completed` - `python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_medium_f1 --task threats_l1`
 - `Completed` - `python labelling/orchestrator.py data/labels/l2/dev l2_dev_010726_high_f1 --task threats_l1`
 
-### What performs well in dev (based on F1) [= High]
+#### What performs well in dev (based on F1) [= High]
 
 | Run                       | Precision | Recall |     F1 |  Kappa |
 | ------------------------- | --------: | -----: | -----: | -----: |
@@ -124,7 +124,7 @@ Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats cl
 | `l2_dev_010726_medium_f1` |    65.27% | 56.49% | 57.58% | 51.98% |
 | `l2_dev_010726_high_f1`   |    64.94% | 58.97% | 58.60% | 53.34% |
 
-### Train set execution
+#### Train set execution
 
 - `Completed` - `python labelling/orchestrator.py data/labels/l2/train l2_train_010726_medium_f1 --task threats_l1`
 - Named medium for consistency with earlier run and path mgt; in reality, high reasoning parameters is passed in request files
@@ -133,7 +133,7 @@ Estimate the threats hierarchy Level 1 and Level 2 as defined by IUCN threats cl
 | --------------------------- | --------: | -----: | -----: | -----: |
 | `l2_train_010726_medium_f1` |    69.63% | 54.32% | 59.09% | 54.54% |
 
-### Test set execution
+#### Test set execution
 
 - `Completed` - `python labelling/orchestrator.py data/labels/l2/test l2_test_010726_medium_f1 --task threats_l1`
 - Named medium for consistency with earlier run and path mgt; in reality, high reasoning parameters is passed in request files
@@ -199,6 +199,36 @@ Results for `l3_dev_010726_high_f1`
 | `country`       |    91.05% | 77.08% | 82.97% | 77.47% |
 
 ## L4 Ecosystems
+
+### Dev set execution
+
+- `Completed` - `python labelling/orchestrator.py data/labels/l4/dev l4_dev_010726_low_f1 --task ecosystems_realm`
+- `Completed` - `python labelling/orchestrator.py data/labels/l4/dev l4_dev_010726_medium_f1 --task ecosystems_realm`
+- `Completed` - `python labelling/orchestrator.py data/labels/l4/dev l4_dev_010726_high_f1 --task ecosystems_realm`
+
+### What performs well in dev
+
+| Run                       | Precision | Recall |     F1 |  Kappa |
+| ------------------------- | --------: | -----: | -----: | -----: |
+| `l4_dev_010726_low_f1`    |    94.58% | 85.31% | 89.49% | 80.39% |
+| `l4_dev_010726_medium_f1` |    93.93% | 86.84% | 90.02% | 81.60% |
+| `l4_dev_010726_high_f1`   |    94.57% | 86.84% | 90.44% | 82.66% |
+
+### Train set execution
+
+- `Completed` - `python labelling/orchestrator.py data/labels/l4/train l4_train_010726_high_f1 --task ecosystems_realm`
+
+| Run                       | Precision | Recall |     F1 |  Kappa |
+| ------------------------- | --------: | -----: | -----: | -----: |
+| `l4_train_010726_high_f1` |    96.00% | 89.13% | 92.30% | 85.61% |
+
+### Test set execution
+
+- `Completed` - `python labelling/orchestrator.py data/labels/l4/test l4_test_010726_high_f1 --task ecosystems_realm`
+
+| Run                      | Precision | Recall |     F1 |  Kappa |
+| ------------------------ | --------: | -----: | -----: | -----: |
+| `l4_test_010726_high_f1` |    95.85% | 89.73% | 92.61% | 85.83% |
 
 ## L5 Study Design
 
