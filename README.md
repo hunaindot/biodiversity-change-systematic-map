@@ -22,7 +22,7 @@ Quick start assumes the default and recommended path: use the provided label spl
 
 ### 1. Add the GBIF lookup cache
 
-Download the prebuilt `gbif_lookup_cache.pkl` from the supplementary data and place it at:
+Download the prebuilt `gbif_lookup_cache.pkl` from the [supplementary data of the protocol](https://osf.io/sna2g/overview) and place it at:
 
 `checklists/mappings/gbif_lookup_cache.pkl`
 
@@ -60,7 +60,7 @@ Example:
 python labelling/orchestrator.py data/labels/l1/train l1_train_170426_f1 --task driver
 ```
 
-In plain English, this command:
+Simply, this command:
 
 - loads the provided `l1` training split from `data/labels/l1/train`
 - runs the `driver` coding task over every record in that split
@@ -81,7 +81,7 @@ Quick start assumes the normal path for this repo: use the provided `data/labels
 - [`evals_local/README.md`](evals_local/README.md) explains how to rerun evals manually and how prediction-vs-truth metrics are written.
 - [`data_helpers/README.md`](data_helpers/README.md) explains how to rebuild datasets from the reference screening/coding workbooks under `data/consistency-check-datasets/`, recreate train/dev/test splits, and sample review sets.
 - [`checklists/repo-readmes/evaluation-metrics-overview.md`](checklists/repo-readmes/evaluation-metrics-overview.md) explains the current screening and coding metrics, aggregation rules, and output files.
-- [`checklists/repo-readmes/evaluation-design-screening.md`](checklists/repo-readmes/evaluation-design-screening.md) records the current screening consistency-check and eval workflow.
-- [`checklists/repo-readmes/evaluation-design-coding.md`](checklists/repo-readmes/evaluation-design-coding.md) records the current coding consistency-check and eval workflow.
+- [`checklists/repo-readmes/evaluation-design-screening.md`](checklists/repo-readmes/evaluation-design-screening.md) records the screening consistency-check and eval workflow, plus every experiment run (`CC1A/B`, `CC2` across train/dev/test) with its result summary.
+- [`checklists/repo-readmes/evaluation-design-coding.md`](checklists/repo-readmes/evaluation-design-coding.md) records the coding consistency-check and eval workflow, plus every experiment run (`CC1` manual baseline and `CC2` for `L1`–`L6` across train/dev/test) with its result summary.
 
 Other valid workflows in this repo include running on `data/partitions-mock/` for lightweight checks or rebuilding from the reference and supplementary source data when fuller reproduction is needed, but those are better handled in the dedicated package READMEs than in the root guide.
