@@ -30,6 +30,8 @@
   - `data/labels/l5/L5) study set.csv`
   - `data/labels/l6/L6) taxa set.csv`
 - Metric implementation: reuses `evals_local` package
+- Eval results (per-label workbook): [data/labels/eval/coding_cc1_baseline/per_label_summary.xlsx](../../data/labels/eval/coding_cc1_baseline/per_label_summary.xlsx)
+  - Full per-label breakdown for every label set (precision/recall/F1/kappa/support), macro/weighted/micro averages, and the scored-vs-excluded document counts; the weighted summaries below are drawn from it
 
 ## CC1 Weighted Summaries
 
