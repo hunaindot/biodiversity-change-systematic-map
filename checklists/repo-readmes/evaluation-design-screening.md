@@ -46,6 +46,8 @@
   - `positive_support = 204`
   - `eligible_recall = 93.63`
 
+python labelling/orchestrator.py data/consistency-check-datasets/screening/search-sample l0_cc1_search-sample_010726_medium_f1 --task screen
+
 ## CC2 [Train, Dev, Test]
 
 ### Dev sets executed for different reasoning
