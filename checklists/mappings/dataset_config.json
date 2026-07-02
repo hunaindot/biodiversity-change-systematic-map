@@ -35,6 +35,23 @@
   "sampling": {
     "n_sample": 100
   },
+  "splits": {
+    "ratios": {
+      "train": 60,
+      "dev": 20,
+      "test": 20
+    },
+    "seed": 42,
+    "label_paths": {
+      "l0": "data/labels/l0",
+      "l1": "data/labels/l1",
+      "l2": "data/labels/l2",
+      "l3": "data/labels/l3",
+      "l4": "data/labels/l4",
+      "l5": "data/labels/l5",
+      "l6": "data/labels/l6"
+    }
+  },
   "screening_dataset": {
     "source": "data/consistency-check-datasets/screening/reference_screening_dataset.xlsx",
     "sheets": [

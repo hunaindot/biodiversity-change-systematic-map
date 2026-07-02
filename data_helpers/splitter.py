@@ -14,8 +14,10 @@ from ._config import (
     MISSING_KEY,
     MULTI_LABEL_KEY,
     NO_KINGDOM_KEY,
+    get_split_label_path,
+    get_split_ratios,
+    get_split_seed,
 )
-from .env import get_env_int, get_label_path, load_env
 
 SPLITS = ("train", "dev", "test")
 
@@ -229,22 +231,18 @@ def _split_with_source_weights(
     return split_rows, strata_counts
 
 
-def _get_ratios(env: dict[str, str]) -> dict[str, float]:
-    train = get_env_int(env, "train", 60)
-    dev = get_env_int(env, "dev", 20)
-    test = get_env_int(env, "test", 20)
-    total = train + dev + test
-    if total <= 0:
-        raise SplitError("train/dev/test ratios must sum to > 0")
-    return {
-        "train": train / total,
-        "dev": dev / total,
-        "test": test / total,
-    }
+def _get_ratios() -> dict[str, float]:
+    try:
+        return get_split_ratios()
+    except ValueError as exc:
+        raise SplitError(str(exc)) from exc
 
 
-def _get_label_path(env: dict[str, str], label: str) -> Path:
-    return get_label_path(env, label)
+def _get_label_path(label: str) -> Path:
+    try:
+        return get_split_label_path(label)
+    except ValueError as exc:
+        raise SplitError(str(exc)) from exc
 
 
 def _stratum_from_value(value: str, missing_key: str) -> tuple[str, list[str]]:
@@ -402,10 +400,9 @@ def split_label_dataset(
     return summary
 
 
-def run_from_env(env_path: Path, labels: list[str] | None = None, seed: int | None = None) -> list[dict[str, object]]:
-    env = load_env(env_path)
-    ratios = _get_ratios(env)
-    split_seed = seed if seed is not None else get_env_int(env, "DATASETS_LABELS_SEED", 42)
+def run_from_config(labels: list[str] | None = None, seed: int | None = None) -> list[dict[str, object]]:
+    ratios = _get_ratios()
+    split_seed = seed if seed is not None else get_split_seed()
 
     label_list = labels or list(LABEL_CONFIGS.keys())
     summaries: list[dict[str, object]] = []
@@ -413,7 +410,13 @@ def run_from_env(env_path: Path, labels: list[str] | None = None, seed: int | No
     for label in label_list:
         if label not in LABEL_CONFIGS:
             raise SplitError(f"Unknown label: {label}")
-        label_path = _get_label_path(env, label)
+        label_path = _get_label_path(label)
         summaries.append(split_label_dataset(label, label_path, ratios, split_seed))
 
     return summaries
+
+
+def run_from_env(env_path: Path, labels: list[str] | None = None, seed: int | None = None) -> list[dict[str, object]]:
+    """Compatibility wrapper. Split settings now come from dataset_config.json."""
+    _ = env_path
+    return run_from_config(labels=labels, seed=seed)

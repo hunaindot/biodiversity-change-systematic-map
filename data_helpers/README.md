@@ -31,9 +31,9 @@ The same `dataset_config.json` file also defines the label-specific split metada
 
 - Each label is split independently.
 - For each label, the splitter uses the stratification column defined in `dataset_config.json`.
-- Rows are grouped by stratum first, then the configured `train` / `dev` / `test` ratios from `.env` are applied within each stratum.
+- Rows are grouped by stratum first, then the configured `train` / `dev` / `test` ratios from `dataset_config.json` are applied within each stratum.
 - This means the overall split aims to preserve the label distribution of that stratification column across `train`, `dev`, and `test`, rather than assigning records completely at random.
-- The default ratios are `60/20/20`, and the default seed is `42`, both configurable through `.env`.
+- The default ratios are `60/20/20`, and the default seed is `42`, both configurable through `dataset_config.json`.
 
 ## Usage
 
@@ -62,7 +62,7 @@ Expected outcome: each label directory gets `train/`, `dev/`, `test/`, and `in-p
 python -m data_helpers
 ```
 
-Split ratios and label-root overrides are read from `.env` (see [Configuration](#configuration)).
+Split ratios and label-root paths are read from `dataset_config.json` (see [Configuration](#configuration)).
 Run a subset of labels:
 
 ```bash
@@ -87,7 +87,7 @@ python -m data_helpers.sample_coding l4
 ```
 
 Samples 100 records from the train split (configurable via `dataset_config.json`).
-Sampler inputs are read from `<resolved label path>/train`, where `<resolved label path>` follows the same `.env` `LABELS_<L>_PATH` override rules as the splitter.
+Sampler inputs are read from `<resolved label path>/train`, where `<resolved label path>` is configured in `dataset_config.json`.
 
 These samples feed the current consistency-check notes and notebooks rather than the default labelling path.
 Outputs go to `data/consistency-check-datasets/*/to-manual-label/`.
@@ -112,15 +112,15 @@ The code is provided so the cache can be recreated if needed. In normal use, it 
 
 ## Configuration
 
-`.env` keys read by the splitter and samplers:
+`dataset_config.json` keys read by the splitter and samplers:
 
-| Key                    | Default           | Description                                                 |
-| ---------------------- | ----------------- | ----------------------------------------------------------- |
-| `train`                | `60`              | Train split %                                               |
-| `dev`                  | `20`              | Dev split %                                                 |
-| `test`                 | `20`              | Test split %                                                |
-| `DATASETS_LABELS_SEED` | `42`              | Random seed                                                 |
-| `LABELS_<L>_PATH`      | `data/labels/<l>` | Override input path for label `<l>` (e.g. `LABELS_L0_PATH`) |
+| Key                         | Default           | Description                      |
+| --------------------------- | ----------------- | -------------------------------- |
+| `splits.ratios.train`       | `60`              | Train split %                    |
+| `splits.ratios.dev`         | `20`              | Dev split %                      |
+| `splits.ratios.test`        | `20`              | Test split %                     |
+| `splits.seed`               | `42`              | Random seed                      |
+| `splits.label_paths.<label>` | `data/labels/<l>` | Input path for label `<label>`   |
 
-Everything else (sheet names, column names, label configs, sample size) is in
+Other dataset-preparation settings (sheet names, column names, label configs, sample size) are in
 [`checklists/mappings/dataset_config.json`](../checklists/mappings/dataset_config.json).

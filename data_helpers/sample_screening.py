@@ -2,7 +2,6 @@ import ast
 import csv
 import json
 import math
-import os
 import random
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,25 +11,24 @@ from ._config import (
     MISSING_KEY,
     MULTI_LABEL_KEY as MULTI_KEY,
     N_SAMPLE,
+    REPO_ROOT,
     SCREENING_CFG as _SCREENING_CFG,
+    get_split_label_path,
+    get_split_seed,
 )
-from .env import get_env_int, get_label_path, load_env
 
-ROOT = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-ENV_PATH = ROOT / ".env"
+ROOT = REPO_ROOT
 
 OUT_DIR = ROOT / _SCREENING_CFG["manual_sample_output_dir"]
 STRAT_COL = _LABEL_CONFIGS_RAW["l0"]["strat_column"]
 
 
-def _load_env_seed() -> int:
-    env = load_env(ENV_PATH)
-    return get_env_int(env, "DATASETS_LABELS_SEED", 42)
+def _load_config_seed() -> int:
+    return get_split_seed()
 
 
 def _get_train_path() -> Path:
-    env = load_env(ENV_PATH)
-    return ROOT / get_label_path(env, "l0") / "train"
+    return get_split_label_path("l0") / "train"
 
 
 def _parse_labels(raw: str) -> list[str]:
@@ -143,7 +141,7 @@ def sample_l0(seed: int) -> dict:
 
 
 def main():
-    seed = _load_env_seed()
+    seed = _load_config_seed()
     print(f"Seed: {seed}")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
