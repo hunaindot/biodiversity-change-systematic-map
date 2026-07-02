@@ -8,7 +8,7 @@ from typing import Iterable
 
 from openai import OpenAI
 
-from .config import DEFAULT_MODEL, DEFAULT_REASONING_EFFORT, MAPPINGS_DIR, PROMPTS_DIR
+from .config import DEFAULT_MODEL, DEFAULT_REASONING_EFFORT, MAPPINGS_DIR, PROMPTS_DIR, PROMPT_KEY_DRIVER
 from .config import get_openai_api_key
 
 
@@ -69,8 +69,8 @@ def build_direct_driver_request(
     model: str = DEFAULT_MODEL,
     reasoning_effort: str = DEFAULT_REASONING_EFFORT,
 ) -> dict:
-    system_prompt = prompts["classify_direct_driver"]["system_prompt"]
-    structured_output = prompts["classify_direct_driver"].get("structured_output")
+    system_prompt = prompts[PROMPT_KEY_DRIVER]["system_prompt"]
+    structured_output = prompts[PROMPT_KEY_DRIVER].get("structured_output")
     text_format = None
     if isinstance(structured_output, dict):
         text_format = structured_output.get("text") or structured_output.get("format")

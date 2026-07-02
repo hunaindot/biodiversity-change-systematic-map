@@ -3,5 +3,25 @@
     "labels_dir": "data/labels",
     "output_dir": "data/labels/eval",
     "gbif_cache_path": "checklists/mappings/gbif_lookup_cache.pkl"
+  },
+  "prompts": {
+    "dir": "checklists/prompts",
+    "keys": {
+      "driver": "classify_direct_driver",
+      "screening": "screen",
+      "geography": "classify_region",
+      "taxa": "classify_taxa",
+      "study": "classify_study",
+      "ecosystems": "classify_ecosystem_typology",
+      "ecosystems_core": "classify_ecosystem_typology_core",
+      "ecosystems_realm": "classify_ecosystem_typology_realm",
+      "ecosystems_biome": "classify_ecosystem_typology_biome",
+      "ecosystems_efg": "classify_ecosystem_typology_efg",
+      "threats": "classify_threats",
+      "threats_core": "classify_threats_core",
+      "threats_l0": "classify_threats",
+      "threats_l1": "classify_threats_l1",
+      "threats_l2": "classify_threats_l2"
+    }
   }
 }

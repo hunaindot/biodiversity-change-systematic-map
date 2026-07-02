@@ -114,6 +114,8 @@ If no ground-truth labels are found, evals do not block the run. Set `ORCHESTRAT
 ## Environment
 
 Most runtime behavior is controlled through `.env`. See [`.env.sample`](../.env.sample) for the full reference.
+Prompt directory and task-to-prompt-key settings are stored in
+[`checklists/mappings/repo_config.json`](../checklists/mappings/repo_config.json).
 
 Key variables:
 
