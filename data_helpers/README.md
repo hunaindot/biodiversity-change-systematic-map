@@ -8,8 +8,7 @@ The code here is included mainly for reproducibility. In normal use, you usually
 
 ```
 data_helpers/
-├── _config.py          # loads checklists/mappings/dataset_config.json
-├── env.py              # .env file parser
+├── _config.py          # loads checklists/mappings/repo_config.json
 ├── splitter.py         # core train/dev/test split logic
 ├── build_screening.py  # create L0 screening CSV from Excel source
 ├── build_coding.py     # create L1–L6 coding CSVs from Excel source
@@ -18,22 +17,20 @@ data_helpers/
 └── sample_coding.py    # sample L1–L6 train splits for manual labelling
 ```
 
-Configuration is split across:
-
-- [`checklists/mappings/dataset_config.json`](../checklists/mappings/dataset_config.json) for workbook sources, label metadata, sample size, and manual-sample output locations
-- `.env` for runtime split settings and optional `LABELS_<L>_PATH` overrides
-
-The same `dataset_config.json` file also defines the label-specific split metadata, including which stratification column is used for each of `L0` through `L6`.
+Configuration lives under `dataset_config` in
+[`checklists/mappings/repo_config.json`](../checklists/mappings/repo_config.json).
+That section defines workbook sources, label metadata, sample size, manual-sample
+output locations, split settings, and label-specific stratification metadata.
 
 ---
 
 ## Split behavior
 
 - Each label is split independently.
-- For each label, the splitter uses the stratification column defined in `dataset_config.json`.
-- Rows are grouped by stratum first, then the configured `train` / `dev` / `test` ratios from `dataset_config.json` are applied within each stratum.
+- For each label, the splitter uses the stratification column defined in `repo_config.json`.
+- Rows are grouped by stratum first, then the configured `train` / `dev` / `test` ratios from `repo_config.json` are applied within each stratum.
 - This means the overall split aims to preserve the label distribution of that stratification column across `train`, `dev`, and `test`, rather than assigning records completely at random.
-- The default ratios are `60/20/20`, and the default seed is `42`, both configurable through `dataset_config.json`.
+- The default ratios are `60/20/20`, and the default seed is `42`, both configurable through `repo_config.json`.
 
 ## Usage
 
@@ -62,7 +59,7 @@ Expected outcome: each label directory gets `train/`, `dev/`, `test/`, and `in-p
 python -m data_helpers
 ```
 
-Split ratios and label-root paths are read from `dataset_config.json` (see [Configuration](#configuration)).
+Split ratios and label-root paths are read from `repo_config.json` (see [Configuration](#configuration)).
 Run a subset of labels:
 
 ```bash
@@ -76,7 +73,7 @@ Each label writes to `data/labels/<label>/train|dev|test/` and an `in-process/` 
 
 Goal: draw a smaller subset from the training splits for manual review and current consistency-check workflows.
 
-Expected outcome: sample files are written to the manual-labelling output directories configured in `dataset_config.json`.
+Expected outcome: sample files are written to the manual-labelling output directories configured in `repo_config.json`.
 
 ```bash
 python -m data_helpers.sample_screening
@@ -86,8 +83,8 @@ python -m data_helpers.sample_coding
 python -m data_helpers.sample_coding l4
 ```
 
-Samples 100 records from the train split (configurable via `dataset_config.json`).
-Sampler inputs are read from `<resolved label path>/train`, where `<resolved label path>` is configured in `dataset_config.json`.
+Samples 100 records from the train split (configurable via `repo_config.json`).
+Sampler inputs are read from `<resolved label path>/train`, where `<resolved label path>` is configured in `repo_config.json`.
 
 These samples feed the current consistency-check notes and notebooks rather than the default labelling path.
 Outputs go to `data/consistency-check-datasets/*/to-manual-label/`.
@@ -112,15 +109,15 @@ The code is provided so the cache can be recreated if needed. In normal use, it 
 
 ## Configuration
 
-`dataset_config.json` keys read by the splitter and samplers:
+`repo_config.json` keys read by the splitter and samplers:
 
 | Key                         | Default           | Description                      |
 | --------------------------- | ----------------- | -------------------------------- |
-| `splits.ratios.train`       | `60`              | Train split %                    |
-| `splits.ratios.dev`         | `20`              | Dev split %                      |
-| `splits.ratios.test`        | `20`              | Test split %                     |
-| `splits.seed`               | `42`              | Random seed                      |
-| `splits.label_paths.<label>` | `data/labels/<l>` | Input path for label `<label>`   |
+| `dataset_config.splits.ratios.train`       | `60`              | Train split %                    |
+| `dataset_config.splits.ratios.dev`         | `20`              | Dev split %                      |
+| `dataset_config.splits.ratios.test`        | `20`              | Test split %                     |
+| `dataset_config.splits.seed`               | `42`              | Random seed                      |
+| `dataset_config.splits.label_paths.<label>` | `data/labels/<l>` | Input path for label `<label>`   |
 
 Other dataset-preparation settings (sheet names, column names, label configs, sample size) are in
-[`checklists/mappings/dataset_config.json`](../checklists/mappings/dataset_config.json).
+`dataset_config` in [`checklists/mappings/repo_config.json`](../checklists/mappings/repo_config.json).

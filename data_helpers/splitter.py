@@ -417,6 +417,6 @@ def run_from_config(labels: list[str] | None = None, seed: int | None = None) ->
 
 
 def run_from_env(env_path: Path, labels: list[str] | None = None, seed: int | None = None) -> list[dict[str, object]]:
-    """Compatibility wrapper. Split settings now come from dataset_config.json."""
+    """Compatibility wrapper. Split settings now come from repo_config.json."""
     _ = env_path
     return run_from_config(labels=labels, seed=seed)

@@ -17,7 +17,7 @@ def _parse_labels(raw: str | None) -> list[str] | None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Split labels datasets into train/dev/test with stratification.")
-    parser.add_argument("--env", default=".env", help="Deprecated; split settings are read from dataset_config.json.")
+    parser.add_argument("--env", default=".env", help="Deprecated; split settings are read from repo_config.json.")
     parser.add_argument("--labels", default="", help="Comma-separated list of labels (e.g., l0,l1,l2).")
     parser.add_argument("--seed", type=int, default=None, help="Random seed override.")
     args = parser.parse_args()

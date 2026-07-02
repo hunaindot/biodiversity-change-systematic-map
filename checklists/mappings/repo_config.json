@@ -37,5 +37,165 @@
       "threats_l1": "classify_threats_l1",
       "threats_l2": "classify_threats_l2"
     }
+  },
+  "dataset_config": {
+    "special_keys": {
+      "missing": "__MISSING__",
+      "multi_label": "__MULTI__",
+      "no_kingdom": "__NO_KINGDOM__"
+    },
+    "base_columns": [
+      "Article Title",
+      "Abstract",
+      "DOI",
+      "source",
+      "UT (Unique WOS ID)"
+    ],
+    "unique_id_column": "UT (Unique WOS ID)",
+    "abstract_column": "Abstract",
+    "label_configs": {
+      "l0": {
+        "strat_column": "source"
+      },
+      "l1": {
+        "strat_column": "driver"
+      },
+      "l2": {
+        "strat_column": "threats_l0"
+      },
+      "l3": {
+        "strat_column": "region"
+      },
+      "l4": {
+        "strat_column": "realm"
+      },
+      "l5": {
+        "strat_column": "study_design"
+      },
+      "l6": {
+        "strat_column": "phylum",
+        "missing_key": "__NO_KINGDOM__",
+        "drop_if_all_missing": [
+          "kingdom",
+          "phylum",
+          "class",
+          "order",
+          "specie"
+        ]
+      }
+    },
+    "sampling": {
+      "n_sample": 100
+    },
+    "splits": {
+      "ratios": {
+        "train": 60,
+        "dev": 20,
+        "test": 20
+      },
+      "seed": 42,
+      "label_paths": {
+        "l0": "data/labels/l0",
+        "l1": "data/labels/l1",
+        "l2": "data/labels/l2",
+        "l3": "data/labels/l3",
+        "l4": "data/labels/l4",
+        "l5": "data/labels/l5",
+        "l6": "data/labels/l6"
+      }
+    },
+    "screening_dataset": {
+      "source": "data/consistency-check-datasets/screening/reference_screening_dataset.xlsx",
+      "sheets": [
+        "Jaureguiberry et al - Import (1",
+        "Keck et al - import (1711)",
+        "Shaw et al - import (418)",
+        "Murphy et al - import (142)",
+        "Ecosystem Change - Import (31)"
+      ],
+      "label_column": "eligbility",
+      "output": "data/labels/l0/L0) Screening.csv",
+      "manual_sample_output_dir": "data/consistency-check-datasets/screening/to-manual-label"
+    },
+    "coding_dataset": {
+      "source": "data/consistency-check-datasets/data-coding/reference_coding_dataset.xlsx",
+      "sheets": [
+        "S1) Benitez lopez et al",
+        "S2) Jaureguiberry et al",
+        "S3) Moullec et al",
+        "S4) Urban et al",
+        "S5) Wright et al",
+        "S6) Lowery et al",
+        "S7) Ridley et al",
+        "S8) Keck et al",
+        "S9) Pulido-Chadid et al"
+      ],
+      "labels": [
+        {
+          "name": "L1) Driver",
+          "extra_cols": [
+            "driver"
+          ],
+          "output": "data/labels/l1/L1) driver set.csv"
+        },
+        {
+          "name": "L2) Threats",
+          "extra_cols": [
+            "threats_l0",
+            "threats_l1"
+          ],
+          "output": "data/labels/l2/L2) threats set.csv"
+        },
+        {
+          "name": "L3) Geography",
+          "extra_cols": [
+            "region",
+            "sub-region",
+            "country"
+          ],
+          "output": "data/labels/l3/L3) geography set.csv"
+        },
+        {
+          "name": "L4) Ecosystems",
+          "extra_cols": [
+            "realm",
+            "biome"
+          ],
+          "output": "data/labels/l4/L4) ecosystem set.csv"
+        },
+        {
+          "name": "L5) Study",
+          "extra_cols": [
+            "study_design"
+          ],
+          "output": "data/labels/l5/L5) study set.csv"
+        },
+        {
+          "name": "L6) Taxa",
+          "extra_cols": [
+            "kingdom",
+            "phylum",
+            "class",
+            "order",
+            "genus",
+            "specie"
+          ],
+          "output": "data/labels/l6/L6) taxa set.csv"
+        }
+      ],
+      "manual_sample_output_dir": "data/consistency-check-datasets/data-coding/to-manual-label"
+    },
+    "gbif": {
+      "source": "data/gbif/curated/gbif_curated.csv",
+      "cache": "checklists/mappings/gbif_lookup_cache.pkl",
+      "chunksize": 200000,
+      "taxonomic_columns": [
+        "kingdom",
+        "phylum",
+        "class",
+        "order",
+        "genus"
+      ]
+    }
   }
 }

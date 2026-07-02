@@ -48,7 +48,7 @@ Open `.env` and replace the placeholder with your OpenAI API key:
 OPENAI_API_KEY=<ADD YOUR OPENAI API KEY HERE>  ->  OPENAI_API_KEY=sk-...
 ```
 
-Only the OpenAI API key belongs in `.env`. Non-secret repository defaults are stored in `checklists/mappings/repo_config.json` and `checklists/mappings/dataset_config.json`.
+Only the OpenAI API key belongs in `.env`. Non-secret repository defaults are stored in `checklists/mappings/repo_config.json`.
 
 ### 4. Reproduce one labelling run
 
