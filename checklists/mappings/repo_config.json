@@ -1,0 +1,7 @@
+{
+  "evals": {
+    "labels_dir": "data/labels",
+    "output_dir": "data/labels/eval",
+    "gbif_cache_path": "checklists/mappings/gbif_lookup_cache.pkl"
+  }
+}

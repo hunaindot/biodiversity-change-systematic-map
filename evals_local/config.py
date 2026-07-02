@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+REPO_CONFIG_PATH = ROOT / "checklists" / "mappings" / "repo_config.json"
 
 
 # ── Env bootstrap ─────────────────────────────────────────────────────────────
@@ -41,15 +43,44 @@ def _resolve_path(env_var: str) -> Path:
     return p if p.is_absolute() else ROOT / p
 
 
+def _load_repo_config() -> dict:
+    """Load repo-level JSON config used for non-secret repository paths."""
+    if not REPO_CONFIG_PATH.exists():
+        raise ValueError(f"Required config file is missing: {REPO_CONFIG_PATH}")
+    try:
+        with REPO_CONFIG_PATH.open(encoding="utf-8") as f:
+            config = json.load(f)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON in config file {REPO_CONFIG_PATH}: {exc}") from exc
+    if not isinstance(config, dict):
+        raise ValueError(f"Config file {REPO_CONFIG_PATH} must contain a JSON object.")
+    return config
+
+
+REPO_CONFIG = _load_repo_config()
+
+
+def _resolve_repo_config_path(section: str, key: str) -> Path:
+    """Read a required path from repo_config.json; relative paths resolved from ROOT."""
+    section_config = REPO_CONFIG.get(section)
+    if not isinstance(section_config, dict):
+        raise ValueError(f"Required config section {section!r} is missing in {REPO_CONFIG_PATH}.")
+    raw = section_config.get(key)
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError(f"Required config key {section}.{key} is missing in {REPO_CONFIG_PATH}.")
+    p = Path(raw.strip())
+    return p if p.is_absolute() else ROOT / p
+
+
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
 MAPPINGS_DIR      = _resolve_path("ORCHESTRATOR_MAPPINGS_DIR")
 BATCH_OUTPUTS_DIR = _resolve_path("ORCHESTRATOR_BATCH_OUTPUTS_DIR")
 BATCHES_DIR       = _resolve_path("ORCHESTRATOR_BATCHES_DIR")
-LABELS_DIR        = _resolve_path("EVALS_LABELS_DIR")
-EVAL_OUTPUT_DIR   = _resolve_path("EVALS_OUTPUT_DIR")
-GBIF_CACHE_PATH   = _resolve_path("EVALS_GBIF_CACHE_PATH")
+LABELS_DIR        = _resolve_repo_config_path("evals", "labels_dir")
+EVAL_OUTPUT_DIR   = _resolve_repo_config_path("evals", "output_dir")
+GBIF_CACHE_PATH   = _resolve_repo_config_path("evals", "gbif_cache_path")
 
 
 # ── Task registry ─────────────────────────────────────────────────────────────

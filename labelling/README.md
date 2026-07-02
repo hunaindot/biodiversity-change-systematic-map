@@ -100,14 +100,14 @@ Evals run automatically after each task if `ORCHESTRATOR_RUN_EVALS=true`.
 
 Eval outputs are written under:
 
-`$EVALS_OUTPUT_DIR/<run_name>/`
+`<repo_config.evals.output_dir>/<run_name>/`
 
 That folder typically contains:
 
 - `data/` for joined truth and prediction outputs
 - `metrics/` for metric files by truth column
 
-For screening runs, automatic evals read the truth labels from `input_dir` directly. For the other tasks, evals resolve truth labels from `EVALS_LABELS_DIR`.
+For screening runs, automatic evals read the truth labels from `input_dir` directly. For the other tasks, evals resolve truth labels from `evals.labels_dir` in `checklists/mappings/repo_config.json`.
 
 If no ground-truth labels are found, evals do not block the run. Set `ORCHESTRATOR_RUN_EVALS=false` if you want to skip evals entirely.
 

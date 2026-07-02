@@ -132,13 +132,15 @@ Those modes are mainly there for flexible reruns and older run layouts rather th
 
 ## Environment
 
-Most behavior is controlled through `.env`. See [`.env.sample`](../.env.sample) for the full reference.
+Most runtime behavior is controlled through `.env`. Eval-specific paths are stored in
+[`checklists/mappings/repo_config.json`](../checklists/mappings/repo_config.json).
+See [`.env.sample`](../.env.sample) for the remaining environment variables.
 
-Key variables:
+Key settings:
 
-| Key                              | Description                                           |
-| -------------------------------- | ----------------------------------------------------- |
-| `EVALS_LABELS_DIR`               | Root directory for ground-truth labels                |
-| `EVALS_OUTPUT_DIR`               | Directory where eval output files are written         |
-| `EVALS_GBIF_CACHE_PATH`          | GBIF lookup cache used by taxa-related eval logic     |
-| `ORCHESTRATOR_BATCH_OUTPUTS_DIR` | Directory from which labelling JSONL outputs are read |
+| Location                                      | Key                              | Description                                           |
+| --------------------------------------------- | -------------------------------- | ----------------------------------------------------- |
+| `checklists/mappings/repo_config.json`        | `evals.labels_dir`               | Root directory for ground-truth labels                |
+| `checklists/mappings/repo_config.json`        | `evals.output_dir`               | Directory where eval output files are written         |
+| `checklists/mappings/repo_config.json`        | `evals.gbif_cache_path`          | GBIF lookup cache used by taxa-related eval logic     |
+| `.env`                                        | `ORCHESTRATOR_BATCH_OUTPUTS_DIR` | Directory from which labelling JSONL outputs are read |
