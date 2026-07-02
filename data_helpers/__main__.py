@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
-from .splitter import SplitError, run_from_env
+from .splitter import SplitError, run_from_config
 
 
 def _parse_labels(raw: str | None) -> list[str] | None:
@@ -17,16 +16,14 @@ def _parse_labels(raw: str | None) -> list[str] | None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Split labels datasets into train/dev/test with stratification.")
-    parser.add_argument("--env", default=".env", help="Deprecated; split settings are read from repo_config.json.")
     parser.add_argument("--labels", default="", help="Comma-separated list of labels (e.g., l0,l1,l2).")
     parser.add_argument("--seed", type=int, default=None, help="Random seed override.")
     args = parser.parse_args()
 
     labels = _parse_labels(args.labels)
-    env_path = Path(args.env)
 
     try:
-        summaries = run_from_env(env_path, labels=labels, seed=args.seed)
+        summaries = run_from_config(labels=labels, seed=args.seed)
     except SplitError as exc:
         raise SystemExit(f"data_helpers error: {exc}") from exc
 

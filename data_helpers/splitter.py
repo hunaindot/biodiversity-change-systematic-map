@@ -414,9 +414,3 @@ def run_from_config(labels: list[str] | None = None, seed: int | None = None) ->
         summaries.append(split_label_dataset(label, label_path, ratios, split_seed))
 
     return summaries
-
-
-def run_from_env(env_path: Path, labels: list[str] | None = None, seed: int | None = None) -> list[dict[str, object]]:
-    """Compatibility wrapper. Split settings now come from repo_config.json."""
-    _ = env_path
-    return run_from_config(labels=labels, seed=seed)
