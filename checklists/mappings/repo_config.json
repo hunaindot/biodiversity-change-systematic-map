@@ -4,6 +4,20 @@
     "output_dir": "data/labels/eval",
     "gbif_cache_path": "checklists/mappings/gbif_lookup_cache.pkl"
   },
+  "orchestrator": {
+    "limit_docs": null,
+    "batch_size": 10000,
+    "model": "gpt-5-nano-2025-08-07",
+    "reasoning": "medium",
+    "submission_mode": "batch",
+    "run_evals": true,
+    "paths": {
+      "mappings_dir": "checklists/mappings",
+      "datasets_dir": "data/artifacts/datasets",
+      "batches_dir": "data/artifacts/batches",
+      "batch_outputs_dir": "data/artifacts/batch_outputs"
+    }
+  },
   "prompts": {
     "dir": "checklists/prompts",
     "keys": {

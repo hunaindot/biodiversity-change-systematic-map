@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import time
 from pathlib import Path
 
@@ -11,59 +10,17 @@ import sys as _sys
 _sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from evals_local.run import run_tasks
 from src.config import (
+    BATCH_SIZE,
     BATCHES_DIR,
     BATCH_OUTPUTS_DIR,
     DATASETS_DIR,
+    DEFAULT_MODEL,
+    DEFAULT_REASONING_EFFORT,
+    LIMIT_DOCS,
+    RUN_EVALS,
+    SUBMISSION_MODE,
     ensure_artifact_dirs,
 )
-
-ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
-ENV_LIMIT_DOCS = "ORCHESTRATOR_LIMIT_DOCS"
-ENV_BATCH_SIZE = "ORCHESTRATOR_BATCH_SIZE"
-ENV_SUBMISSION_MODE = "ORCHESTRATOR_SUBMISSION_MODE"
-ENV_RUN_EVALS = "ORCHESTRATOR_RUN_EVALS"
-
-
-def load_env_file(path: Path = ENV_FILE) -> None:
-    """Load .env into os.environ, overriding any stale shell values."""
-    if not path.exists():
-        return
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip()
-        if not key:
-            continue
-        if value[:1] == value[-1:] and value.startswith(("'", '"')):
-            value = value[1:-1]
-        os.environ[key] = value
-
-
-def env_int(name: str, default: int | None) -> int | None:
-    raw = os.getenv(name)
-    if raw is None or raw.strip() == "":
-        return default
-    if raw.lower() == "none":
-        return None
-    try:
-        return int(raw)
-    except ValueError as exc:
-        raise ValueError(f"Environment variable {name} must be an integer or 'None'.") from exc
-
-
-def env_bool(name: str, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None or raw.strip() == "":
-        return default
-    lowered = raw.lower()
-    if lowered in {"1", "true", "yes", "y", "on"}:
-        return True
-    if lowered in {"0", "false", "no", "n", "off"}:
-        return False
-    raise ValueError(f"Environment variable {name} must be a boolean (true/false).")
 
 
 def parse_args() -> argparse.Namespace:
@@ -87,7 +44,6 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    load_env_file()
     ensure_artifact_dirs()
 
     args = parse_args()
@@ -96,14 +52,14 @@ def main() -> None:
     task_name: str = args.task
     task = tasks.get_task(task_name)
 
-    limit_docs = env_int(ENV_LIMIT_DOCS, 500)
-    batch_size = env_int(ENV_BATCH_SIZE, 100)
-    model = os.environ["ORCHESTRATOR_MODEL"]
-    reasoning = os.environ["ORCHESTRATOR_REASONING"]
-    run_evals = env_bool(ENV_RUN_EVALS, True)
-    submission_mode = (os.getenv(ENV_SUBMISSION_MODE) or "live").lower()
+    limit_docs = LIMIT_DOCS
+    batch_size = BATCH_SIZE
+    model = DEFAULT_MODEL
+    reasoning = DEFAULT_REASONING_EFFORT
+    run_evals = RUN_EVALS
+    submission_mode = SUBMISSION_MODE
     if submission_mode not in {"live", "batch"}:
-        raise ValueError(f"{ENV_SUBMISSION_MODE} must be 'live' or 'batch'.")
+        raise ValueError("Config key orchestrator.submission_mode must be 'live' or 'batch'.")
     if submission_mode == "batch" and not task.supports_batch:
         raise ValueError(f"Task '{task.name}' only supports live submission.")
 

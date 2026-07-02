@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,25 +34,6 @@ from src.config import DATASETS_DIR
 _CORE_FIELDS = ["UT", "title", "authors", "abstract", "source", "publication_year", "wos_categories", "doi"]
 _STAGE_NUMERIC_COLS = ["s1_r", "s2_r", "s3_r", "s4_r"]
 _STAGE_LABEL_COLS = ["s1_bio", "s2_dir", "s3_drivers", "s4_link"]
-
-
-def load_env_file(path: Path | None = None) -> None:
-    """Load .env into os.environ, overriding stale shell values."""
-    env_path = path or _REPO_ROOT / ".env"
-    if not env_path.exists():
-        return
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip()
-        if not key:
-            continue
-        if value[:1] == value[-1:] and value.startswith(("'", '"')):
-            value = value[1:-1]
-        os.environ[key] = value
 
 
 def _load_dataset(run_name: str) -> dict[str, dict]:
@@ -159,7 +139,6 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
-    load_env_file()
     args = parse_args()
 
     output_base = _REPO_ROOT / "data" / args.output_dir

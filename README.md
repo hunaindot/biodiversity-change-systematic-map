@@ -48,7 +48,7 @@ Open `.env` and replace the placeholder with your OpenAI API key:
 OPENAI_API_KEY=<ADD YOUR OPENAI API KEY HERE>  ->  OPENAI_API_KEY=sk-...
 ```
 
-Most of the repository behavior is driven by `.env`. For a normal first run, you usually only need to set `OPENAI_API_KEY`; the remaining defaults in `.env.sample` are set up to work with the provided `data/labels/` splits. The inline comments in `.env.sample` are the detailed reference for what each variable controls.
+Only the OpenAI API key belongs in `.env`. Non-secret repository defaults are stored in `checklists/mappings/repo_config.json` and `checklists/mappings/dataset_config.json`.
 
 ### 4. Reproduce one labelling run
 
@@ -65,7 +65,7 @@ Simply, this command:
 - loads the provided `l1` training split from `data/labels/l1/train`
 - runs the `driver` coding task over every record in that split
 - saves the run outputs under the name `l1_train_170426_f1`
-- then, if evals are enabled in `.env`, compares the predicted labels against the true labels and writes metrics under `data/labels/eval/`
+- then, if evals are enabled in `checklists/mappings/repo_config.json`, compares the predicted labels against the true labels and writes metrics under `data/labels/eval/`
 
 This same pattern is used across the repo: pick an input split, choose a task, run the labelling workflow, and optionally evaluate the outputs against the reference labels.
 

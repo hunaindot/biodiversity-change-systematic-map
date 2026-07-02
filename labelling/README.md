@@ -8,7 +8,7 @@ In the normal repo workflow, this package is used on the prepared splits under `
 
 Before running:
 
-- configure `.env` using [`.env.sample`](../.env.sample)
+- provide `OPENAI_API_KEY` through your shell environment or `.env`
 - for the standard reproducibility workflow, make sure the prepared `data/labels/` splits are already present as described in the [root README](../README.md)
 
 Run from the repo root:
@@ -28,7 +28,7 @@ In plain English, this command:
 - loads the `l1` train split from `data/labels/l1/train`
 - runs the `driver` task on every record in that folder
 - writes outputs under the run name `l1_train_170426_f1`
-- then, if enabled in `.env`, runs evals against the reference labels
+- then, if enabled in `checklists/mappings/repo_config.json`, runs evals against the reference labels
 
 ## Inputs
 
@@ -92,11 +92,11 @@ For `L2` and `L4`, run the steps in order and keep the same `run_name` throughou
 
 All run outputs are written under:
 
-`$ORCHESTRATOR_BATCH_OUTPUTS_DIR/<run_name>/`
+`<repo_config.orchestrator.paths.batch_outputs_dir>/<run_name>/`
 
 Simple tasks (`screen`, `driver`, `geography`, `study`, `taxa`) write the raw response envelope. Multi-step tasks (`threats_*`, `ecosystems_*`) write parsed records that also include intermediate labelling metadata needed by downstream levels.
 
-Evals run automatically after each task if `ORCHESTRATOR_RUN_EVALS=true`.
+Evals run automatically after each task if `orchestrator.run_evals=true`.
 
 Eval outputs are written under:
 
@@ -109,21 +109,20 @@ That folder typically contains:
 
 For screening runs, automatic evals read the truth labels from `input_dir` directly. For the other tasks, evals resolve truth labels from `evals.labels_dir` in `checklists/mappings/repo_config.json`.
 
-If no ground-truth labels are found, evals do not block the run. Set `ORCHESTRATOR_RUN_EVALS=false` if you want to skip evals entirely.
+If no ground-truth labels are found, evals do not block the run. Set `orchestrator.run_evals=false` in `checklists/mappings/repo_config.json` if you want to skip evals entirely.
 
 ## Environment
 
-Most runtime behavior is controlled through `.env`. See [`.env.sample`](../.env.sample) for the full reference.
-Prompt directory and task-to-prompt-key settings are stored in
-[`checklists/mappings/repo_config.json`](../checklists/mappings/repo_config.json).
+Runtime defaults are controlled through [`checklists/mappings/repo_config.json`](../checklists/mappings/repo_config.json).
+`OPENAI_API_KEY` remains environment-provided because it is a secret.
 
-Key variables:
+Key settings:
 
-| Variable                       | Description                                                                                              |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| `ORCHESTRATOR_SUBMISSION_MODE` | `live` or `batch`; both are supported, but `batch` is the recommended default when you want to save cost |
-| `ORCHESTRATOR_RUN_EVALS`       | Set `false` to skip automatic evals                                                                      |
-| `ORCHESTRATOR_LIMIT_DOCS`      | Cap documents per run (`none` for all)                                                                   |
+| Location                               | Key                            | Description                                                                                              |
+| -------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `checklists/mappings/repo_config.json` | `orchestrator.submission_mode` | `live` or `batch`; both are supported, but `batch` is the recommended default when you want to save cost |
+| `checklists/mappings/repo_config.json` | `orchestrator.run_evals`       | Set `false` to skip automatic evals                                                                      |
+| `checklists/mappings/repo_config.json` | `orchestrator.limit_docs`      | Cap documents per run (`null` for all)                                                                   |
 
 ## Notes
 

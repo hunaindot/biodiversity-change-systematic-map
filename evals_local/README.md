@@ -44,7 +44,7 @@ If you do not pass a custom label path, evals continue to use the default truth 
 Most users do not need to run this package separately. The usual flow is:
 
 - run a labelling task with `labelling/orchestrator.py`
-- let evals run automatically if `ORCHESTRATOR_RUN_EVALS=true`
+- let evals run automatically if `orchestrator.run_evals=true`
 - inspect the outputs written under `data/labels/eval/<run_name>/`
 
 Direct use of `evals_local` is mainly helpful when:
@@ -132,9 +132,8 @@ Those modes are mainly there for flexible reruns and older run layouts rather th
 
 ## Environment
 
-Most runtime behavior is controlled through `.env`. Eval-specific paths are stored in
+Eval-specific paths and the labelling output paths that evals read are stored in
 [`checklists/mappings/repo_config.json`](../checklists/mappings/repo_config.json).
-See [`.env.sample`](../.env.sample) for the remaining environment variables.
 
 Key settings:
 
@@ -143,4 +142,4 @@ Key settings:
 | `checklists/mappings/repo_config.json`        | `evals.labels_dir`               | Root directory for ground-truth labels                |
 | `checklists/mappings/repo_config.json`        | `evals.output_dir`               | Directory where eval output files are written         |
 | `checklists/mappings/repo_config.json`        | `evals.gbif_cache_path`          | GBIF lookup cache used by taxa-related eval logic     |
-| `.env`                                        | `ORCHESTRATOR_BATCH_OUTPUTS_DIR` | Directory from which labelling JSONL outputs are read |
+| `checklists/mappings/repo_config.json`        | `orchestrator.paths.batch_outputs_dir` | Directory from which labelling JSONL outputs are read |

@@ -9,47 +9,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 REPO_CONFIG_PATH = ROOT_DIR / "checklists" / "mappings" / "repo_config.json"
 
 
-# ── Env bootstrap ─────────────────────────────────────────────────────────────
-
-def _bootstrap_env() -> None:
-    """Load .env into os.environ at import time so constants below can read from it.
-    Uses setdefault — env vars already set in the shell take precedence."""
-    env_path = ROOT_DIR / ".env"
-    if not env_path.exists():
-        return
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip()
-        if not key:
-            continue
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
-            value = value[1:-1]
-        os.environ.setdefault(key, value)
-
-
-_bootstrap_env()
-
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _require_env(env_var: str) -> str:
-    """Read a required string from an env var; raises if not set."""
-    value = os.environ.get(env_var, "").strip()
-    if not value:
-        raise ValueError(f"Required env var {env_var!r} is not set. Add it to .env.")
-    return value
-
-
-def _resolve_dir(env_var: str) -> Path:
-    """Read a required directory path from an env var; relative paths resolved from ROOT_DIR."""
-    raw = _require_env(env_var)
-    p = Path(raw)
-    return p if p.is_absolute() else ROOT_DIR / p
-
 
 def _load_repo_config() -> dict:
     """Load repo-level JSON config used for non-secret repository settings."""
@@ -83,10 +43,48 @@ def _require_repo_config_string(section: str, key: str) -> str:
     return raw.strip()
 
 
+def _require_repo_config_int(section: str, key: str) -> int:
+    section_config = _require_repo_config_section(section)
+    raw = section_config.get(key)
+    if type(raw) is not int:
+        raise ValueError(f"Required integer config key {section}.{key} is missing in {REPO_CONFIG_PATH}.")
+    return raw
+
+
+def _require_repo_config_optional_int(section: str, key: str) -> int | None:
+    section_config = _require_repo_config_section(section)
+    raw = section_config.get(key)
+    if raw is None:
+        return None
+    if type(raw) is not int:
+        raise ValueError(f"Config key {section}.{key} must be an integer or null in {REPO_CONFIG_PATH}.")
+    return raw
+
+
+def _require_repo_config_bool(section: str, key: str) -> bool:
+    section_config = _require_repo_config_section(section)
+    raw = section_config.get(key)
+    if not isinstance(raw, bool):
+        raise ValueError(f"Required boolean config key {section}.{key} is missing in {REPO_CONFIG_PATH}.")
+    return raw
+
+
 def _resolve_repo_config_path(section: str, key: str) -> Path:
     """Read a required path from repo_config.json; relative paths resolved from ROOT_DIR."""
     raw = _require_repo_config_string(section, key)
     p = Path(raw)
+    return p if p.is_absolute() else ROOT_DIR / p
+
+
+def _resolve_nested_repo_config_path(section: str, nested: str, key: str) -> Path:
+    section_config = _require_repo_config_section(section)
+    nested_config = section_config.get(nested)
+    if not isinstance(nested_config, dict):
+        raise ValueError(f"Required config section {section}.{nested} is missing in {REPO_CONFIG_PATH}.")
+    raw = nested_config.get(key)
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError(f"Required config key {section}.{nested}.{key} is missing in {REPO_CONFIG_PATH}.")
+    p = Path(raw.strip())
     return p if p.is_absolute() else ROOT_DIR / p
 
 
@@ -107,8 +105,26 @@ def ensure_artifact_dirs() -> None:
         path.mkdir(parents=True, exist_ok=True)
 
 
+def _get_env_file_value(key: str) -> str:
+    env_path = ROOT_DIR / ".env"
+    if not env_path.exists():
+        return ""
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        raw_key, _, raw_value = line.partition("=")
+        if raw_key.strip() != key:
+            continue
+        value = raw_value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+            value = value[1:-1]
+        return value.strip()
+    return ""
+
+
 def get_openai_api_key() -> str:
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    api_key = os.getenv("OPENAI_API_KEY", "").strip() or _get_env_file_value("OPENAI_API_KEY")
     if not api_key:
         raise ValueError("Required env var 'OPENAI_API_KEY' is not set.")
     return api_key
@@ -116,17 +132,23 @@ def get_openai_api_key() -> str:
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
-MAPPINGS_DIR      = _resolve_dir("ORCHESTRATOR_MAPPINGS_DIR")
+MAPPINGS_DIR      = _resolve_nested_repo_config_path("orchestrator", "paths", "mappings_dir")
 PROMPTS_DIR       = _resolve_repo_config_path("prompts", "dir")
-DATASETS_DIR      = _resolve_dir("ORCHESTRATOR_DATASETS_DIR")
-BATCHES_DIR       = _resolve_dir("ORCHESTRATOR_BATCHES_DIR")
-BATCH_OUTPUTS_DIR = _resolve_dir("ORCHESTRATOR_BATCH_OUTPUTS_DIR")
+DATASETS_DIR      = _resolve_nested_repo_config_path("orchestrator", "paths", "datasets_dir")
+BATCHES_DIR       = _resolve_nested_repo_config_path("orchestrator", "paths", "batches_dir")
+BATCH_OUTPUTS_DIR = _resolve_nested_repo_config_path("orchestrator", "paths", "batch_outputs_dir")
 
 
-# ── Model defaults ────────────────────────────────────────────────────────────
+# ── Orchestrator defaults ─────────────────────────────────────────────────────
 
-DEFAULT_MODEL            = _require_env("ORCHESTRATOR_MODEL")
-DEFAULT_REASONING_EFFORT = _require_env("ORCHESTRATOR_REASONING")
+LIMIT_DOCS               = _require_repo_config_optional_int("orchestrator", "limit_docs")
+BATCH_SIZE               = _require_repo_config_int("orchestrator", "batch_size")
+DEFAULT_MODEL            = _require_repo_config_string("orchestrator", "model")
+DEFAULT_REASONING_EFFORT = _require_repo_config_string("orchestrator", "reasoning")
+SUBMISSION_MODE          = _require_repo_config_string("orchestrator", "submission_mode").lower()
+RUN_EVALS                = _require_repo_config_bool("orchestrator", "run_evals")
+if SUBMISSION_MODE not in {"live", "batch"}:
+    raise ValueError(f"Config key orchestrator.submission_mode must be 'live' or 'batch' in {REPO_CONFIG_PATH}.")
 DEFAULT_COLUMNS = [
     "Document Type",
     "Authors",

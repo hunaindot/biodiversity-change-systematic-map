@@ -1,47 +1,13 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO_CONFIG_PATH = ROOT / "checklists" / "mappings" / "repo_config.json"
 
 
-# ── Env bootstrap ─────────────────────────────────────────────────────────────
-
-def _bootstrap_env() -> None:
-    """Load .env into os.environ at import time. Uses setdefault — shell vars take precedence."""
-    env_path = ROOT / ".env"
-    if not env_path.exists():
-        return
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip()
-        if not key:
-            continue
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
-            value = value[1:-1]
-        os.environ.setdefault(key, value)
-
-
-_bootstrap_env()
-
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _resolve_path(env_var: str) -> Path:
-    """Read a required path from an env var; relative paths resolved from ROOT."""
-    raw = os.environ.get(env_var, "").strip()
-    if not raw:
-        raise ValueError(f"Required env var {env_var!r} is not set. Add it to .env.")
-    p = Path(raw)
-    return p if p.is_absolute() else ROOT / p
-
 
 def _load_repo_config() -> dict:
     """Load repo-level JSON config used for non-secret repository paths."""
@@ -60,11 +26,16 @@ def _load_repo_config() -> dict:
 REPO_CONFIG = _load_repo_config()
 
 
-def _resolve_repo_config_path(section: str, key: str) -> Path:
-    """Read a required path from repo_config.json; relative paths resolved from ROOT."""
+def _require_repo_config_section(section: str) -> dict:
     section_config = REPO_CONFIG.get(section)
     if not isinstance(section_config, dict):
         raise ValueError(f"Required config section {section!r} is missing in {REPO_CONFIG_PATH}.")
+    return section_config
+
+
+def _resolve_repo_config_path(section: str, key: str) -> Path:
+    """Read a required path from repo_config.json; relative paths resolved from ROOT."""
+    section_config = _require_repo_config_section(section)
     raw = section_config.get(key)
     if not isinstance(raw, str) or not raw.strip():
         raise ValueError(f"Required config key {section}.{key} is missing in {REPO_CONFIG_PATH}.")
@@ -72,12 +43,24 @@ def _resolve_repo_config_path(section: str, key: str) -> Path:
     return p if p.is_absolute() else ROOT / p
 
 
+def _resolve_nested_repo_config_path(section: str, nested: str, key: str) -> Path:
+    section_config = _require_repo_config_section(section)
+    nested_config = section_config.get(nested)
+    if not isinstance(nested_config, dict):
+        raise ValueError(f"Required config section {section}.{nested} is missing in {REPO_CONFIG_PATH}.")
+    raw = nested_config.get(key)
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError(f"Required config key {section}.{nested}.{key} is missing in {REPO_CONFIG_PATH}.")
+    p = Path(raw.strip())
+    return p if p.is_absolute() else ROOT / p
+
+
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
-MAPPINGS_DIR      = _resolve_path("ORCHESTRATOR_MAPPINGS_DIR")
-BATCH_OUTPUTS_DIR = _resolve_path("ORCHESTRATOR_BATCH_OUTPUTS_DIR")
-BATCHES_DIR       = _resolve_path("ORCHESTRATOR_BATCHES_DIR")
+MAPPINGS_DIR      = _resolve_nested_repo_config_path("orchestrator", "paths", "mappings_dir")
+BATCH_OUTPUTS_DIR = _resolve_nested_repo_config_path("orchestrator", "paths", "batch_outputs_dir")
+BATCHES_DIR       = _resolve_nested_repo_config_path("orchestrator", "paths", "batches_dir")
 LABELS_DIR        = _resolve_repo_config_path("evals", "labels_dir")
 EVAL_OUTPUT_DIR   = _resolve_repo_config_path("evals", "output_dir")
 GBIF_CACHE_PATH   = _resolve_repo_config_path("evals", "gbif_cache_path")
