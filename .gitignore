@@ -14,6 +14,9 @@
 !/data/artifacts/**
 /data/artifacts/**/archived/
 /data/artifacts/**/archived/**
+/data/artifacts/batches/partition*/
+/data/artifacts/batch_outputs/partition*/
+/data/artifacts/datasets/partition*-dataset.json
 /venv
 /labelling/artifacts
 /labelling/__pycache__

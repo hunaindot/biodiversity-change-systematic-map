@@ -10,7 +10,7 @@
     "model": "gpt-5-nano-2025-08-07",
     "reasoning": "medium",
     "submission_mode": "batch",
-    "run_evals": true,
+    "run_evals": false,
     "paths": {
       "mappings_dir": "checklists/mappings",
       "datasets_dir": "data/artifacts/datasets",
