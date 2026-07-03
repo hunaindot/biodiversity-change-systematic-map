@@ -40,6 +40,18 @@ def parse_args() -> argparse.Namespace:
         required=True,
         help="Classification task to run (e.g., screening, driver, threats_l0, geography, ecosystems_realm, study, taxa).",
     )
+    parser.add_argument(
+        "--model",
+        dest="model",
+        default=None,
+        help="Override the model (falls back to orchestrator.model in config).",
+    )
+    parser.add_argument(
+        "--reasoning",
+        dest="reasoning",
+        default=None,
+        help="Override the reasoning effort (falls back to orchestrator.reasoning in config).",
+    )
     return parser.parse_args()
 
 
@@ -54,8 +66,8 @@ def main() -> None:
 
     limit_docs = LIMIT_DOCS
     batch_size = BATCH_SIZE
-    model = DEFAULT_MODEL
-    reasoning = DEFAULT_REASONING_EFFORT
+    model = args.model or DEFAULT_MODEL
+    reasoning = args.reasoning or DEFAULT_REASONING_EFFORT
     run_evals = RUN_EVALS
     submission_mode = SUBMISSION_MODE
     if submission_mode not in {"live", "batch"}:
