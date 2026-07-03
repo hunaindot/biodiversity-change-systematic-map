@@ -49,19 +49,19 @@ Because the token averages are already per record and prices are per 1M tokens, 
 
 This estimate assumes 2.4 million `L0` screening records and 0.25 million records for each downstream output. `L2` has two outputs, `threats_l0` and `threats_l1`, so both are counted separately.
 
-| Pipeline output | Planned records | Input tokens | Cached input | Uncached input | Output tokens | Reasoning tokens | Visible output | Total tokens |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| L0 screening | 2.40M | 8,162.81M | 6,982.75M | 1,180.08M | 4,724.23M | 4,449.70M | 274.54M | 12,887.04M |
-| L1 driver | 0.25M | 491.60M | 356.01M | 135.58M | 61.39M | 48.42M | 12.97M | 552.99M |
-| L2 threats_l0 | 0.25M | 1,608.06M | 1,487.48M | 120.57M | 244.28M | 229.68M | 14.61M | 1,852.34M |
-| L2 threats_l1 | 0.25M | 596.00M | 192.58M | 403.42M | 807.77M | 793.10M | 14.67M | 1,403.77M |
-| L3 geography | 0.25M | 670.03M | 567.95M | 102.08M | 115.01M | 92.21M | 22.80M | 785.04M |
-| L4 ecosystems_realm | 0.25M | 291.80M | 0.00M | 291.80M | 247.06M | 232.97M | 14.09M | 538.86M |
-| L5 study | 0.25M | 621.58M | 498.59M | 122.98M | 215.28M | 167.29M | 47.98M | 836.85M |
-| L6 taxa | 0.25M | 516.11M | 62.69M | 453.43M | 900.47M | 880.00M | 20.46M | 1,416.58M |
-| Total | 4.15M | 12,957.98M | 10,148.06M | 2,809.95M | 7,315.49M | 6,893.37M | 422.12M | 20,273.47M |
+| Pipeline output | Planned records | Input tokens | Cached input | Uncached input | Output tokens | Reasoning tokens | Visible output | Total tokens | Estimated cost |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| L0 screening | 2.40M | 8,162.81M | 6,982.75M | 1,180.08M | 4,724.23M | 4,449.70M | 274.54M | 12,887.04M | $995.30 |
+| L1 driver | 0.25M | 491.60M | 356.01M | 135.58M | 61.39M | 48.42M | 12.97M | 552.99M | $16.74 |
+| L2 threats_l0 | 0.25M | 1,608.06M | 1,487.48M | 120.57M | 244.28M | 229.68M | 14.61M | 1,852.34M | $56.33 |
+| L2 threats_l1 | 0.25M | 596.00M | 192.58M | 403.42M | 807.77M | 793.10M | 14.67M | 1,403.77M | $172.22 |
+| L3 geography | 0.25M | 670.03M | 567.95M | 102.08M | 115.01M | 92.21M | 22.80M | 785.04M | $27.26 |
+| L4 ecosystems_realm | 0.25M | 291.80M | 0.00M | 291.80M | 247.06M | 232.97M | 14.09M | 538.86M | $56.71 |
+| L5 study | 0.25M | 621.58M | 498.59M | 122.98M | 215.28M | 167.29M | 47.98M | 836.85M | $47.63 |
+| L6 taxa | 0.25M | 516.11M | 62.69M | 453.43M | 900.47M | 880.00M | 20.46M | 1,416.58M | $191.62 |
+| Total | 4.15M | 12,957.98M | 10,148.06M | 2,809.95M | 7,315.49M | 6,893.37M | 422.12M | 20,273.47M | $1,563.80 |
 
-In short, the planned full pipeline burns about **20.27 billion total tokens**, made up of about **12.96 billion input tokens** and **7.32 billion output tokens**.
+In short, the planned full pipeline burns about **20.27 billion total tokens**, made up of about **12.96 billion input tokens** and **7.32 billion output tokens**, for an estimated realized cost of **$1,563.80**.
 
 ## Source Outputs
 
