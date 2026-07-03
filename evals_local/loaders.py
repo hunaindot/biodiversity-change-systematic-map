@@ -25,6 +25,14 @@ _GBIF_CACHE: dict | None = None
 def _get_gbif_cache() -> dict:
     global _GBIF_CACHE
     if _GBIF_CACHE is None:
+        if not Path(GBIF_CACHE_PATH).exists():
+            print(
+                "\n[evals] GBIF lookup cache not found — taxa evals were NOT run.\n"
+                f"        Missing file: {GBIF_CACHE_PATH}\n"
+                "        Download 'gbif_lookup_cache.pkl' from the supplementary data of the\n"
+                "        protocol and place it at the path above, then re-run the taxa evals.\n"
+            )
+            raise SystemExit(1)
         with open(GBIF_CACHE_PATH, "rb") as f:
             _GBIF_CACHE = pickle.load(f)
     return _GBIF_CACHE
