@@ -100,8 +100,8 @@ data/labels/eval/<run_name>/
 Confusion spreadsheets are only written for the screening-style binary metrics.
 
 For `screening`, the summary workbook `screening_eligibility_label_metrics.xlsx`
-is intentionally compact. It contains only confusion-derived counts and
-`ELIGIBLE` recall (`TP / (TP + FN)`). The separate
+is intentionally compact. It contains confusion-derived counts plus `ELIGIBLE`
+precision (`TP / (TP + FP)`), recall (`TP / (TP + FN)`), and F1. The separate
 `screening_eligibility_confusion.xlsx` workbook still contains the 2x2 confusion
 table.
 

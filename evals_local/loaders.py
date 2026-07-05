@@ -13,7 +13,7 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     repair_json = None
 
-from .config import BATCH_OUTPUTS_DIR, BATCHES_DIR, GBIF_CACHE_PATH, TASK_CONFIG
+from .config import BATCH_OUTPUTS_DIR, BATCHES_DIR, GBIF_CACHE_PATH, RUN_LABEL_PATH_OVERRIDES, TASK_CONFIG
 from .normalizers import normalize_geo_labels, to_label_list
 
 # ---------------------------------------------------------------------------
@@ -480,6 +480,8 @@ def join_truth_pred(
     label_sheet: str | None = None,
 ) -> pd.DataFrame:
     preds = load_predictions(task, run_name)
+    if label_path is None:
+        label_path = RUN_LABEL_PATH_OVERRIDES.get((task, run_name))
     labels = load_labels(task, label_path=label_path, label_sheet=label_sheet)
 
     # Restrict labels to the records we actually have predictions for

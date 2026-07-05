@@ -38,3 +38,6 @@ data/consistency-check-datasets/screening/combined-train-search/combined.csv
 
 # Checklists
 /checklists/main/**
+
+# temp
+/checklists/mappings/run_names.json

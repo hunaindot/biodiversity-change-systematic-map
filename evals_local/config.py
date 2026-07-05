@@ -159,3 +159,13 @@ TASK_CONFIG: dict[str, dict] = {
         "task_type": "taxa",
     },
 }
+
+
+# Run-specific truth sources for consistency-check evals that do not live under
+# the default data/labels task folders.
+RUN_LABEL_PATH_OVERRIDES: dict[tuple[str, str], Path] = {
+    (
+        "screening",
+        "l0_cc1_search-sample_010726_medium_f1",
+    ): ROOT / "data" / "consistency-check-datasets" / "screening" / "search-sample" / "search-sample.csv",
+}

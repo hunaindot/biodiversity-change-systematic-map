@@ -110,7 +110,9 @@ def screening_summary_metrics(
     tn = int(((truth == neg_label) & (pred == neg_label)).sum())
     positive_support = int((truth == pos_label).sum())
     scored_rows = int(len(truth))
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
     recall = tp / (tp + fn) if (tp + fn) else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0.0
 
     summary_df = pd.DataFrame(
         [
@@ -120,7 +122,9 @@ def screening_summary_metrics(
                 "fp": fp,
                 "fn": fn,
                 "tn": tn,
+                "eligible_precision": precision,
                 "eligible_recall": recall,
+                "eligible_f1": f1,
                 "positive_support": positive_support,
                 "scored_rows": scored_rows,
             }
