@@ -53,47 +53,47 @@ Our current usage tier at OpenAI Batch API allows to que 1B token max at once. T
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/28 partition_28_l0_f1 --task screen --reasoning medium`
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/29 partition_29_l0_f1 --task screen --reasoning medium`
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/30 partition_30_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/31 partition_31_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/32 partition_32_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/33 partition_33_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/34 partition_34_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/35 partition_35_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/36 partition_36_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/37 partition_37_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/38 partition_38_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/39 partition_39_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/40 partition_40_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/41 partition_41_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/42 partition_42_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/43 partition_43_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/44 partition_44_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/45 partition_45_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/46 partition_46_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/47 partition_47_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/48 partition_48_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/49 partition_49_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/50 partition_50_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/51 partition_51_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/52 partition_52_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/53 partition_53_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/54 partition_54_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/55 partition_55_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/56 partition_56_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/57 partition_57_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/58 partition_58_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/59 partition_59_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/60 partition_60_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/61 partition_61_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/62 partition_62_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/63 partition_63_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/64 partition_64_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/65 partition_65_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/66 partition_66_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/67 partition_67_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/68 partition_68_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/69 partition_69_l0_f1 --task screen --reasoning medium`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/partitions/70 partition_70_l0_f1 --task screen --reasoning medium`
 
-- `Planned` - `python labelling/orchestrator.py data/partitions/31 partition_31_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/32 partition_32_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/33 partition_33_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/34 partition_34_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/35 partition_35_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/36 partition_36_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/37 partition_37_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/38 partition_38_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/39 partition_39_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/40 partition_40_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/41 partition_41_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/42 partition_42_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/43 partition_43_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/44 partition_44_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/45 partition_45_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/46 partition_46_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/47 partition_47_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/48 partition_48_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/49 partition_49_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/50 partition_50_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/51 partition_51_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/52 partition_52_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/53 partition_53_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/54 partition_54_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/55 partition_55_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/56 partition_56_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/57 partition_57_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/58 partition_58_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/59 partition_59_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/60 partition_60_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/61 partition_61_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/62 partition_62_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/63 partition_63_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/64 partition_64_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/65 partition_65_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/66 partition_66_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/67 partition_67_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/68 partition_68_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/69 partition_69_l0_f1 --task screen --reasoning medium`
-- `Planned` - `python labelling/orchestrator.py data/partitions/70 partition_70_l0_f1 --task screen --reasoning medium`
 - `Planned` - `python labelling/orchestrator.py data/partitions/71 partition_71_l0_f1 --task screen --reasoning medium`
 - `Planned` - `python labelling/orchestrator.py data/partitions/72 partition_72_l0_f1 --task screen --reasoning medium`
 - `Planned` - `python labelling/orchestrator.py data/partitions/73 partition_73_l0_f1 --task screen --reasoning medium`
