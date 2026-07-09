@@ -1,6 +1,4 @@
 from __future__ import annotations
-from src.config import DATASETS_DIR
-from evals_local.loaders import load_predictions
 
 import argparse
 import json
@@ -16,6 +14,9 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _SCRIPT_DIR.parent
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_SCRIPT_DIR))
+
+from src.config import DATASETS_DIR
+from evals_local.loaders import load_predictions
 
 
 _DEFAULT_RUN_LIST = _REPO_ROOT / "checklists" / "mappings" / "run_names.json"
@@ -131,13 +132,19 @@ def _load_dataset(run_name: str) -> dict[str, dict]:
     return json.loads(path.read_text(encoding="utf-8"))["documents"]
 
 
-def _cell(val):
-    """Serialize a value for Excel/CSV: scalar lists join with '; ', complex → JSON."""
+def _cell(val, *, preserve_lists: bool = False):
+    """Serialize a value for Excel/CSV.
+
+    Core metadata lists stay human-readable; label lists can be preserved as
+    JSON arrays so downstream code can recover list[str] values losslessly.
+    """
     if val is None:
         return ""
     if isinstance(val, float) and pd.isna(val):
         return ""
     if isinstance(val, list):
+        if preserve_lists:
+            return json.dumps(val, ensure_ascii=False)
         if all(v is None or isinstance(v, (str, int, float, bool)) for v in val):
             return "; ".join("" if v is None else str(v) for v in val)
         return json.dumps(val, ensure_ascii=False)
@@ -435,7 +442,9 @@ def main() -> None:
         col_order = _CORE_FIELDS + run_label_cols + ["_source_run"]
         excel_df = df[[c for c in col_order if c in df.columns]].copy()
         for col in excel_df.columns:
-            excel_df[col] = excel_df[col].map(_cell)
+            excel_df[col] = excel_df[col].map(
+                lambda val, c=col: _cell(val, preserve_lists=c in run_label_cols)
+            )
 
         max_year, min_year = _year_range(df)
         filename = f"{task}_{idx:02d}_{max_year}-{min_year}.xlsx"
@@ -467,7 +476,9 @@ def main() -> None:
     csv_order = _CORE_FIELDS + label_cols + ["_partition", "_source_run"]
     csv_df = combined[[c for c in csv_order if c in combined.columns]].copy()
     for col in csv_df.columns:
-        csv_df[col] = csv_df[col].map(_cell)
+        csv_df[col] = csv_df[col].map(
+            lambda val, c=col: _cell(val, preserve_lists=c in label_cols)
+        )
     csv_df.to_csv(all_path, index=False)
     print(f"\nCombined table written to {all_path.relative_to(_REPO_ROOT)}")
 
