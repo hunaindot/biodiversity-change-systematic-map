@@ -17,6 +17,10 @@
 /data/artifacts/batches/partition*/
 /data/artifacts/batch_outputs/partition*/
 /data/artifacts/datasets/partition*-dataset.json
+/data/artifacts/batches/coding_*/
+/data/artifacts/batch_outputs/coding_*/
+/data/artifacts/datasets/coding_*-dataset.json
+
 /venv
 /labelling/artifacts
 /labelling/__pycache__
@@ -25,19 +29,6 @@
 .env
 .DS_Store
 .claude
-eval_notes.txt
-
-# Notebooks
-notebooks/inspect_batch_output.ipynb
-notebooks/run_evals_local.ipynb
-notebooks/test_gbif_lookup.ipynb
-notebooks/run_partitions.ipynb
-
 __pycache__/
 data/consistency-check-datasets/screening/combined-train-search/combined.csv
 
-# Checklists
-/checklists/main/**
-
-# temp
-/checklists/mappings/run_names.json

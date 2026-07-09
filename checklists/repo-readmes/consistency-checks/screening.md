@@ -2,7 +2,7 @@
 
 - Navigation
   - Scope: screening consistency checks and selected screening eval results
-  - Metrics reference: [evaluation-metrics-overview.md](evaluation-metrics-overview.md)
+  - Metrics reference: [evaluation-metrics-overview.md](../others/evaluation-metrics-overview.md)
   - `CC1A`: human baseline recall from annotated abstract-only screening labels vs expert full-text labels
   - `CC1B`: LLM screening labels compared against the annotated/reference combined screening set
   - `CC2`: train, dev, and test screening eval runs used for prompt/config selection and final recall reporting
@@ -28,7 +28,7 @@
 
 ## CC1 A
 
-- Notebook: [screening_cc1a_recall.ipynb](../../notebooks/screening_cc1a_recall.ipynb)
+- Notebook: [screening_cc1a_recall.ipynb](../../notebooks/consistency-checks/screening_cc1a_recall.ipynb)
 - Input sources:
   - `data/consistency-check-datasets/screening/annotated_screening_dataset.xlsx` sheet `l0-sample`
   - `data/labels/l0/L0) Screening.csv`

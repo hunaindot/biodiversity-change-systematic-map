@@ -1,47 +1,6 @@
-"""
-Post-screening processor: combine one or more completed L0 screening runs,
-write a full all-record screening table, extract eligible records, deduplicate,
-partition eligible records into downstream coding batches, and write metadata.
-
-Usage (from repo root):
-    python labelling/process_screening.py <run_name1> [run_name2 ...] \
-        --output-dir <folder_name> [--batch-size 400000]
-
-    python labelling/process_screening.py \
-        --run-list checklists/mappings/run_names.json --run-key screening \
-        --output-dir <folder_name> --print-missing
-
-    python labelling/process_screening.py \
-        --run-list checklists/mappings/run_names.json --run-key screening \
-        --output-dir <folder_name> --skip-missing
-
-Run-list JSON schema:
-    {
-      "screening": [
-        "partition_1_l0_f1",
-        "partition_2_l0_f1"
-      ]
-    }
-
-Output layout:
-    data/<output-dir>/
-        metadata.json
-        all/screening_all.csv
-        eligible/partition_metadata.json
-        eligible/1/wos_01_<max_year>-<min_year>.xlsx
-        eligible/2/wos_02_<max_year>-<min_year>.xlsx
-        ...
-
-Eligibility source:
-    The script relies on evals_local.loaders.load_screening_predictions(run_name)
-    to parse L0 outputs. A record is treated as eligible when:
-
-        pred == '["ELIGIBLE"]'
-
-    The full CSV keeps both eligible and non-eligible records. The eligible
-    Excel partitions keep only records marked eligible.
-"""
 from __future__ import annotations
+from src.config import DATASETS_DIR
+from evals_local.loaders import load_screening_predictions
 
 import argparse
 import json
@@ -55,9 +14,6 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _SCRIPT_DIR.parent
 sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_SCRIPT_DIR))
-
-from evals_local.loaders import load_screening_predictions
-from src.config import DATASETS_DIR
 
 
 _CORE_FIELDS = ["UT", "title", "authors", "abstract",

@@ -2,7 +2,7 @@
 
 - Navigation
   - Scope: coding consistency checks and selected coding eval results
-  - Metrics reference: [evaluation-metrics-overview.md](evaluation-metrics-overview.md)
+  - Metrics reference: [evaluation-metrics-overview.md](../others/evaluation-metrics-overview.md)
   - `CC1`: manual baseline notebook results comparing abstract-only human coding labels against expert full-text labels
   - `CC2`: task-by-task coding eval runs for `L1` to `L6`
 
@@ -19,7 +19,7 @@
 
 # CC1 Executions
 
-- Notebook: [coding_cc1_manual_baseline.ipynb](../../notebooks/coding_cc1_manual_baseline.ipynb)
+- Notebook: [coding_cc1_manual_baseline.ipynb](../../notebooks/consistency-checks/coding_cc1_manual_baseline.ipynb)
 - Input workbook:
   - `data/consistency-check-datasets/data-coding/annotated_coding_dataset.xlsx`
 - Reference truth files:

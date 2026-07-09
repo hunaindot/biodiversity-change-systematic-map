@@ -113,9 +113,10 @@ per-label precision/recall/F1/Kappa metrics plus aggregate rows such as
 
 For repo-level evaluation notes and interpretation guides, see:
 
-- [`checklists/repo-readmes/evaluation-metrics-overview.md`](../checklists/repo-readmes/evaluation-metrics-overview.md) for the canonical explanation of screening and coding-task metrics, formulas, aggregations, exclusions, and output files
-- [`checklists/repo-readmes/evaluation-design-screening.md`](../checklists/repo-readmes/evaluation-design-screening.md) for screening execution notes and chosen run configurations
-- [`checklists/repo-readmes/evaluation-design-coding.md`](../checklists/repo-readmes/evaluation-design-coding.md) for coding-task execution notes, weighted summaries, and selected configs by task
+- [`checklists/repo-readmes/others/evaluation-metrics-overview.md`](../checklists/repo-readmes/others/evaluation-metrics-overview.md) for the canonical explanation of screening and coding-task metrics, formulas, aggregations, exclusions, and output files
+- [`checklists/repo-readmes/consistency-checks/screening.md`](../checklists/repo-readmes/consistency-checks/screening.md) for screening execution notes and chosen run configurations
+- [`checklists/repo-readmes/consistency-checks/coding.md`](../checklists/repo-readmes/consistency-checks/coding.md) for coding-task execution notes, weighted summaries, and selected configs by task
+- [`checklists/repo-readmes/data-corpus-execution/`](../checklists/repo-readmes/data-corpus-execution/) for full data-corpus screening and coding execution logs
 
 ## Other CLI modes
 
