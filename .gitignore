@@ -32,3 +32,5 @@
 __pycache__/
 data/consistency-check-datasets/screening/combined-train-search/combined.csv
 
+*.zip
+
