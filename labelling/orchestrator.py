@@ -52,6 +52,14 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Override the reasoning effort (falls back to orchestrator.reasoning in config).",
     )
+    parser.add_argument(
+        "--batch-size",
+        "--batch_size",
+        dest="batch_size",
+        type=int,
+        default=None,
+        help="Override the batch size (falls back to orchestrator.batch_size in config).",
+    )
     return parser.parse_args()
 
 
@@ -65,7 +73,9 @@ def main() -> None:
     task = tasks.get_task(task_name)
 
     limit_docs = LIMIT_DOCS
-    batch_size = BATCH_SIZE
+    batch_size = args.batch_size or BATCH_SIZE
+    if batch_size <= 0:
+        raise ValueError("Batch size must be positive.")
     model = args.model or DEFAULT_MODEL
     reasoning = args.reasoning or DEFAULT_REASONING_EFFORT
     run_evals = RUN_EVALS

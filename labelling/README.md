@@ -23,6 +23,12 @@ Example:
 python labelling/orchestrator.py data/labels/l1/train l1_train_170426_f1 --task driver
 ```
 
+To override the configured batch size for a single run:
+
+```bash
+python labelling/orchestrator.py data/labels/l1/train l1_train_170426_f1 --task driver --batch-size 5000
+```
+
 In plain English, this command:
 
 - loads the `l1` train split from `data/labels/l1/train`
@@ -123,6 +129,7 @@ Key settings:
 | `checklists/mappings/repo_config.json` | `orchestrator.submission_mode` | `live` or `batch`; both are supported, but `batch` is the recommended default when you want to save cost |
 | `checklists/mappings/repo_config.json` | `orchestrator.run_evals`       | Set `false` to skip automatic evals                                                                      |
 | `checklists/mappings/repo_config.json` | `orchestrator.limit_docs`      | Cap documents per run (`null` for all)                                                                   |
+| `checklists/mappings/repo_config.json` | `orchestrator.batch_size`      | Documents per JSONL batch; override per run with `--batch-size`                                          |
 
 ## Notes
 
