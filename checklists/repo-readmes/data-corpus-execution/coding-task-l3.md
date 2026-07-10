@@ -75,7 +75,7 @@ The eligible records are produced by the `L0` screening post-processing workflow
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/52 coding_l3_partition_52_f1 --task geography --reasoning low`
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/53 coding_l3_partition_53_f1 --task geography --reasoning low`
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/54 coding_l3_partition_54_f1 --task geography --reasoning low`
-- `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/55 coding_l3_partition_55_f1 --task geography --reasoning low`
+- `In progress` - `python labelling/orchestrator.py data/screened-partitions/eligible/55 coding_l3_partition_55_f1 --task geography --reasoning low`
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/56 coding_l3_partition_56_f1 --task geography --reasoning low`
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/57 coding_l3_partition_57_f1 --task geography --reasoning low`
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/58 coding_l3_partition_58_f1 --task geography --reasoning low`
