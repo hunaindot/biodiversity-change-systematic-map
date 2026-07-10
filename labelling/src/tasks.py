@@ -376,25 +376,11 @@ class EcosystemTask(TaskDefinition):
             return [str(item) for item in results if item is not None]
         return []
 
-    # Labels that are terminal regardless of stop_reason (never descend from them).
-    _TERMINAL_LABELS = {"not applicable", "unclear"}
-
-    @classmethod
-    def _should_continue(cls, payload: dict | None) -> bool:
+    @staticmethod
+    def _should_continue(payload: dict | None) -> bool:
         if not payload:
             return False
-        if payload.get("stop_reason") == "continue":
-            return True
-        # Fallback: the model sometimes returns a valid label but stop_reason="stop"
-        # (e.g. "Marine" -> stop), which would otherwise be a false exclusion. Descend
-        # anyway when any real (non-special) label is present.
-        results = payload.get("results")
-        if not isinstance(results, list):
-            return False
-        return any(
-            item is not None and str(item).strip().lower() not in cls._TERMINAL_LABELS
-            for item in results
-        )
+        return payload.get("stop_reason") == "continue"
 
     def _build_biome_candidates(self, realm_labels: list[str], mapping: dict) -> tuple[list[dict], dict[str, list]]:
         candidates: list[dict] = []
