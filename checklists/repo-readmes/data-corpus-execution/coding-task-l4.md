@@ -26,15 +26,15 @@ The eligible records are produced by the `L0` screening post-processing workflow
 
 ### Partition 1
 
-- `Planned` - `python labelling/orchestrator.py data/screened-partitions/eligible/1 coding_l4_partition_1_f1 --task ecosystems_realm --reasoning high`
-- `Planned` - `python labelling/orchestrator.py data/screened-partitions/eligible/1 coding_l4_partition_1_f1 --task ecosystems_biome --reasoning high`
-- `Planned` - `python labelling/orchestrator.py data/screened-partitions/eligible/1 coding_l4_partition_1_f1 --task ecosystems_efg --reasoning high`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/1 coding_l4_partition_1_f1 --task ecosystems_realm --reasoning high`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/1 coding_l4_partition_1_f1 --task ecosystems_biome --reasoning high`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/1 coding_l4_partition_1_f1 --task ecosystems_efg --reasoning high`
 
 ### Partition 2
 
-- `Planned` - `python labelling/orchestrator.py data/screened-partitions/eligible/2 coding_l4_partition_2_f1 --task ecosystems_realm --reasoning high`
-- `Planned` - `python labelling/orchestrator.py data/screened-partitions/eligible/2 coding_l4_partition_2_f1 --task ecosystems_biome --reasoning high`
-- `Planned` - `python labelling/orchestrator.py data/screened-partitions/eligible/2 coding_l4_partition_2_f1 --task ecosystems_efg --reasoning high`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/2 coding_l4_partition_2_f1 --task ecosystems_realm --reasoning high`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/2 coding_l4_partition_2_f1 --task ecosystems_biome --reasoning high`
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/2 coding_l4_partition_2_f1 --task ecosystems_efg --reasoning high`
 
 ### Partition 3
 
