@@ -1,5 +1,7 @@
 # L5 Coding Execution Tasks
 
+[L5 Completed - 11.07.2026]
+
 This is the execution log for coding study design across all eligible records in `data/screened-partitions/eligible/`. Use it to track command order, status, batch/run names, and notes while the `L5` coding work progresses.
 
 The eligible records are produced by the `L0` screening post-processing workflow and are split into 61 partitions of up to 10,000 records each.
@@ -75,9 +77,7 @@ The eligible records are produced by the `L0` screening post-processing workflow
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/52 coding_l5_partition_52_f1 --task study --reasoning low`
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/53 coding_l5_partition_53_f1 --task study --reasoning low`
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/54 coding_l5_partition_54_f1 --task study --reasoning low`
-
-- `Planned` - `python labelling/orchestrator.py data/screened-partitions/eligible/55 coding_l5_partition_55_f1 --task study --reasoning low`
-
+- `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/55 coding_l5_partition_55_f1 --task study --reasoning low`
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/56 coding_l5_partition_56_f1 --task study --reasoning low`
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/57 coding_l5_partition_57_f1 --task study --reasoning low`
 - `Completed + Downloaded` - `python labelling/orchestrator.py data/screened-partitions/eligible/58 coding_l5_partition_58_f1 --task study --reasoning low`
