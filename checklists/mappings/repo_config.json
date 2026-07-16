@@ -87,6 +87,78 @@
     "sampling": {
       "n_sample": 100
     },
+    "merged_corpus": {
+      "key_column": "UT",
+      "chunksize": 250000,
+      "screening": {
+        "path": "data/screened-partitions/all/screening_all.csv",
+        "eligibility_column": "is_eligible",
+        "columns": [
+          "UT",
+          "title",
+          "authors",
+          "abstract",
+          "source",
+          "publication_year",
+          "wos_categories",
+          "doi",
+          "eligibility",
+          "s1_r",
+          "s2_r",
+          "s3_r",
+          "s4_r",
+          "s1_bio",
+          "s2_dir",
+          "s3_drivers",
+          "s4_link"
+        ]
+      },
+      "coding_sources": [
+        {
+          "name": "driver",
+          "path": "data/coding-driver/all/driver_all.csv",
+          "columns": [
+            "driver"
+          ]
+        },
+        {
+          "name": "threats_l0",
+          "path": "data/coding-threats_l0/all/threats_l0_all.csv",
+          "columns": [
+            "pred_threat_l0"
+          ]
+        },
+        {
+          "name": "geography",
+          "path": "data/coding-geography/all/geography_all.csv",
+          "columns": [
+            "pred_regions",
+            "pred_subregions",
+            "pred_countries",
+            "locales",
+            "locale_coordinates"
+          ]
+        },
+        {
+          "name": "ecosystems_realm",
+          "path": "data/coding-ecosystems_realm/all/ecosystems_realm_all.csv",
+          "columns": [
+            "realm"
+          ]
+        },
+        {
+          "name": "study",
+          "path": "data/coding-study/all/study_all.csv",
+          "columns": [
+            "pred_study_design",
+            "pred_methods_data_collection",
+            "pred_methods_analysis",
+            "pred_has_comparison",
+            "pred_comparison_types"
+          ]
+        }
+      ]
+    },
     "splits": {
       "ratios": {
         "train": 60,

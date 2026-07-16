@@ -13,6 +13,7 @@ data_helpers/
 ├── build_screening.py  # create L0 screening CSV from Excel source
 ├── build_coding.py     # create L1–L6 coding CSVs from Excel source
 ├── build_gbif.py       # recreate the GBIF canonical-name lookup cache if needed
+├── corpus.py           # merge eligible screening records with configured coding outputs
 ├── sample_screening.py # sample L0 train split for manual labelling
 └── sample_coding.py    # sample L1–L6 train splits for manual labelling
 ```
@@ -21,6 +22,31 @@ Configuration lives under `dataset_config` in
 [`checklists/mappings/repo_config.json`](../checklists/mappings/repo_config.json).
 That section defines workbook sources, label metadata, sample size, manual-sample
 output locations, split settings, and label-specific stratification metadata.
+
+---
+
+## Merged analysis corpus
+
+Use `build_merged_corpus` when an analysis needs one eligible record per `UT`
+with the configured coding outputs attached:
+
+```python
+from data_helpers.corpus import build_merged_corpus
+
+corpus_df = build_merged_corpus()
+```
+
+The helper reads the screening CSV in chunks, keeps eligible records, and joins
+only the configured columns from each coding source. Every input must have a
+non-missing, unique `UT`, and each coding source must cover exactly the same
+`UT` values as the eligible screening corpus. A mismatch raises
+`CorpusMergeError` with counts and example identifiers.
+
+The function returns a DataFrame and does not write a merged file. Paths,
+columns, the eligibility field, and the screening chunk size live under
+`dataset_config.merged_corpus` in `repo_config.json`. Repository-relative paths
+are resolved from the repository root, so callers do not need to construct data
+paths themselves.
 
 ---
 
@@ -118,6 +144,10 @@ The code is provided so the cache can be recreated if needed. In normal use, it 
 | `dataset_config.splits.ratios.test`        | `20`              | Test split %                     |
 | `dataset_config.splits.seed`               | `42`              | Random seed                      |
 | `dataset_config.splits.label_paths.<label>` | `data/labels/<l>` | Input path for label `<label>`   |
+| `dataset_config.merged_corpus.key_column` | `UT` | Exact one-to-one join key |
+| `dataset_config.merged_corpus.chunksize` | `250000` | Screening CSV read chunk size |
+| `dataset_config.merged_corpus.screening` | — | Screening input, eligibility field, and retained columns |
+| `dataset_config.merged_corpus.coding_sources` | — | Ordered coding input paths and retained columns |
 
 Other dataset-preparation settings (sheet names, column names, label configs, sample size) are in
 `dataset_config` in [`checklists/mappings/repo_config.json`](../checklists/mappings/repo_config.json).

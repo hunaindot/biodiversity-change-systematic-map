@@ -36,4 +36,4 @@ data/consistency-check-datasets/screening/combined-train-search/combined.csv
 *.zip
 
 notebooks/results/*
-
+!notebooks/results/00-corpus-size.ipynb
