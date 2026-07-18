@@ -1,5 +1,7 @@
 # Screening Execution Tasks
 
+[Completed - Note added on 18.07.26]
+
 This is execution log for full screening runs over `data/partitions/`. Use it to track command order, status, batch/run names, and notes while the partitioned `L0` screening work progresses.
 
 `data/partitions/` - is simply created using `notebooks/wos/wos_data_preparation.ipynb` where it is assumed that all data from the literature query is downloaded at the given path in notebook
