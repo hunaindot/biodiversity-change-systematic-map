@@ -1,5 +1,7 @@
 # L1 Coding Execution Tasks
 
+[Completed -  Note added 18.07.26]
+
 This is the execution log for coding the direct drivers of biodiversity change across all eligible records in `data/screened-partitions/eligible/`. Use it to track command order, status, batch/run names, and notes while the `L1` coding work progresses.
 
 The eligible records are produced by the `L0` screening post-processing workflow and are split into 61 partitions of up to 10,000 records each.
