@@ -1,0 +1,481 @@
+{
+  "schema_version": 1,
+  "threat_l0": {
+    "description": "Canonical order, display label, and color for level-0 threat results.",
+    "categories": [
+      {
+        "label": "Residential & Commercial Development",
+        "display_name": "Residential & commercial dev.",
+        "code": "1",
+        "family": "Oranges",
+        "color": "#A96E4C",
+        "stack_sort_color": "#B04611"
+      },
+      {
+        "label": "Agriculture & Aquaculture",
+        "display_name": "Agriculture & aquaculture",
+        "code": "2",
+        "family": "Oranges",
+        "color": "#D9954C",
+        "stack_sort_color": "#ED7E1D"
+      },
+      {
+        "label": "Energy Production & Mining",
+        "display_name": "Energy production & mining",
+        "code": "3",
+        "family": "Oranges",
+        "color": "#E8BC80",
+        "stack_sort_color": "#EEA353"
+      },
+      {
+        "label": "Transportation & Service Corridors",
+        "display_name": "Transport & service corridors",
+        "code": "4",
+        "family": "Oranges",
+        "color": "#F2D7AB",
+        "stack_sort_color": "#F1C183"
+      },
+      {
+        "label": "Biological Resource Use",
+        "display_name": "Biological resource use",
+        "code": "5",
+        "family": "Greens",
+        "color": "#689B78",
+        "stack_sort_color": "#238B49"
+      },
+      {
+        "label": "Human Intrusions & Disturbance",
+        "display_name": "Human intrusions & disturbance",
+        "code": "6",
+        "family": "Greens",
+        "color": "#C1DEC5",
+        "stack_sort_color": "#81CF8C"
+      },
+      {
+        "label": "Invasive & Other Problematic Species, Genes & Diseases",
+        "display_name": "Invasive & problematic species",
+        "code": "8",
+        "family": "Greens",
+        "color": "#8FC89A",
+        "stack_sort_color": "#4ABF67"
+      },
+      {
+        "label": "Natural System Modifications",
+        "display_name": "Natural system modifications",
+        "code": "7",
+        "family": "Blues",
+        "color": "#B9D2DF",
+        "stack_sort_color": "#87B8D9"
+      },
+      {
+        "label": "Pollution",
+        "display_name": "Pollution",
+        "code": "9",
+        "family": "Blues",
+        "color": "#6B95B8",
+        "stack_sort_color": "#1D66AF"
+      },
+      {
+        "label": "Climate Change & Severe Weather",
+        "display_name": "Climate change & severe weather",
+        "code": "11",
+        "family": "Blues",
+        "color": "#0072B2",
+        "stack_sort_color": "#4594D9"
+      },
+      {
+        "label": "Geological Events",
+        "display_name": "Geological events",
+        "code": "10",
+        "family": "Greys",
+        "color": "#D0D0D0",
+        "stack_sort_color": "#8F8F8F"
+      },
+      {
+        "label": "Other Options",
+        "display_name": "Other options",
+        "code": "12",
+        "family": "Greys",
+        "color": "#D9D9D9",
+        "stack_sort_color": "#A8A8A8"
+      },
+      {
+        "label": "Unclear",
+        "display_name": "Unclear",
+        "code": "U",
+        "family": "Greys",
+        "color": "#929292",
+        "stack_sort_color": "#757575"
+      }
+    ],
+    "stack_order": [
+      "Pollution",
+      "Climate Change & Severe Weather",
+      "Natural System Modifications",
+      "Biological Resource Use",
+      "Invasive & Other Problematic Species, Genes & Diseases",
+      "Human Intrusions & Disturbance",
+      "Residential & Commercial Development",
+      "Agriculture & Aquaculture",
+      "Energy Production & Mining",
+      "Transportation & Service Corridors",
+      "Unclear",
+      "Geological Events",
+      "Other Options"
+    ]
+  },
+  "driver_l1": {
+    "description": "Canonical order, display label, and color for IPBES direct-driver results. Colors follow the corresponding Threat-L0 category or color family for cross-figure consistency.",
+    "categories": [
+      {
+        "label": "Land/sea use change",
+        "display_name": "Land/sea-use change",
+        "color": "#D9954C"
+      },
+      {
+        "label": "Direct Exploitation and Resource Extraction",
+        "display_name": "Direct exploitation",
+        "color": "#689B78"
+      },
+      {
+        "label": "Climate Change",
+        "display_name": "Climate change",
+        "color": "#0072B2"
+      },
+      {
+        "label": "Pollution",
+        "display_name": "Pollution",
+        "color": "#6B95B8"
+      },
+      {
+        "label": "Invasive alien species",
+        "display_name": "Invasive alien species",
+        "color": "#8FC89A"
+      }
+    ],
+    "stack_order": [
+      "Land/sea use change",
+      "Direct Exploitation and Resource Extraction",
+      "Climate Change",
+      "Pollution",
+      "Invasive alien species"
+    ]
+  },
+  "world_bank_income": {
+    "description": "Canonical display order and broad tiers for World Bank income-group analyses.",
+    "group_order": [
+      "Low income",
+      "Lower middle income",
+      "Upper middle income",
+      "High income"
+    ],
+    "group_colors": {
+      "Low income": "#414487",
+      "Lower middle income": "#2A788E",
+      "Upper middle income": "#22A884",
+      "High income": "#7AD151"
+    },
+    "tier_order": [
+      "Lower-income tier",
+      "Higher-income tier"
+    ],
+    "tiers": {
+      "Lower-income tier": [
+        "Low income",
+        "Lower middle income"
+      ],
+      "Higher-income tier": [
+        "Upper middle income",
+        "High income"
+      ]
+    }
+  },
+  "climate_data_prep": {
+    "description": "Selection and local World Bank snapshot used for the climate-country analysis handoff.",
+    "direction": "negative",
+    "threat_label": "Climate Change & Severe Weather",
+    "study_design": "Observational",
+    "world_bank_mapping": "checklists/mappings/ipbes_world_bank_mapping.json",
+    "world_bank_snapshot_curated": "data/world-bank/snapshots/wdi-2026-06-30/curated",
+    "output_directory": "notebooks/data-processing/outputs",
+    "country_export": "country_world_bank_df.parquet",
+    "timeseries_export": "world_bank_timeseries_df.parquet"
+  },
+  "climate_change_analysis": {
+    "description": "Country-coverage and per-capita CO2 comparison settings for results notebook 03.",
+    "co2_per_capita_indicator": "EN.GHG.CO2.PC.CE.AR5",
+    "co2_expected_latest_year": 2024,
+    "focal_quadrant": "Low emissions / High evidence",
+    "output_directory": "notebooks/results/outputs/03-climate-and-co2-emissions",
+    "figure_subdirectory": "figures",
+    "figure_filename": "co2-per-capita-evidence-quadrants"
+  },
+  "driver_composition": {
+    "description": "Historical-income threat-composition settings for results notebook 07.",
+    "direction": "negative",
+    "study_design": "Observational",
+    "primary_start_year": 2000,
+    "primary_end_year": 2025,
+    "partial_end_year": 2026,
+    "historical_classifications_file": "classifications_historical.parquet",
+    "output_directory": "notebooks/results/outputs/07-driver-composition",
+    "data_subdirectory": "data",
+    "table_subdirectory": "csv",
+    "figure_subdirectory": "figures",
+    "bootstrap_replicates": 1000,
+    "random_seed": 20260719,
+    "publication_periods": [
+      {
+        "label": "2000–04",
+        "start_year": 2000,
+        "end_year": 2004
+      },
+      {
+        "label": "2005–09",
+        "start_year": 2005,
+        "end_year": 2009
+      },
+      {
+        "label": "2010–14",
+        "start_year": 2010,
+        "end_year": 2014
+      },
+      {
+        "label": "2015–19",
+        "start_year": 2015,
+        "end_year": 2019
+      },
+      {
+        "label": "2020–25",
+        "start_year": 2020,
+        "end_year": 2025
+      }
+    ],
+    "focus_threats": [
+      "Agriculture & Aquaculture",
+      "Biological Resource Use",
+      "Invasive & Other Problematic Species, Genes & Diseases",
+      "Climate Change & Severe Weather",
+      "Pollution",
+      "Natural System Modifications"
+    ],
+    "contrast_plot_excluded_threats": [
+      "Other Options",
+      "Unclear"
+    ]
+  },
+  "driver_realm": {
+    "description": "IPBES direct-driver composition and research specialization across all exact-singleton ecological realm labels in the L4 coding taxonomy.",
+    "direction": "negative",
+    "primary_start_year": 2000,
+    "primary_end_year": 2025,
+    "core_realms": [
+      "Terrestrial",
+      "Freshwater",
+      "Marine"
+    ],
+    "transition_realms": [
+      "Subterranean-Freshwater",
+      "Subterranean-Marine",
+      "Freshwater-Terrestrial",
+      "Freshwater-Marine",
+      "Marine-Terrestrial",
+      "Marine-Freshwater-Terrestrial"
+    ],
+    "analysis_realms": [
+      "Terrestrial",
+      "Subterranean",
+      "Subterranean-Freshwater",
+      "Subterranean-Marine",
+      "Freshwater-Terrestrial",
+      "Freshwater",
+      "Freshwater-Marine",
+      "Marine",
+      "Marine-Terrestrial",
+      "Marine-Freshwater-Terrestrial"
+    ],
+    "excluded_realm_labels": [
+      "Not Applicable",
+      "All realms"
+    ],
+    "realm_display_names": {
+      "Terrestrial": "Terrestrial",
+      "Subterranean": "Subterranean",
+      "Subterranean-Freshwater": "Subterranean–freshwater",
+      "Subterranean-Marine": "Subterranean–marine",
+      "Freshwater-Terrestrial": "Freshwater–terrestrial",
+      "Freshwater": "Freshwater",
+      "Freshwater-Marine": "Freshwater–marine",
+      "Marine": "Marine",
+      "Marine-Terrestrial": "Marine–terrestrial",
+      "Marine-Freshwater-Terrestrial": "Marine–freshwater–terrestrial"
+    },
+    "realm_short_names": {
+      "Terrestrial": "T",
+      "Subterranean": "S",
+      "Subterranean-Freshwater": "S–F",
+      "Subterranean-Marine": "S–M",
+      "Freshwater-Terrestrial": "F–T",
+      "Freshwater": "F",
+      "Freshwater-Marine": "F–M",
+      "Marine": "M",
+      "Marine-Terrestrial": "M–T",
+      "Marine-Freshwater-Terrestrial": "M–F–T"
+    },
+    "output_directory": "notebooks/results/outputs/09-l1-drivers-by-ecosystem-realm",
+    "figure_subdirectory": "figures",
+    "lq_plot_cap": 2.0,
+    "l1_lq_figure_filename": "l1-driver-lq-by-realm",
+    "l1_all_realm_bar_figure_filename": "l1-driver-composition-all-realms",
+    "l1_core_realm_bar_figure_filename": "l1-driver-composition-core-realms",
+    "l1_core_nested_figure_filename": "l1-driver-with-threat-l0-detail-core-realms",
+    "pollution_nameability_figure_filename": "pollution-plastics-exploitation-trends-core-realms"
+  },
+  "threat_realm": {
+    "description": "Supplementary IUCN Threat-L0 research emphasis across ecosystem realms.",
+    "label_column": "pred_threat_l0",
+    "figure_threats": [
+      "Pollution",
+      "Climate Change & Severe Weather",
+      "Natural System Modifications",
+      "Biological Resource Use",
+      "Invasive & Other Problematic Species, Genes & Diseases",
+      "Human Intrusions & Disturbance",
+      "Residential & Commercial Development",
+      "Agriculture & Aquaculture",
+      "Energy Production & Mining",
+      "Transportation & Service Corridors"
+    ],
+    "table_only_threats": [
+      "Other Options",
+      "Unclear"
+    ],
+    "out_of_scope_threats": [
+      "Geological Events"
+    ],
+    "lq_plot_cap": 2.0,
+    "figure_filename": "threat-l0-lq-by-realm",
+    "all_realm_bar_figure_filename": "threat-l0-composition-all-realms",
+    "core_realm_bar_figure_filename": "threat-l0-composition-core-realms"
+  },
+  "temporal_development": {
+    "description": "Shared parameters and figure annotations for the temporal-development results.",
+    "threat_order": [
+      "Residential & Commercial Development",
+      "Agriculture & Aquaculture",
+      "Energy Production & Mining",
+      "Transportation & Service Corridors",
+      "Biological Resource Use",
+      "Human Intrusions & Disturbance",
+      "Natural System Modifications",
+      "Invasive & Other Problematic Species, Genes & Diseases",
+      "Pollution",
+      "Geological Events",
+      "Climate Change & Severe Weather",
+      "Other Options",
+      "Unclear"
+    ],
+    "analysis_start_year": 2000,
+    "analysis_end_year": 2025,
+    "partial_year": 2026,
+    "projection_cagr_window": [
+      2021,
+      2025
+    ],
+    "rolling_cagr_years": 5,
+    "cagr_periods": [
+      {
+        "label": "2000-2025",
+        "base_year": 2000,
+        "end_year": 2025
+      },
+      {
+        "label": "2000-2005",
+        "base_year": 2000,
+        "end_year": 2005
+      },
+      {
+        "label": "2006-2010",
+        "base_year": 2006,
+        "end_year": 2010
+      },
+      {
+        "label": "2011-2015",
+        "base_year": 2011,
+        "end_year": 2015
+      },
+      {
+        "label": "2016-2020",
+        "base_year": 2016,
+        "end_year": 2020
+      },
+      {
+        "label": "2021-2025",
+        "base_year": 2021,
+        "end_year": 2025
+      }
+    ],
+    "growth_plot_excluded_threats": [
+      "Other Options",
+      "Unclear"
+    ],
+    "focal_threat": "Climate Change & Severe Weather",
+    "output_sections": {
+      "annual-": "publication-year",
+      "composition-": "threat-composition",
+      "growth-": "growth",
+      "combined-": "combined"
+    },
+    "policy_events": [
+      {
+        "year": 2002,
+        "description": "First global\nbiodiversity\ntarget (CBD)",
+        "text_y": 4200,
+        "horizontal_alignment": "center",
+        "x_offset": 0.0
+      },
+      {
+        "year": 2005,
+        "description": "Millennium\nEcosystem\nAssessment",
+        "text_y": 6000,
+        "horizontal_alignment": "center",
+        "x_offset": 0.0
+      },
+      {
+        "year": 2010,
+        "description": "Aichi Targets set;\n2010 target missed",
+        "text_y": 8600,
+        "horizontal_alignment": "center",
+        "x_offset": 0.0
+      },
+      {
+        "year": 2012,
+        "description": "IPBES\nestablished",
+        "text_y": 11400,
+        "horizontal_alignment": "center",
+        "x_offset": 0.0
+      },
+      {
+        "year": 2019,
+        "description": "IPBES warns 1M\nspecies at risk",
+        "text_y": 17600,
+        "horizontal_alignment": "right",
+        "x_offset": -0.25
+      },
+      {
+        "year": 2020,
+        "description": "No Aichi Target\nfully met",
+        "text_y": 20200,
+        "horizontal_alignment": "center",
+        "x_offset": 0.0
+      },
+      {
+        "year": 2022,
+        "description": "Kunming-Montreal\nFramework adopted",
+        "text_y": 22400,
+        "horizontal_alignment": "center",
+        "x_offset": 0.0
+      }
+    ]
+  }
+}
