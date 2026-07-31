@@ -2,6 +2,17 @@
 
 This package evaluates labelling runs by comparing predicted labels against the reference labels and writing metric files. In the normal repo workflow, it runs automatically at the end of `labelling/orchestrator.py`. You only need to call it directly when you want to rerun evals for an existing run.
 
+## Package layout
+
+| File | Role |
+| --- | --- |
+| `__main__.py` | Enables `python -m evals_local`; delegates to `run.py`. |
+| `run.py` | CLI entry point. Resolves run names, tasks, and truth paths, then runs each task and writes outputs. Also exposes `run_tasks` for the orchestrator's automatic evals. |
+| `config.py` | `TASK_CONFIG`: per-task truth sources, truth/prediction column pairs, and metric families. |
+| `loaders.py` | Reads the saved batch outputs and truth files and merges predictions against truth on `UT`. Taxa predictions are expanded to rank columns using the GBIF lookup cache at `evals.gbif_cache_path`. |
+| `normalizers.py` | Canonicalizes label strings and list-valued labels before comparison. |
+| `metrics.py` | Computes per-label precision/recall/F1/Kappa, the macro/weighted/micro aggregates, and the screening confusion table. |
+
 ## Quick use
 
 Standalone evals are run from the repo root:
@@ -138,9 +149,9 @@ Eval-specific paths and the labelling output paths that evals read are stored in
 
 Key settings:
 
-| Location                                      | Key                              | Description                                           |
-| --------------------------------------------- | -------------------------------- | ----------------------------------------------------- |
-| `checklists/mappings/repo_config.json`        | `evals.labels_dir`               | Root directory for ground-truth labels                |
-| `checklists/mappings/repo_config.json`        | `evals.output_dir`               | Directory where eval output files are written         |
-| `checklists/mappings/repo_config.json`        | `evals.gbif_cache_path`          | GBIF lookup cache used by taxa-related eval logic     |
-| `checklists/mappings/repo_config.json`        | `orchestrator.paths.batch_outputs_dir` | Directory from which labelling JSONL outputs are read |
+| Location                               | Key                                    | Description                                           |
+| -------------------------------------- | -------------------------------------- | ----------------------------------------------------- |
+| `checklists/mappings/repo_config.json` | `evals.labels_dir`                     | Root directory for ground-truth labels                |
+| `checklists/mappings/repo_config.json` | `evals.output_dir`                     | Directory where eval output files are written         |
+| `checklists/mappings/repo_config.json` | `evals.gbif_cache_path`                | GBIF lookup cache used by taxa-related eval logic     |
+| `checklists/mappings/repo_config.json` | `orchestrator.paths.batch_outputs_dir` | Directory from which labelling JSONL outputs are read |
