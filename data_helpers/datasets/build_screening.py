@@ -2,9 +2,9 @@ import os
 
 import pandas as pd
 
-from ._config import BASE_COLS, SCREENING_CFG as _SCREENING_CFG
+from data_helpers._config import BASE_COLS, SCREENING_CFG as _SCREENING_CFG
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 SOURCE = os.path.join(ROOT, _SCREENING_CFG["source"])
 SHEETS = _SCREENING_CFG["sheets"]

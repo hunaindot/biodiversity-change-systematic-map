@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from ._config import (
+from data_helpers._config import (
     LABEL_CONFIGS_RAW as _LABEL_CONFIGS_RAW,
     MISSING_KEY,
     MULTI_LABEL_KEY,

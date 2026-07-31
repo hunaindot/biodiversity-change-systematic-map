@@ -6,7 +6,7 @@ import random
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ._config import (
+from data_helpers._config import (
     LABEL_CONFIGS_RAW as _LABEL_CONFIGS_RAW,
     MISSING_KEY,
     MULTI_LABEL_KEY as MULTI_KEY,

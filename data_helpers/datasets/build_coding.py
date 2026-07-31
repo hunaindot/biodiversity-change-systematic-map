@@ -2,9 +2,9 @@ import os
 
 import pandas as pd
 
-from ._config import BASE_COLS, CODING_CFG as _CODING_CFG
+from data_helpers._config import BASE_COLS, CODING_CFG as _CODING_CFG
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 SOURCE = os.path.join(ROOT, _CODING_CFG["source"])
 SHEETS = _CODING_CFG["sheets"]
