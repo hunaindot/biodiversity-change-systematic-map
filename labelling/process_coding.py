@@ -20,6 +20,7 @@ from evals_local.loaders import load_predictions
 
 
 _DEFAULT_RUN_LIST = _REPO_ROOT / "checklists" / "mappings" / "run_names.json"
+_TAXA_API_TASK = "taxa-with-api"
 
 _CORE_FIELDS = ["UT", "title", "authors", "abstract",
                 "source", "publication_year", "wos_categories", "doi"]
@@ -116,6 +117,9 @@ TASK_SPECS: dict[str, list[LabelSpec]] = {
         "pred_genus": "genus",
         "pred_species": "species",
     })],
+
+    # Implemented by labelling/taxa_api.py rather than evals_local.loaders.
+    _TAXA_API_TASK: [],
 }
 
 # List-valued core columns that need flattening for Excel/CSV output.
@@ -292,7 +296,8 @@ def _resolve_run_names(args: argparse.Namespace) -> list[str]:
     run_names = list(args.run_names)
     if not run_names:
         run_list = args.run_list if args.run_list is not None else _DEFAULT_RUN_LIST
-        run_key = args.run_key if args.run_key is not None else args.task
+        default_run_key = "taxa" if args.task == _TAXA_API_TASK else args.task
+        run_key = args.run_key if args.run_key is not None else default_run_key
         run_names = _load_run_names_from_list(run_list, run_key)
 
     if not run_names:
@@ -317,6 +322,11 @@ def _missing_run_reasons(task: str, run_name: str) -> list[str]:
     output_dir = _REPO_ROOT / "data" / "artifacts" / "batch_outputs" / run_name
     if not output_dir.exists():
         reasons.append(f"missing batch output dir: {output_dir}")
+        return reasons
+
+    if task == _TAXA_API_TASK:
+        if not any(output_dir.glob("*.jsonl")):
+            reasons.append(f"missing *.jsonl in: {output_dir}")
         return reasons
 
     for spec in TASK_SPECS[task]:
@@ -376,7 +386,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-dir", default=None,
-        help="Output folder name under data/ (default: coding-<task>).",
+        help=(
+            "Output folder name under data/ (default: coding-taxa for "
+            "taxa-with-api; otherwise coding-<task>)."
+        ),
     )
     parser.add_argument(
         "--print-missing", action="store_true",
@@ -385,6 +398,67 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--skip-missing", action="store_true",
         help="Skip runs missing datasets or required batch outputs and process the rest.",
+    )
+    api_group = parser.add_argument_group(
+        "taxa-with-api options",
+        "These options apply only when --task taxa-with-api.",
+    )
+    api_group.add_argument(
+        "--api-workers", type=int, default=4,
+        help="Concurrent GBIF request workers (default: 4).",
+    )
+    api_group.add_argument(
+        "--api-rate-limit", type=float, default=8.0,
+        help="Maximum request starts per second across workers (default: 8).",
+    )
+    api_group.add_argument(
+        "--api-timeout", type=float, default=5.0,
+        help="GBIF connect and read timeout in seconds (default: 5).",
+    )
+    api_group.add_argument(
+        "--api-max-attempts", type=int, default=4,
+        help="Maximum attempts for each transiently failing request (default: 4).",
+    )
+    api_group.add_argument(
+        "--api-retry-delay", type=float, default=5.0,
+        help="Delay between transient request attempts in seconds (default: 5).",
+    )
+    api_group.add_argument(
+        "--api-user-agent",
+        default="biodiversity-evidence-synthesis/taxa-with-api",
+        help="User-Agent sent to GBIF.",
+    )
+    api_group.add_argument(
+        "--force", action="store_true",
+        help="Rebuild completed partition files (cached API matches are still reused).",
+    )
+    api_group.add_argument(
+        "--refresh-api-cache", action="store_true",
+        help="Ignore cached matches and request every taxon again.",
+    )
+    api_group.add_argument(
+        "--cached-only",
+        action="store_true",
+        help=(
+            "Disable all GBIF requests and fail before lookup if a required "
+            "query is absent from the existing release-aware cache."
+        ),
+    )
+    api_group.add_argument(
+        "--taxa-group-config",
+        default=str(
+            _REPO_ROOT
+            / "checklists"
+            / "mappings"
+            / "taxa_broad_groups.json"
+        ),
+        help="Broad-taxon hierarchy-rule JSON (default: in-place mapping).",
+    )
+    api_group.add_argument(
+        "--retry-final-failures",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Retry cached terminal API failures on a later invocation (default: true).",
     )
     return parser.parse_args()
 
@@ -408,9 +482,51 @@ def main() -> None:
             print("No present runs to process.")
             return
 
-    output_dir_name = args.output_dir or f"coding-{task}"
+    output_dir_name = args.output_dir or (
+        "coding-taxa" if task == _TAXA_API_TASK else f"coding-{task}"
+    )
     output_base = _REPO_ROOT / "data" / output_dir_name
     all_dir = output_base / "all"
+
+    if task == _TAXA_API_TASK:
+        if args.api_workers <= 0:
+            raise ValueError("--api-workers must be positive.")
+        if args.api_rate_limit <= 0:
+            raise ValueError("--api-rate-limit must be positive.")
+        if args.api_timeout <= 0:
+            raise ValueError("--api-timeout must be positive.")
+        if args.api_max_attempts <= 0:
+            raise ValueError("--api-max-attempts must be positive.")
+        if args.api_retry_delay < 0:
+            raise ValueError("--api-retry-delay must be non-negative.")
+        if args.cached_only and args.refresh_api_cache:
+            raise ValueError(
+                "--cached-only cannot be combined with --refresh-api-cache."
+            )
+
+        from labelling.taxa_api import process_taxa_with_api
+
+        process_taxa_with_api(
+            run_names=run_names,
+            datasets_directory=DATASETS_DIR,
+            batch_outputs_directory=(
+                _REPO_ROOT / "data" / "artifacts" / "batch_outputs"
+            ),
+            output_base=output_base,
+            workers=args.api_workers,
+            requests_per_second=args.api_rate_limit,
+            timeout_seconds=args.api_timeout,
+            max_attempts=args.api_max_attempts,
+            retry_delay_seconds=args.api_retry_delay,
+            user_agent=args.api_user_agent,
+            force=args.force,
+            refresh_cache=args.refresh_api_cache,
+            retry_final_failures=args.retry_final_failures,
+            skipped_missing=skipped_missing,
+            group_config_path=Path(args.taxa_group_config),
+            cached_only=args.cached_only,
+        )
+        return
 
     per_run_summaries: dict[str, dict] = {}
     partition_details: list[dict] = []
