@@ -11,7 +11,9 @@ to a threat.
 
 ## Analysis universe
 
-- Input: `data_helpers.corpus.build_merged_corpus()`.
+- Input: the canonical one-row-per-eligible-UT
+  `notebooks/data-processing/outputs/04-biodiversity-evidence-corpus-prep/biodiversity-evidence-corpus.parquet`
+  handoff, validated and loaded through `BiodiversityEvidenceStore`.
 - Unit: one unique publication (`UT`).
 - Direction: `s2_dir == "negative"`.
 - Complete publication years: 2000–2025.

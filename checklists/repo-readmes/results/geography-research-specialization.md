@@ -153,7 +153,7 @@ Data-driven `kappa` per threat ranged 17 (Agriculture — real geographic signal
 
 ## 10. Implementation and exports
 
-`data_helpers/geography.py`:
+`data_helpers/analysis/parked/geography.py`:
 
 - `location_quotient(df, *, level, by, id_col, country_col, min_support, eb_kappa, verbose)` — parses/classifies geography, builds the universe (§4), aggregates to `country` / `subregion` / `region`, returns the long table + `GeoAudit`. With `eb_kappa` set it returns the **full place x class grid** (every combination, including `n = 0`) so each cell has a stabilised value.
 - `load_polygons(..., dissolve_by=...)` — dissolves country polygons to subregion / region units for the coarser map.
