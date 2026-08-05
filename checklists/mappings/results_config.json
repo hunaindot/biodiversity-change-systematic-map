@@ -162,7 +162,9 @@
     ]
   },
   "world_bank_income": {
-    "description": "Canonical display order and broad tiers for World Bank income-group analyses.",
+    "description": "Shared World Bank reference data: source paths, canonical display order, and broad tiers. Lives here rather than under any one analysis because the climate prep and the income-composition result both read it.",
+    "world_bank_mapping": "checklists/mappings/ipbes_world_bank_mapping.json",
+    "world_bank_snapshot_curated": "data/world-bank/snapshots/wdi-2026-06-30/curated",
     "group_order": [
       "Low income",
       "Lower middle income",
@@ -212,39 +214,41 @@
     "direction": "negative",
     "threat_label": "Climate Change & Severe Weather",
     "study_design": "Observational",
-    "world_bank_mapping": "checklists/mappings/ipbes_world_bank_mapping.json",
-    "world_bank_snapshot_curated": "data/world-bank/snapshots/wdi-2026-06-30/curated",
-    "output_directory": "notebooks/data-processing/outputs",
+    "output_directory": "notebooks/data-processing/outputs/01-climate-data-prep",
     "country_export": "country_world_bank_df.parquet",
     "timeseries_export": "world_bank_timeseries_df.parquet"
   },
   "climate_change_analysis": {
-    "description": "Country-coverage and per-capita CO2 comparison settings for results notebook 03.",
+    "description": "ARCHIVED 2026-08-01 — supports no sentence in the manuscript. Country-coverage and per-capita CO2 comparison settings for archive/03-climate-and-co2-emissions.ipynb. Kept runnable in place: parked rather than superseded, so the key stays and points into the archive.",
     "co2_per_capita_indicator": "EN.GHG.CO2.PC.CE.AR5",
     "co2_expected_latest_year": 2024,
     "focal_quadrant": "Low emissions / High evidence",
-    "output_directory": "notebooks/results/outputs/03-climate-and-co2-emissions",
+    "output_directory": "notebooks/results/archive/outputs/03-climate-and-co2-emissions",
     "figure_subdirectory": "figures",
     "figure_filename": "co2-per-capita-evidence-quadrants"
   },
   "low_emitter_mismatch": {
-    "description": "Country-level climate-burden versus publication-evidence mismatch handoff for results notebook 05.",
-    "output_directory": "notebooks/results/outputs/05-low-emitter-evidence-mismatch",
+    "description": "ARCHIVED 2026-08-01 — supports no sentence in the manuscript. Country-level climate-burden versus publication-evidence mismatch handoff for archive/05-low-emitter-evidence-mismatch.ipynb.",
+    "output_directory": "notebooks/results/archive/outputs/05-low-emitter-evidence-mismatch",
     "data_subdirectory": "data",
     "country_export": "low_emitter_mismatch_country_df.parquet"
   },
   "driver_composition": {
-    "description": "Historical-income threat-composition settings for results notebook 07.",
+    "description": "Historical-income threat-composition settings for results notebook 02-income-composition (manuscript Result 2) and its archived unchecked companion.",
     "direction": "negative",
     "study_design": "Observational",
     "primary_start_year": 2000,
     "primary_end_year": 2025,
     "partial_end_year": 2026,
     "historical_classifications_file": "classifications_historical.parquet",
-    "output_directory": "notebooks/results/outputs/07-driver-composition",
+    "output_directory": "notebooks/results/outputs/02-income-composition",
+    "unchecked_output_directory": "notebooks/results/archive/outputs/02-unchecked-income-composition",
     "data_subdirectory": "data",
     "table_subdirectory": "csv",
     "figure_subdirectory": "figures",
+    "composition_figure_filename": "income-composition",
+    "classified_assignments_file": "historical_income_publication_country_assignments.parquet",
+    "threat_attributions_file": "historical_income_threat_attributions.parquet",
     "bootstrap_replicates": 1000,
     "random_seed": 20260719,
     "publication_periods": [
@@ -288,7 +292,7 @@
     ]
   },
   "driver_realm": {
-    "description": "IPBES direct-driver composition and research specialization across all exact-singleton ecological realm labels in the L4 coding taxonomy.",
+    "description": "IPBES direct-driver composition across ecosystem realms for 03-realm-composition (manuscript Result 3) and its unchecked companion.",
     "direction": "negative",
     "primary_start_year": 2000,
     "primary_end_year": 2025,
@@ -345,14 +349,16 @@
       "Marine-Terrestrial": "M–T",
       "Marine-Freshwater-Terrestrial": "M–F–T"
     },
-    "output_directory": "notebooks/results/outputs/09-l1-drivers-by-ecosystem-realm",
+    "output_directory": "notebooks/results/outputs/03-realm-composition",
     "figure_subdirectory": "figures",
     "lq_plot_cap": 2.0,
     "l1_lq_figure_filename": "l1-driver-lq-by-realm",
     "l1_all_realm_bar_figure_filename": "l1-driver-composition-all-realms",
     "l1_core_realm_bar_figure_filename": "l1-driver-composition-core-realms",
     "l1_core_nested_figure_filename": "l1-driver-with-threat-l0-detail-core-realms",
-    "pollution_nameability_figure_filename": "pollution-plastics-exploitation-trends-core-realms"
+    "pollution_nameability_figure_filename": "pollution-plastics-exploitation-trends-core-realms",
+    "unchecked_output_directory": "notebooks/results/outputs/03-unchecked-realm-composition",
+    "table_subdirectory": "csv"
   },
   "threat_realm": {
     "description": "Supplementary IUCN Threat-L0 research emphasis across ecosystem realms.",
@@ -390,262 +396,45 @@
     "corpus_config": "checklists/mappings/repo_config.json",
     "output_directory": "notebooks/data-processing/outputs/02-taxa-analysis-prep"
   },
-  "taxa_driver_conditional": {
-    "description": "Driver-conditioned taxonomic attention using current analysis and detail groups; multi-driver publications count once within every applicable driver.",
-    "direction": "negative",
-    "primary_start_year": 2000,
-    "primary_end_year": 2025,
-    "output_directory": "notebooks/results/outputs/12-driver-conditional-taxonomic-skew",
+  "taxonomic_lens": {
+    "description": "Result 04 - taxonomic and geographic mismatch in biodiversity evidence. Manuscript-complete: it computes every value the section reports. Self-contained - it reads no other results key, only two data-processing handoffs (taxa_analysis_prep for taxa, biodiversity_evidence_prep for study countries) and the World Bank snapshot for the IUCN threat benchmark. The per-group specialization choropleths and the capacity-adjusted allocation audit were retired on 2026-08-02; see notebooks/results/archive/retired-helpers/2026-08-02-f4-cleanup/.",
+    "manuscript_section": "Taxonomic attention is skewed against described diversity, and is not correcting",
+    "manuscript_source": "checklists/overleaf/main/main (27).tex",
+    "output_directory": "notebooks/results/outputs/04-taxonomic-lens",
     "table_subdirectory": "csv",
     "figure_subdirectory": "figures",
-    "bootstrap_replicates": 1000,
-    "random_seed": 20260731,
-    "lq_plot_cap": 1.5,
-    "focal_groups": [
-      "Vertebrates",
-      "Arthropods"
-    ],
-    "concentration_focal_group": "Vertebrates",
-    "concentration_inclusive_groups": [
-      "Arthropods",
-      "Other invertebrates",
-      "Fungi",
-      "Bacteria & archaea"
-    ],
-    "focal_detail_groups": [
-      "Mammals",
-      "Birds",
-      "Fishes",
-      "Reptiles & amphibians",
-      "Arthropods"
-    ],
-    "publication_periods": [
-      {
-        "label": "2000–04",
-        "start_year": 2000,
-        "end_year": 2004
-      },
-      {
-        "label": "2005–09",
-        "start_year": 2005,
-        "end_year": 2009
-      },
-      {
-        "label": "2010–14",
-        "start_year": 2010,
-        "end_year": 2014
-      },
-      {
-        "label": "2015–19",
-        "start_year": 2015,
-        "end_year": 2019
-      },
-      {
-        "label": "2020–25",
-        "start_year": 2020,
-        "end_year": 2025
-      }
-    ],
-    "resolution_figure_filename": "taxonomic-resolution-by-driver",
-    "heatmap_figure_filename": "taxonomic-specialization-by-driver",
-    "focal_figure_filename": "vertebrate-arthropod-specialization-by-driver",
-    "detail_figure_filename": "focal-detail-groups-by-driver"
-  },
-  "taxonomic_skew": {
-    "description": "Publication-level broad taxonomic attention relative to accepted species-rank records in the archived GBIF Backbone Taxonomy.",
+    "artifact_prefix": "04",
     "direction": "negative",
     "primary_start_year": 2000,
     "primary_end_year": 2025,
+    "bootstrap_replicates": 1000,
+    "random_seed": 20260731,
     "benchmark_groups": [
       "Vertebrates",
       "Invertebrates",
       "Plants",
       "Fungi",
       "Other"
-    ],
-    "animal_comparison_groups": [
-      "Vertebrates",
-      "Invertebrates"
     ],
     "unresolved_group": "Unresolved",
-    "output_directory": "notebooks/results/outputs/11-taxonomic-skew-vs-described-diversity",
-    "table_subdirectory": "csv",
-    "figure_subdirectory": "figures",
-    "bootstrap_replicates": 1000,
-    "random_seed": 20260731,
-    "figure_filename": "taxonomic-attention-vs-described-diversity"
-  },
-  "taxa_realm_conditional": {
-    "description": "Realm-conditioned taxonomic attention across exact-singleton ecological realms, with core-realm animal and class-level interpretation.",
-    "direction": "negative",
-    "primary_start_year": 2000,
-    "primary_end_year": 2025,
-    "output_directory": "notebooks/results/outputs/13-realm-conditional-taxonomic-skew",
-    "table_subdirectory": "csv",
-    "figure_subdirectory": "figures",
-    "bootstrap_replicates": 1000,
-    "random_seed": 20260731,
-    "lq_plot_cap": 2.0,
-    "animal_analysis_groups": [
-      "Vertebrates",
-      "Arthropods",
-      "Other invertebrates"
-    ],
-    "animal_detail_groups": [
-      "Mammals",
-      "Birds",
-      "Fishes",
-      "Reptiles & amphibians",
-      "Arthropods",
-      "Molluscs",
-      "Other invertebrates"
-    ],
-    "signature_classes": [
-      "Magnoliopsida",
-      "Liliopsida",
-      "Mammalia",
-      "Aves",
-      "Insecta",
-      "Teleostei",
-      "Amphibia",
-      "Bivalvia",
-      "Malacostraca",
-      "Anthozoa"
-    ],
-    "planned_contrasts": [
-      {
-        "label": "Vertebrates: marine minus terrestrial (all taxa)",
-        "resolution": "analysis",
-        "estimand": "all_taxa",
-        "taxon_group": "Vertebrates",
-        "realm_a": "Marine",
-        "realm_b": "Terrestrial"
-      },
-      {
-        "label": "Vertebrates: marine minus terrestrial (animal lens)",
-        "resolution": "analysis",
-        "estimand": "animal_only",
-        "taxon_group": "Vertebrates",
-        "realm_a": "Marine",
-        "realm_b": "Terrestrial"
-      },
-      {
-        "label": "Vertebrates: marine minus freshwater (animal lens)",
-        "resolution": "analysis",
-        "estimand": "animal_only",
-        "taxon_group": "Vertebrates",
-        "realm_a": "Marine",
-        "realm_b": "Freshwater"
-      },
-      {
-        "label": "Other invertebrates: marine minus terrestrial",
-        "resolution": "analysis",
-        "estimand": "all_taxa",
-        "taxon_group": "Other invertebrates",
-        "realm_a": "Marine",
-        "realm_b": "Terrestrial"
-      },
-      {
-        "label": "Fishes: freshwater minus marine (animal lens)",
-        "resolution": "detail",
-        "estimand": "animal_only",
-        "taxon_group": "Fishes",
-        "realm_a": "Freshwater",
-        "realm_b": "Marine"
-      },
-      {
-        "label": "Molluscs: marine minus terrestrial (animal lens)",
-        "resolution": "detail",
-        "estimand": "animal_only",
-        "taxon_group": "Molluscs",
-        "realm_a": "Marine",
-        "realm_b": "Terrestrial"
-      }
-    ],
-    "driver_signatures": [
-      {
-        "label": "Vascular plants",
-        "resolution": "analysis",
-        "taxon_group": "Vascular plants"
-      },
-      {
-        "label": "Fishes",
-        "resolution": "detail",
-        "taxon_group": "Fishes"
-      },
-      {
-        "label": "Molluscs",
-        "resolution": "detail",
-        "taxon_group": "Molluscs"
-      },
-      {
-        "label": "Other invertebrates",
-        "resolution": "analysis",
-        "taxon_group": "Other invertebrates"
-      }
-    ],
-    "resolution_figure_filename": "taxonomic-resolution-by-realm",
-    "composition_figure_filename": "taxonomic-composition-core-realms",
-    "heatmap_figure_filename": "taxonomic-specialization-all-realms",
-    "animal_figure_filename": "animal-taxonomic-composition-core-realms",
-    "class_figure_filename": "class-signatures-core-realms",
-    "driver_figure_filename": "realm-signatures-within-drivers"
-  },
-  "taxa_temporal": {
-    "description": "Temporal persistence of broad and animal-only taxonomic attention in negative-impact publications from complete years 2000–2025.",
-    "direction": "negative",
-    "primary_start_year": 2000,
-    "primary_end_year": 2025,
-    "benchmark_groups": [
-      "Vertebrates",
+    "combined_figure_filename": "taxonomic-and-geographic-gap",
+    "benchmark_group_stack_order": [
       "Invertebrates",
-      "Plants",
       "Fungi",
-      "Other"
+      "Other",
+      "Plants",
+      "Vertebrates"
     ],
-    "animal_groups": [
-      "Vertebrates",
-      "Invertebrates"
-    ],
-    "publication_periods": [
-      {
-        "label": "2000–04",
-        "start_year": 2000,
-        "end_year": 2004
-      },
-      {
-        "label": "2005–09",
-        "start_year": 2005,
-        "end_year": 2009
-      },
-      {
-        "label": "2010–14",
-        "start_year": 2010,
-        "end_year": 2014
-      },
-      {
-        "label": "2015–19",
-        "start_year": 2015,
-        "end_year": 2019
-      },
-      {
-        "label": "2020–25",
-        "start_year": 2020,
-        "end_year": 2025
-      }
-    ],
-    "output_directory": "notebooks/results/outputs/14-temporal-taxonomic-shift",
-    "table_subdirectory": "csv",
-    "figure_subdirectory": "figures",
-    "bootstrap_replicates": 2000,
-    "random_seed": 20260731,
-    "hac_maxlags": 2,
-    "main_figure_filename": "temporal-animal-taxonomic-skew",
-    "broad_figure_filename": "broad-taxonomic-composition-over-time"
+    "trend_residual_group": "Other",
+    "geography_source": "notebooks/data-processing/outputs/04-biodiversity-evidence-corpus-prep/biodiversity-evidence-corpus.parquet",
+    "geography_min_support": 100,
+    "geography_eb_kappa": 30,
+    "threat_gap_group": "Vertebrates",
+    "threat_gap_source": "data/world-bank/snapshots/wdi-2026-06-30/curated/ipbes_wdi_latest.parquet"
   },
   "temporal_development": {
-    "description": "Shared parameters and figure annotations for the temporal-development results.",
-    "output_directory": "notebooks/results/outputs/02-map",
+    "description": "Shared parameters, figure annotations, and manuscript claims for 01-evidence-growth (manuscript Result 1) and its unchecked companion.",
+    "output_directory": "notebooks/results/outputs/01-evidence-growth",
     "threat_order": [
       "Residential & Commercial Development",
       "Agriculture & Aquaculture",
@@ -706,13 +495,6 @@
       "Unclear"
     ],
     "focal_threat": "Climate Change & Severe Weather",
-    "output_sections": {
-      "annual-": "publication-year",
-      "composition-": "threat-composition",
-      "growth-": "growth",
-      "combined-": "combined",
-      "geo-": "geography"
-    },
     "policy_events": [
       {
         "year": 2002,
@@ -763,6 +545,10 @@
         "horizontal_alignment": "center",
         "x_offset": 0.0
       }
-    ]
+    ],
+    "unchecked_output_directory": "notebooks/results/outputs/01-unchecked-evidence-growth",
+    "table_subdirectory": "csv",
+    "figure_subdirectory": "figures",
+    "combined_figure_filename": "combined-time-development"
   }
 }
