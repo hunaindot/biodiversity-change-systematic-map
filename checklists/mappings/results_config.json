@@ -171,12 +171,6 @@
       "Upper middle income",
       "High income"
     ],
-    "group_colors": {
-      "Low income": "#414487",
-      "Lower middle income": "#2A788E",
-      "Upper middle income": "#22A884",
-      "High income": "#7AD151"
-    },
     "tier_order": [
       "Lower-income tier",
       "Higher-income tier"
@@ -197,24 +191,24 @@
     "screening_source": "data/screened-partitions/all/screening_all.csv",
     "corpus_config": "checklists/mappings/repo_config.json",
     "chunksize": 250000,
-    "output_directory": "notebooks/data-processing/outputs/03-screening-analysis-prep"
+    "output_directory": "notebooks/data_processing/outputs/03_screening_analysis_prep"
   },
   "biodiversity_evidence_prep": {
     "description": "Integrated one-row-per-eligible-UT corpus with screening, driver, threats, geography, realm, study, and current taxa fields.",
     "retain_eligible_build_cache": false,
-    "output_directory": "notebooks/data-processing/outputs/04-biodiversity-evidence-corpus-prep"
+    "output_directory": "notebooks/data_processing/outputs/04_biodiversity_evidence_corpus_prep"
   },
   "screening_results": {
     "description": "Screening-stage summary and exclusion-overlap figure.",
-    "output_directory": "notebooks/results/outputs/00-screening",
-    "figure_filename": "screening-criteria-overlap"
+    "output_directory": "notebooks/results/outputs/00_screening",
+    "figure_filename": "screening_criteria_overlap"
   },
   "climate_data_prep": {
     "description": "Selection and local World Bank snapshot used for the climate-country analysis handoff.",
     "direction": "negative",
     "threat_label": "Climate Change & Severe Weather",
     "study_design": "Observational",
-    "output_directory": "notebooks/data-processing/outputs/01-climate-data-prep",
+    "output_directory": "notebooks/data_processing/outputs/01-climate-data-prep",
     "country_export": "country_world_bank_df.parquet",
     "timeseries_export": "world_bank_timeseries_df.parquet"
   },
@@ -234,19 +228,19 @@
     "country_export": "low_emitter_mismatch_country_df.parquet"
   },
   "driver_composition": {
-    "description": "Historical-income threat-composition settings for results notebook 02-income-composition (manuscript Result 2) and its archived unchecked companion.",
+    "description": "Historical-income threat-composition settings for results notebook 02_income_composition (manuscript Result 2) and its archived unchecked companion.",
     "direction": "negative",
     "study_design": "Observational",
     "primary_start_year": 2000,
     "primary_end_year": 2025,
     "partial_end_year": 2026,
     "historical_classifications_file": "classifications_historical.parquet",
-    "output_directory": "notebooks/results/outputs/02-income-composition",
+    "output_directory": "notebooks/results/outputs/02_income_composition",
     "unchecked_output_directory": "notebooks/results/archive/outputs/02-unchecked-income-composition",
     "data_subdirectory": "data",
     "table_subdirectory": "csv",
     "figure_subdirectory": "figures",
-    "composition_figure_filename": "income-composition",
+    "composition_figure_filename": "income_composition",
     "classified_assignments_file": "historical_income_publication_country_assignments.parquet",
     "threat_attributions_file": "historical_income_threat_attributions.parquet",
     "bootstrap_replicates": 1000,
@@ -292,7 +286,7 @@
     ]
   },
   "driver_realm": {
-    "description": "IPBES direct-driver composition across ecosystem realms for 03-realm-composition (manuscript Result 3) and its unchecked companion.",
+    "description": "IPBES direct-driver composition across ecosystem realms for 03_realm_composition (manuscript Result 3) and its unchecked companion.",
     "direction": "negative",
     "primary_start_year": 2000,
     "primary_end_year": 2025,
@@ -300,14 +294,6 @@
       "Terrestrial",
       "Freshwater",
       "Marine"
-    ],
-    "transition_realms": [
-      "Subterranean-Freshwater",
-      "Subterranean-Marine",
-      "Freshwater-Terrestrial",
-      "Freshwater-Marine",
-      "Marine-Terrestrial",
-      "Marine-Freshwater-Terrestrial"
     ],
     "analysis_realms": [
       "Terrestrial",
@@ -320,10 +306,6 @@
       "Marine",
       "Marine-Terrestrial",
       "Marine-Freshwater-Terrestrial"
-    ],
-    "excluded_realm_labels": [
-      "Not Applicable",
-      "All realms"
     ],
     "realm_display_names": {
       "Terrestrial": "Terrestrial",
@@ -349,15 +331,14 @@
       "Marine-Terrestrial": "M–T",
       "Marine-Freshwater-Terrestrial": "M–F–T"
     },
-    "output_directory": "notebooks/results/outputs/03-realm-composition",
+    "output_directory": "notebooks/results/outputs/03_realm_composition",
     "figure_subdirectory": "figures",
     "lq_plot_cap": 2.0,
-    "l1_lq_figure_filename": "l1-driver-lq-by-realm",
-    "l1_all_realm_bar_figure_filename": "l1-driver-composition-all-realms",
-    "l1_core_realm_bar_figure_filename": "l1-driver-composition-core-realms",
-    "l1_core_nested_figure_filename": "l1-driver-with-threat-l0-detail-core-realms",
-    "pollution_nameability_figure_filename": "pollution-plastics-exploitation-trends-core-realms",
-    "unchecked_output_directory": "notebooks/results/outputs/03-unchecked-realm-composition",
+    "l1_all_realm_bar_figure_filename": "l1_driver_composition_all_realms",
+    "l1_core_realm_bar_figure_filename": "l1_driver_composition_core_realms",
+    "l1_core_nested_figure_filename": "l1_driver_with_threat_l0_detail_core_realms",
+    "pollution_nameability_figure_filename": "pollution_plastics_exploitation_trends_core_realms",
+    "unchecked_output_directory": "notebooks/results/outputs/03_unchecked_realm_composition",
     "table_subdirectory": "csv"
   },
   "threat_realm": {
@@ -375,17 +356,13 @@
       "Energy Production & Mining",
       "Transportation & Service Corridors"
     ],
-    "table_only_threats": [
-      "Other Options",
-      "Unclear"
-    ],
     "out_of_scope_threats": [
       "Geological Events"
     ],
     "lq_plot_cap": 2.0,
-    "figure_filename": "threat-l0-lq-by-realm",
-    "all_realm_bar_figure_filename": "threat-l0-composition-all-realms",
-    "core_realm_bar_figure_filename": "threat-l0-composition-core-realms"
+    "figure_filename": "threat_l0_lq_by_realm",
+    "all_realm_bar_figure_filename": "threat_l0_composition_all_realms",
+    "core_realm_bar_figure_filename": "threat_l0_composition_core_realms"
   },
   "taxa_analysis_prep": {
     "description": "Canonical one-row-per-UT taxa handoff shared by all taxa results notebooks.",
@@ -394,13 +371,12 @@
     "gbif_eml_source": "data/gbif/extracted/eml.xml",
     "taxa_group_mapping": "checklists/mappings/taxa_broad_groups.json",
     "corpus_config": "checklists/mappings/repo_config.json",
-    "output_directory": "notebooks/data-processing/outputs/02-taxa-analysis-prep"
+    "output_directory": "notebooks/data_processing/outputs/02_taxa_analysis_prep"
   },
   "taxonomic_lens": {
     "description": "Result 04 - taxonomic and geographic mismatch in biodiversity evidence. Manuscript-complete: it computes every value the section reports. Self-contained - it reads no other results key, only two data-processing handoffs (taxa_analysis_prep for taxa, biodiversity_evidence_prep for study countries) and the World Bank snapshot for the IUCN threat benchmark. The per-group specialization choropleths and the capacity-adjusted allocation audit were retired on 2026-08-02; see notebooks/results/archive/retired-helpers/2026-08-02-f4-cleanup/.",
     "manuscript_section": "Taxonomic attention is skewed against described diversity, and is not correcting",
-    "manuscript_source": "checklists/overleaf/main/main (27).tex",
-    "output_directory": "notebooks/results/outputs/04-taxonomic-lens",
+    "output_directory": "notebooks/results/outputs/04_taxonomic_lens",
     "table_subdirectory": "csv",
     "figure_subdirectory": "figures",
     "artifact_prefix": "04",
@@ -417,7 +393,7 @@
       "Other"
     ],
     "unresolved_group": "Unresolved",
-    "combined_figure_filename": "taxonomic-and-geographic-gap",
+    "combined_figure_filename": "taxonomic_and_geographic_gap",
     "benchmark_group_stack_order": [
       "Invertebrates",
       "Fungi",
@@ -426,15 +402,15 @@
       "Vertebrates"
     ],
     "trend_residual_group": "Other",
-    "geography_source": "notebooks/data-processing/outputs/04-biodiversity-evidence-corpus-prep/biodiversity-evidence-corpus.parquet",
+    "geography_source": "notebooks/data_processing/outputs/04_biodiversity_evidence_corpus_prep/biodiversity_evidence_corpus.parquet",
     "geography_min_support": 100,
     "geography_eb_kappa": 30,
     "threat_gap_group": "Vertebrates",
     "threat_gap_source": "data/world-bank/snapshots/wdi-2026-06-30/curated/ipbes_wdi_latest.parquet"
   },
   "temporal_development": {
-    "description": "Shared parameters, figure annotations, and manuscript claims for 01-evidence-growth (manuscript Result 1) and its unchecked companion.",
-    "output_directory": "notebooks/results/outputs/01-evidence-growth",
+    "description": "Shared parameters, figure annotations, and manuscript claims for 01_evidence_growth (manuscript Result 1) and its unchecked companion.",
+    "output_directory": "notebooks/results/outputs/01_evidence_growth",
     "threat_order": [
       "Residential & Commercial Development",
       "Agriculture & Aquaculture",
@@ -546,9 +522,8 @@
         "x_offset": 0.0
       }
     ],
-    "unchecked_output_directory": "notebooks/results/outputs/01-unchecked-evidence-growth",
     "table_subdirectory": "csv",
     "figure_subdirectory": "figures",
-    "combined_figure_filename": "combined-time-development"
+    "combined_figure_filename": "combined_time_development"
   }
 }
