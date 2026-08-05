@@ -59,6 +59,7 @@ fonttools==4.61.1
 frozenlist==1.8.0
 fsspec==2025.10.0
 gast==0.7.0
+geopandas==1.1.4
 google-ai-generativelanguage==0.6.15
 google-api-core==2.28.1
 google-api-python-client==2.187.0
@@ -126,6 +127,7 @@ murmurhash==1.0.15
 mypy==1.19.1
 mypy_extensions==1.1.0
 namex==0.1.0
+nbclient==0.11.0
 nbformat==5.10.4
 nest-asyncio==1.6.0
 networkx==3.6.1
@@ -170,9 +172,11 @@ pydantic_core==2.41.5
 pyee==13.0.0
 Pygments==2.19.2
 PyJWT==2.10.1
+pyogrio==0.13.0
 pyOpenSSL==25.3.0
 pyparsing==3.3.1
 pypdfium2==5.1.0
+pyproj==3.7.2
 pytest==9.0.2
 python-calamine==0.6.1
 python-dateutil==2.9.0.post0
@@ -197,6 +201,7 @@ scipy==1.16.3
 seaborn==0.13.2
 sentence-transformers==5.2.3
 setuptools==80.9.0
+shapely==2.1.2
 shellingham==1.5.4
 six==1.17.0
 smart_open==7.5.0
