@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from data_helpers import build_worldbank_data as wb
+from data_helpers.sources import build_worldbank_data as wb
 
 
 def _country(
