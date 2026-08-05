@@ -13,7 +13,6 @@ from data_helpers._config import (
     LABEL_CONFIGS_RAW as _LABEL_CONFIGS_RAW,
     MISSING_KEY,
     MULTI_LABEL_KEY,
-    NO_KINGDOM_KEY,
     get_split_label_path,
     get_split_ratios,
     get_split_seed,
