@@ -10,7 +10,7 @@ The builder deliberately keeps acquisition, normalization, and matching separate
 
 Usage
 -----
-    python -m data_helpers.build_worldbank_data
+    python -m data_helpers.sources.build_worldbank_data
 
 The default output root is ``data/world-bank``.  Use ``--metadata-only`` for a
 quick build that exercises the API, classifications, crosswalk, and reports
@@ -39,7 +39,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_IPBES_PATH = REPO_ROOT / "checklists" / "mappings" / "ipbes_regions.json"
 DEFAULT_MAPPING_PATH = (
     REPO_ROOT / "checklists" / "mappings" / "ipbes_world_bank_mapping.json"
