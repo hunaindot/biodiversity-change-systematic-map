@@ -1,6 +1,10 @@
 /data/*
 !/data/taxa-clipart/
 !/data/taxa-clipart/**
+!/data/ipbes-polygons/
+!/data/ipbes-polygons/**
+!/data/world-bank/
+!/data/world-bank/**
 !/data/README.md
 !/data/labels/
 !/data/labels/**
