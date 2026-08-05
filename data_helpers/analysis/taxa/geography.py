@@ -25,7 +25,7 @@ from typing import Any, Iterable
 import numpy as np
 import pandas as pd
 
-from data_helpers.analysis.parked.geography import GeoAudit, location_quotient
+from data_helpers.analysis.geo.geography import GeoAudit, location_quotient
 
 
 class TaxaGeographyError(ValueError):
