@@ -40,7 +40,11 @@ it is intentionally not duplicated in this directory.
 - Reported percentages describe scientific attention in the mapped evidence, not the
   ecological occurrence, severity, or causal importance of a driver, threat, realm, or
   taxonomic group.
-- Shared technical specifications that are not findings live under
+- Threat-L0 labels, display colors, codes, families, and stack order must be loaded from
+  `checklists/mappings/results_config.json` through `data_helpers/results_config.py`;
+  do not copy a local palette into a new result. The supplementary threats notebook
+  retains an older local map palette as a documented exception.
+- Reusable taxonomic and geographic methods that are not findings live under
   `checklists/repo-readmes/reference/`.
 
 ## Refreshing these documents

@@ -52,6 +52,9 @@ the data to one distinct publication × year × Threat-L0 assignment. A publicat
 carrying several threats therefore contributes once to each distinct threat it names.
 The annual composition denominator is the number of document–threat assignments, not the
 number of publications, and annual shares sum to 100% across threat categories.
+Accordingly, composition figures label this quantity **Share of threat attributions
+(%)**, not percent of documents. Threat colors and the fixed stack order come from
+`checklists/mappings/results_config.json` through `data_helpers/results_config.py`.
 
 The complete-year table contains 315,636 unique document–threat assignments across 12
 observed threat classes. `Other Options` and `Unclear` remain in composition and growth
