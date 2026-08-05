@@ -1,16 +1,17 @@
 # Taxonomic grouping rules and the described-diversity benchmark
 
-Shared reference for every taxonomic analysis (notebooks 11–14). It documents
+Shared reference for every taxonomic analysis. It documents
 how validated GBIF hierarchies are collapsed into reporting groups and how the
 described-diversity benchmark is constructed. It reports no result of its own.
 
 Analyses that consume this reference:
 
-- `notebooks/results/11-taxonomic-skew-vs-described-diversity.ipynb`
+- `notebooks/results/04-taxonomic-lens.ipynb` (live; supersedes the three archived notebooks below)
+- `notebooks/results/archive/11-taxonomic-skew-vs-described-diversity.ipynb`
   (`taxonomic-skew-vs-described-diversity.md`);
-- `notebooks/results/12-driver-conditional-taxonomic-skew.ipynb`
+- `notebooks/results/archive/12-driver-conditional-taxonomic-skew.ipynb`
   (`driver-conditional-taxonomic-skew.md`);
-- `notebooks/results/13-realm-conditional-taxonomic-skew.ipynb`
+- `notebooks/results/archive/13-realm-conditional-taxonomic-skew.ipynb`
   (`realm-conditional-taxonomic-skew.md`); and
 - `notebooks/results/14-temporal-taxonomic-shift.ipynb`
   (`temporal-taxonomic-shift.md`).

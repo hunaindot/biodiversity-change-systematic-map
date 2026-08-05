@@ -1,5 +1,15 @@
 # Driver-conditioned taxonomic attention
 
+> **Archived.** The notebook this document specifies was retired on 2026-08-01 and
+> now lives at `notebooks/results/archive/`, with its outputs under
+> `notebooks/results/archive/outputs/`. No manuscript claim rests on it. The
+> live result-04 notebook is `notebooks/results/04-taxonomic-lens.ipynb`;
+> see `taxa-grouping-and-benchmark.md` for the shared grouping and benchmark rules.
+> The specification below is retained as the record of how the analysis was built.
+> Its estimator — conditional `1/g` weighting and log2 location quotient — is
+> unchanged in result 04; only the reporting surface was reduced to what the
+> manuscript states.
+
 ## Question and scope
 
 Does the taxonomic composition of biodiversity-loss research change across
@@ -172,7 +182,7 @@ All artifacts are written under:
 
 `notebooks/results/outputs/12-driver-conditional-taxonomic-skew/`
 
-The lean result bundle contains four CSV/JSON handoffs:
+The lean result bundle contains six CSV/JSON handoffs:
 
 - `driver-taxa-resolution.csv`;
 - `driver-conditional-taxonomic-attention.csv`, containing both analysis and
@@ -208,16 +218,19 @@ once in `notebooks/data-processing/outputs/02-taxa-analysis-prep/`.
   regardless of sign, overloading green with two conflicting meanings in the
   same figure. `PuOr` keeps the diverging-deviation convention (two hues +
   neutral midpoint) without colliding with the categorical taxon palette.
-- **All four figures are self-contained**, matching the convention from
-  notebook 02's geography figures: each carries a title, a one-line headline
-  computed from the plotted table (e.g. the strongest and weakest
-  specialization cell, or the resolution range across drivers), and the
-  relevant interpretation-boundary caveat, all baked into the exported PDF.
-- **Taxon silhouettes** (PhyloPic, CC0 1.0, via `data_helpers/analysis/taxa/clipart.py`)
-  are tinted to each group's palette color and placed beside the y-axis label
-  (heatmap) or the panel title (focal interval and focal detail figures).
-  Assets are declared once in `taxa_broad_groups.json` and cached locally
-  under `data/taxa-clipart/`.
+- **The heatmaps use `pcolormesh`.** Cells therefore remain vector-native in
+  the PDF rather than being embedded as a low-resolution raster. Conditional
+  shares are printed in every cell, so the color scale carries specialization
+  while the labels carry composition.
+- **The four diagnostic exports are manuscript-clean.** Titles, headlines,
+  decorative silhouettes, and caveat footers are omitted because those belong
+  in the surrounding text or caption. The resolution and focal-interval plots
+  use compact single- or two-panel layouts; the detail composition uses one
+  dense group-colored matrix rather than five repeated small multiples.
+- **Notebook 14 assembles the reporting figure.** Panel B reuses the analysis
+  table behind `taxonomic-specialization-by-driver.pdf`, preserving the same
+  estimator and color semantics while integrating it with the baseline and
+  temporal results in `taxon-driver-composition.pdf`.
 - **`Arthropods` now has one color across schemes.** The `analysis` scheme
   previously colored `Arthropods` `#4E79A7` (blue) while the `detail` scheme
   colored it `#E15759` (red) — the same label read differently in adjacent

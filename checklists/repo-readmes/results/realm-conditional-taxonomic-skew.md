@@ -1,5 +1,12 @@
 # Realm-conditioned taxonomic attention
 
+> **Archived.** The notebook this document specifies was retired on 2026-08-01 and
+> now lives at `notebooks/results/archive/`, with its outputs under
+> `notebooks/results/archive/outputs/`. No manuscript claim rests on it. The
+> live result-04 notebook is `notebooks/results/04-taxonomic-lens.ipynb`;
+> see `taxa-grouping-and-benchmark.md` for the shared grouping and benchmark rules.
+> The specification below is retained as the record of how the analysis was built.
+
 ## Question and scope
 
 Does the taxonomic composition of biodiversity-loss research change across

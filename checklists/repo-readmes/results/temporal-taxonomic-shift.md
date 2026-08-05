@@ -1,5 +1,12 @@
 # Temporal persistence of taxonomic attention
 
+> **Archived.** The notebook this document specifies was retired on 2026-08-01 and
+> now lives at `notebooks/results/archive/`, with its outputs under
+> `notebooks/results/archive/outputs/`. No manuscript claim rests on it. The
+> live result-04 notebook is `notebooks/results/04-taxonomic-lens.ipynb`;
+> see `taxa-grouping-and-benchmark.md` for the shared grouping and benchmark rules.
+> The specification below is retained as the record of how the analysis was built.
+
 ## Question
 
 Did the rapid growth of the biodiversity-loss evidence base between 2000 and
@@ -148,6 +155,29 @@ The notebook saves only files that support the reported figures or inference:
 - `csv/temporal-taxonomic-inference.csv`: contrasts, trends, growth, scope
   sensitivities, adjusted models, and driver-stratified diagnostics;
 - `csv/manifest.json`: compact provenance;
-- `figures/temporal-animal-taxonomic-skew.pdf`: main three-panel result; and
-- `figures/broad-taxonomic-composition-over-time.pdf`: five broad-group small
-  multiples against the fixed GBIF proxy.
+- `figures/temporal-animal-taxonomic-skew.pdf`: compact publication-growth and
+  animal-share result;
+- `figures/taxonomic-resolution-over-time.pdf`: the resolution diagnostic,
+  separated from the primary result;
+- `figures/broad-taxonomic-composition-over-time.pdf`: first-to-last broad-group
+  change chart against the fixed GBIF proxy; and
+- `figures/taxon-driver-composition.pdf`: the integrated three-panel manuscript
+  figure assembled from the result-04 notebook's exports and notebook 14.
+
+## Figure design
+
+The temporal exports separate the primary estimand from the inclusion
+diagnostic. The main figure now gives the publication-growth context and the
+animal attention split in two aligned panels; resolution is a dedicated compact
+figure. Broad composition is shown as a first-versus-last connected-dot chart
+rather than five repeated panels.
+
+The manuscript figure is assembled by
+`data_helpers/analysis/taxa/finding_plotting.py` without recomputing any
+estimate. Panel A compares broad attention with the GBIF proxy, panel B shows
+driver-conditioned specialization, and panel C shows the persistent animal
+split during 8.11-fold publication growth. It uses one typographic hierarchy,
+direct labels, vector-native heatmap cells, shared margins, and no embedded
+headline or footer. The generated PDF is copied to
+`checklists/overleaf/main/attachments/taxon_driver_composition.pdf` for Figure
+4 in the manuscript.

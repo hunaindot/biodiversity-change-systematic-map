@@ -144,6 +144,8 @@ Data-driven `kappa` per threat ranged 17 (Agriculture — real geographic signal
   light base, so "excluded" is not confused with a low value; the subregion map has
   none (all subregions clear the cutoff). Legend note: "hatched = not included".
 - Layout: `load_polygons(simplify_tolerance=0.2, preserve_topology=False)`, subregion via `dissolve_by="Sub_Region"`, Antarctica trimmed, PDF via `save_figure_result` (routes by `geo-` prefix to `geography/pdf` and `geography/csv`).
+  - **Note:** `save_figure_result` is a notebook-local helper defined only in the archived `-1-threats.ipynb`, where these maps were originally built; it does not exist in `data_helpers/`. If the geography maps are revived, export through the current convention instead — a result store or `visualization.save_publication_figure`, routed by `results_config.json` into `notebooks/results/outputs/<section>/{figures,csv}/`.
+  - The metric code itself is live and unchanged at `data_helpers/analysis/parked/geography.py`.
 
 ## 9. Naming and the mandatory caption
 

@@ -1,5 +1,12 @@
 # Taxonomic attention versus described diversity
 
+> **Archived.** The notebook this document specifies was retired on 2026-08-01 and
+> now lives at `notebooks/results/archive/`, with its outputs under
+> `notebooks/results/archive/outputs/`. No manuscript claim rests on it. The
+> live result-04 notebook is `notebooks/results/04-taxonomic-lens.ipynb`;
+> see `taxa-grouping-and-benchmark.md` for the shared grouping and benchmark rules.
+> The specification below is retained as the record of how the analysis was built.
+
 ## Question
 
 How does the broad taxonomic distribution of publication attention compare
@@ -257,19 +264,14 @@ guidance and the typography used in notebook 02:
 - Position, direct labels, and filled versus open markers make the comparison
   interpretable without relying on color alone.
 - Axes are neutral, grid lines are absent, and the output is vector PDF.
-- The figure is self-contained: a title, a one-line headline computed from
-  `analysis.comparison` (the top and bottom representation-ratio groups plus
-  the resolved denominator), and the interpretation-boundary caveat are baked
-  into the exported PDF, matching the convention established for the
-  geography figures in notebook 02 (a reader opening the PDF outside the
-  notebook still gets the claim and its scope).
-- Each broad group's y-tick label on both panels carries a small PhyloPic
-  silhouette, tinted to that group's own palette color
-  (`data_helpers/analysis/taxa/clipart.py`). Assets are declared once in
-  `taxa_broad_groups.json` (`clipart_assets` / `group_clipart`) and cached
-  locally under `data/taxa-clipart/` (gitignored, downloaded on first run, one
-  request per asset thereafter). All are CC0 1.0; the attribution note is
-  reprinted in the figure's caveat line.
+- The manuscript export is deliberately compact: the caption carries the
+  finding and interpretation boundary, so the PDF does not repeat a title,
+  headline, footer, or decorative silhouette.
+- Group order is identical in both panels. Direct values, filled versus open
+  markers, and representation ratios preserve meaning in grayscale and at
+  final-page scale.
+- Notebook 14 reuses this result table as panel A of the integrated manuscript
+  figure; it does not re-estimate the baseline.
 
 ## Outputs
 
