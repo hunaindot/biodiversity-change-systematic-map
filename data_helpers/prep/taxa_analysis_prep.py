@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import tempfile
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -19,12 +21,15 @@ from typing import Any, Iterable, Mapping
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 from data_helpers.labels import parse_list_labels
 from data_helpers.analysis.taxa.benchmark import DescribedDiversity
+from data_helpers.prep._provenance import source_signature
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 INCLUSION_ORDER = (
     "Included: at least one benchmarkable broad group",
     "Excluded: Not applicable only",
@@ -48,10 +53,30 @@ LIST_COLUMNS = (
     "analysis_groups",
     "detail_groups_all",
     "detail_groups",
+    "taxa_domain_labels",
+    "taxa_kingdom_labels",
+    "taxa_subkingdom_labels",
+    "taxa_phylum_labels",
+    "taxa_class_labels",
+    "taxa_order_labels",
+    "taxa_family_labels",
+    "taxa_genus_labels",
+    "taxa_species_labels",
+)
+TAXONOMY_RANK_COLUMNS = (
+    ("domain", "taxa_domain_labels"),
+    ("kingdom", "taxa_kingdom_labels"),
+    ("subkingdom", "taxa_subkingdom_labels"),
+    ("phylum", "taxa_phylum_labels"),
+    ("class", "taxa_class_labels"),
+    ("order", "taxa_order_labels"),
+    ("family", "taxa_family_labels"),
+    ("genus", "taxa_genus_labels"),
+    ("species", "taxa_species_labels"),
 )
 TAXA_SOURCE_COLUMNS = (
     "UT",
-    "class",
+    *(source for source, _ in TAXONOMY_RANK_COLUMNS),
     "broad_taxa_groups",
     "taxa_analysis_groups",
     "taxa_detail_groups",
@@ -71,6 +96,77 @@ CORPUS_COLUMNS = (
     "pred_threat_l0",
     "realm",
     "pred_study_design",
+)
+TAXA_MATCH_METADATA_COLUMNS = (
+    "llm_taxon_index",
+    "llm_canonical_name",
+    "llm_taxon_rank",
+    "match_status",
+    "matched_taxon_key",
+    "matched_name",
+    "matched_rank",
+    "taxonomic_status",
+    "match_type",
+    "confidence",
+    "synonym",
+    "broad_group",
+    "broad_group_rule_id",
+    "broad_group_reason",
+    "broad_group_eligible",
+    "analysis_group",
+    "analysis_group_rule_id",
+    "analysis_group_reason",
+    "detail_group",
+    "detail_group_rule_id",
+    "detail_group_reason",
+    "error_message",
+)
+TAXA_LINEAGE_COLUMNS = (
+    "lineage_position",
+    "lineage_key",
+    "lineage_rank",
+    "lineage_name",
+)
+TAXA_LINEAGE_STRUCT_TYPE = pa.struct(
+    [
+        pa.field("position", pa.int64()),
+        pa.field("key", pa.string()),
+        pa.field("rank", pa.string()),
+        pa.field("name", pa.string()),
+    ]
+)
+TAXA_MATCH_STRUCT_TYPE = pa.struct(
+    [
+        pa.field("llm_taxon_index", pa.int64()),
+        pa.field("llm_canonical_name", pa.string()),
+        pa.field("llm_taxon_rank", pa.string()),
+        pa.field("match_status", pa.string()),
+        pa.field("matched_taxon_key", pa.string()),
+        pa.field("matched_name", pa.string()),
+        pa.field("matched_rank", pa.string()),
+        pa.field("taxonomic_status", pa.string()),
+        pa.field("match_type", pa.string()),
+        pa.field("confidence", pa.float64()),
+        pa.field("synonym", pa.bool_()),
+        pa.field("broad_group", pa.string()),
+        pa.field("broad_group_rule_id", pa.string()),
+        pa.field("broad_group_reason", pa.string()),
+        pa.field("broad_group_eligible", pa.bool_()),
+        pa.field("analysis_group", pa.string()),
+        pa.field("analysis_group_rule_id", pa.string()),
+        pa.field("analysis_group_reason", pa.string()),
+        pa.field("detail_group", pa.string()),
+        pa.field("detail_group_rule_id", pa.string()),
+        pa.field("detail_group_reason", pa.string()),
+        pa.field("error_message", pa.string()),
+        pa.field("lineage", pa.list_(TAXA_LINEAGE_STRUCT_TYPE)),
+    ]
+)
+TAXA_MATCH_TABLE_SCHEMA = pa.schema(
+    [
+        pa.field("UT", pa.string()),
+        pa.field("taxa_matches", pa.list_(TAXA_MATCH_STRUCT_TYPE)),
+    ]
 )
 
 
@@ -160,9 +256,30 @@ def _parse_json_items(value: Any) -> list[dict[str, Any]]:
     return [item for item in parsed if isinstance(item, dict)]
 
 
+def _list_labels(value: Any) -> tuple[str, ...]:
+    """Normalize CSV-serialized or Parquet-native list values."""
+    if isinstance(value, np.ndarray):
+        value = value.tolist()
+    return tuple(parse_list_labels(value))
+
+
+def _read_taxa_source(path: Path) -> pd.DataFrame:
+    """Read only the publication-level taxa fields required by preparation."""
+    try:
+        if path.suffix.casefold() == ".parquet":
+            return pd.read_parquet(path, columns=list(TAXA_SOURCE_COLUMNS))
+        return pd.read_csv(
+            path, usecols=list(TAXA_SOURCE_COLUMNS), low_memory=False
+        )
+    except (ValueError, pa.ArrowInvalid, pa.ArrowNotImplementedError) as exc:
+        raise TaxaAnalysisPrepError(
+            "Taxa source lacks current lineage/group enrichment fields."
+        ) from exc
+
+
 def _ordered_labels(value: Any, order: Iterable[str], source: str) -> tuple[str, ...]:
     order = tuple(order)
-    labels = parse_list_labels(value)
+    labels = _list_labels(value)
     unknown = set(labels).difference(order)
     if unknown:
         raise TaxaAnalysisPrepError(
@@ -183,7 +300,7 @@ def _configured_labels(
     excluded_casefold = {label.casefold() for label in excluded}
     labels = [
         label
-        for label in parse_list_labels(value)
+        for label in _list_labels(value)
         if label.casefold() not in excluded_casefold
     ]
     unknown = set(labels).difference(order)
@@ -237,13 +354,209 @@ def _slug(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", value.casefold()).strip("_") or "missing"
 
 
-def _source_signature(path: str | Path) -> dict[str, Any]:
-    source = Path(path)
-    stat = source.stat()
+def write_taxa_matches(
+    lineage_path: str | Path,
+    output_path: str | Path,
+    *,
+    expected_uts: Iterable[str],
+    batch_size: int = 131_072,
+    output_row_group_size: int = 8_192,
+) -> dict[str, Any]:
+    """Stream the lossless long lineage into one nested match list per UT."""
+    lineage_path = Path(lineage_path)
+    output_path = Path(output_path)
+    expected = [str(value) for value in expected_uts]
+    if len(expected) != len(set(expected)):
+        raise TaxaAnalysisPrepError("Expected taxa-match UTs are not unique.")
+    if batch_size <= 0 or output_row_group_size <= 0:
+        raise TaxaAnalysisPrepError("Taxa-match batch sizes must be positive.")
+
+    parquet = pq.ParquetFile(lineage_path)
+    required = {
+        "UT",
+        *TAXA_MATCH_METADATA_COLUMNS,
+        *TAXA_LINEAGE_COLUMNS,
+    }
+    missing = required.difference(parquet.schema_arrow.names)
+    if missing:
+        raise TaxaAnalysisPrepError(
+            f"Taxa lineage source lacks required columns: {sorted(missing)}"
+        )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = tempfile.NamedTemporaryFile(
+        prefix=f".{output_path.stem}.",
+        suffix=".parquet",
+        dir=output_path.parent,
+        delete=False,
+    )
+    temporary_path = Path(temporary.name)
+    temporary.close()
+
+    writer: pq.ParquetWriter | None = None
+    output_uts: list[str] = []
+    output_matches: list[list[dict[str, Any]]] = []
+    expected_index = 0
+    current_ut: str | None = None
+    current_item_index: int | None = None
+    current_metadata: dict[str, Any] | None = None
+    current_lineage: list[dict[str, Any]] = []
+    current_matches: list[dict[str, Any]] = []
+    match_status_counts: Counter[str] = Counter()
+    source_rows = 0
+    lineage_rows = 0
+    taxon_items = 0
+
+    def flush_output() -> None:
+        nonlocal writer, output_uts, output_matches
+        if not output_uts:
+            return
+        table = pa.Table.from_arrays(
+            [
+                pa.array(output_uts, type=pa.string()),
+                pa.array(output_matches, type=pa.list_(TAXA_MATCH_STRUCT_TYPE)),
+            ],
+            schema=TAXA_MATCH_TABLE_SCHEMA,
+        )
+        if writer is None:
+            writer = pq.ParquetWriter(
+                temporary_path,
+                TAXA_MATCH_TABLE_SCHEMA,
+                compression="zstd",
+            )
+        writer.write_table(table)
+        output_uts = []
+        output_matches = []
+
+    def finish_item() -> None:
+        nonlocal current_item_index, current_metadata, current_lineage, taxon_items
+        if current_metadata is None:
+            return
+        record = dict(current_metadata)
+        record["lineage"] = list(current_lineage)
+        current_matches.append(record)
+        match_status_counts[str(record.get("match_status") or "<missing>")] += 1
+        taxon_items += 1
+        current_item_index = None
+        current_metadata = None
+        current_lineage = []
+
+    def finish_ut() -> None:
+        nonlocal expected_index, current_matches
+        if current_ut is None:
+            return
+        if expected_index >= len(expected) or current_ut != expected[expected_index]:
+            wanted = expected[expected_index] if expected_index < len(expected) else None
+            raise TaxaAnalysisPrepError(
+                "Taxa lineage UT order differs from prepared publications: "
+                f"position={expected_index:,}, expected={wanted!r}, observed={current_ut!r}."
+            )
+        output_uts.append(current_ut)
+        output_matches.append(list(current_matches))
+        expected_index += 1
+        current_matches = []
+        if len(output_uts) >= output_row_group_size:
+            flush_output()
+
+    columns = ["UT", *TAXA_MATCH_METADATA_COLUMNS, *TAXA_LINEAGE_COLUMNS]
+    try:
+        for batch in parquet.iter_batches(columns=columns, batch_size=batch_size):
+            values = batch.to_pydict()
+            for row_index, raw_ut in enumerate(values["UT"]):
+                source_rows += 1
+                ut = str(raw_ut)
+                item_index = values["llm_taxon_index"][row_index]
+                if item_index is None:
+                    raise TaxaAnalysisPrepError(
+                        f"Taxa lineage row has no llm_taxon_index for UT {ut}."
+                    )
+                item_index = int(item_index)
+                metadata = {
+                    column: values[column][row_index]
+                    for column in TAXA_MATCH_METADATA_COLUMNS
+                }
+                metadata["llm_taxon_index"] = item_index
+
+                if current_ut is None:
+                    current_ut = ut
+                elif ut != current_ut:
+                    finish_item()
+                    finish_ut()
+                    current_ut = ut
+
+                if current_item_index is None:
+                    if item_index != len(current_matches):
+                        raise TaxaAnalysisPrepError(
+                            "Taxa lineage items are not contiguous and zero-based for "
+                            f"UT {ut}: expected={len(current_matches)}, observed={item_index}."
+                        )
+                    current_item_index = item_index
+                    current_metadata = metadata
+                elif item_index != current_item_index:
+                    finish_item()
+                    if item_index != len(current_matches):
+                        raise TaxaAnalysisPrepError(
+                            "Taxa lineage items are not contiguous for "
+                            f"UT {ut}: expected={len(current_matches)}, observed={item_index}."
+                        )
+                    current_item_index = item_index
+                    current_metadata = metadata
+                elif metadata != current_metadata:
+                    raise TaxaAnalysisPrepError(
+                        f"Taxa match metadata changes within item {ut}/{item_index}."
+                    )
+
+                position = values["lineage_position"][row_index]
+                lineage_values = {
+                    "position": int(position) if position is not None else None,
+                    "key": values["lineage_key"][row_index],
+                    "rank": values["lineage_rank"][row_index],
+                    "name": values["lineage_name"][row_index],
+                }
+                if position is None:
+                    if any(
+                        lineage_values[key] is not None
+                        for key in ("key", "rank", "name")
+                    ):
+                        raise TaxaAnalysisPrepError(
+                            f"Taxa lineage has values without a position for {ut}/{item_index}."
+                        )
+                else:
+                    if int(position) != len(current_lineage):
+                        raise TaxaAnalysisPrepError(
+                            "Taxa lineage positions are not contiguous for "
+                            f"{ut}/{item_index}: expected={len(current_lineage)}, "
+                            f"observed={position}."
+                        )
+                    current_lineage.append(lineage_values)
+                    lineage_rows += 1
+
+        finish_item()
+        finish_ut()
+        flush_output()
+        if writer is None:
+            raise TaxaAnalysisPrepError("Taxa lineage source contains no rows.")
+        writer.close()
+        writer = None
+        if expected_index != len(expected):
+            raise TaxaAnalysisPrepError(
+                "Taxa lineage source does not cover every prepared publication: "
+                f"expected={len(expected):,}, observed={expected_index:,}."
+            )
+        os.replace(temporary_path, output_path)
+    except Exception:
+        if writer is not None:
+            writer.close()
+        temporary_path.unlink(missing_ok=True)
+        raise
+
     return {
-        "path": str(source),
-        "size_bytes": stat.st_size,
-        "mtime_ns": stat.st_mtime_ns,
+        "publications": expected_index,
+        "unique_UT": expected_index,
+        "taxon_items": taxon_items,
+        "source_lineage_rows": source_rows,
+        "resolved_lineage_rows": lineage_rows,
+        "match_status_counts": dict(sorted(match_status_counts.items())),
     }
 
 
@@ -287,14 +600,7 @@ def build_taxa_publications(
         )
     _validate_ut(corpus_df, "Eligible merged corpus")
     taxa_path = Path(taxa_path)
-    try:
-        taxa = pd.read_csv(
-            taxa_path, usecols=list(TAXA_SOURCE_COLUMNS), low_memory=False
-        )
-    except ValueError as exc:
-        raise TaxaAnalysisPrepError(
-            "Taxa source lacks current broad/analysis/detail enrichment fields."
-        ) from exc
+    taxa = _read_taxa_source(taxa_path)
     _validate_ut(taxa, "Taxa-with-API source")
     corpus_keys = pd.Index(corpus_df["UT"])
     taxa_keys = pd.Index(taxa["UT"])
@@ -364,7 +670,7 @@ def build_taxa_publications(
     articles["class_labels"] = joined["class"].map(
         lambda value: tuple(
             label
-            for label in parse_list_labels(value)
+            for label in _list_labels(value)
             if label.casefold() not in class_exclusions
         )
     )
@@ -433,6 +739,11 @@ def build_taxa_publications(
             counts[status] for counts in per_article_status
         ]
     articles["n_drivers"] = articles["drivers"].map(len)
+    for source_column, output_column in TAXONOMY_RANK_COLUMNS:
+        if source_column == "class":
+            articles[output_column] = articles["class_labels"]
+        else:
+            articles[output_column] = joined[source_column].map(_list_labels)
 
     source_audit = [
         {
@@ -511,7 +822,9 @@ def build_manifest(
     *,
     mapping: Mapping[str, Any],
     audits: Mapping[str, list[dict[str, Any]]],
+    match_summary: Mapping[str, Any],
     sources: Mapping[str, str | Path],
+    repository_root: str | Path,
 ) -> dict[str, Any]:
     """Create compact processing provenance and reconciliation audits."""
     if len(articles) != articles["UT"].nunique():
@@ -529,16 +842,26 @@ def build_manifest(
         "schema_version": SCHEMA_VERSION,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "grouping_rules_sha256": grouping_rules_fingerprint(mapping),
-        "sources": {name: _source_signature(path) for name, path in sources.items()},
+        "sources": {
+            name: source_signature(path, repository_root=repository_root)
+            for name, path in sources.items()
+        },
         "artifacts": {
             "taxa_publications": "taxa_publications.parquet",
+            "taxa_matches": "taxa_matches.parquet",
             "gbif_broad_benchmark": "gbif_broad_benchmark.csv",
         },
         "rows": {
             "taxa_publications": len(articles),
             "unique_UT": articles["UT"].nunique(),
+            "taxa_matches": int(match_summary["publications"]),
+            "taxon_items": int(match_summary["taxon_items"]),
             "gbif_benchmark_groups": len(benchmark.counts),
         },
+        "taxonomy_rank_columns": [
+            output for _, output in TAXONOMY_RANK_COLUMNS
+        ],
+        "taxa_matches_audit": dict(match_summary),
         "group_schemes": scheme_audits,
         "broad_inclusion_counts": {
             state: int(broad_inclusion.get(state, 0)) for state in INCLUSION_ORDER
@@ -560,16 +883,35 @@ def _json_default(value: Any) -> Any:
 
 
 class TaxaPreparedStore:
-    """Write and validate the three-file prepared taxa bundle."""
+    """Write and validate the four-file prepared taxa bundle."""
 
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root)
         self.article_path = self.root / "taxa_publications.parquet"
+        self.match_path = self.root / "taxa_matches.parquet"
         self.benchmark_path = self.root / "gbif_broad_benchmark.csv"
         self.manifest_path = self.root / "manifest.json"
 
+    def write_matches(
+        self,
+        lineage_path: str | Path,
+        *,
+        expected_uts: Iterable[str],
+    ) -> dict[str, Any]:
+        """Build the nested, lossless match artifact without loading it in memory."""
+        self.root.mkdir(parents=True, exist_ok=True)
+        return write_taxa_matches(
+            lineage_path,
+            self.match_path,
+            expected_uts=expected_uts,
+        )
+
     def write(self, bundle: TaxaPreparedBundle) -> list[Path]:
         self.root.mkdir(parents=True, exist_ok=True)
+        if not self.match_path.exists():
+            raise TaxaAnalysisPrepError(
+                "Prepared taxa matches are missing; call write_matches first."
+            )
         bundle.articles.to_parquet(
             self.article_path, index=False, compression="zstd"
         )
@@ -585,12 +927,22 @@ class TaxaPreparedStore:
             + "\n",
             encoding="utf-8",
         )
-        return [self.article_path, self.benchmark_path, self.manifest_path]
+        return [
+            self.article_path,
+            self.match_path,
+            self.benchmark_path,
+            self.manifest_path,
+        ]
 
     def load(self, *, mapping: Mapping[str, Any]) -> TaxaPreparedBundle:
         missing = [
             path
-            for path in (self.article_path, self.benchmark_path, self.manifest_path)
+            for path in (
+                self.article_path,
+                self.match_path,
+                self.benchmark_path,
+                self.manifest_path,
+            )
             if not path.exists()
         ]
         if missing:
@@ -625,6 +977,24 @@ class TaxaPreparedStore:
         if articles["UT"].nunique() != expected_unique:
             raise TaxaAnalysisPrepError(
                 "Prepared taxa unique-UT count does not match the manifest."
+            )
+        match_file = pq.ParquetFile(self.match_path)
+        if not match_file.schema_arrow.equals(
+            TAXA_MATCH_TABLE_SCHEMA, check_metadata=False
+        ):
+            raise TaxaAnalysisPrepError(
+                "Prepared taxa matches do not have the required nested schema."
+            )
+        if match_file.metadata.num_rows != manifest["rows"]["taxa_matches"]:
+            raise TaxaAnalysisPrepError(
+                "Prepared taxa-match row count does not match the manifest."
+            )
+        match_uts = pd.read_parquet(self.match_path, columns=["UT"])["UT"]
+        if not match_uts.reset_index(drop=True).equals(
+            articles["UT"].reset_index(drop=True)
+        ):
+            raise TaxaAnalysisPrepError(
+                "Prepared taxa matches do not preserve publication UT order."
             )
         counts = pd.read_csv(self.benchmark_path)
         required_benchmark = {
@@ -689,10 +1059,13 @@ __all__ = [
     "TaxaAnalysisPrepError",
     "TaxaPreparedBundle",
     "TaxaPreparedStore",
+    "TAXA_MATCH_TABLE_SCHEMA",
+    "TAXONOMY_RANK_COLUMNS",
     "build_gbif_broad_benchmark",
     "build_manifest",
     "build_taxa_publications",
     "grouping_rules_fingerprint",
     "load_taxa_mapping",
     "match_status_audit_from_articles",
+    "write_taxa_matches",
 ]
