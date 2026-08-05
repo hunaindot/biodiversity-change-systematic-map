@@ -85,9 +85,9 @@ def test_screening_preparation_reconciles_both_grains(tmp_path: Path) -> None:
     store = prep.ScreeningPreparedStore(tmp_path / "prepared")
     paths = store.write(bundle)
     assert {path.name for path in paths} == {
-        "screening-publications.parquet",
-        "eligible-screening-publications.parquet",
-        "screening-exclusion-overlap.csv",
+        "screening_publications.parquet",
+        "eligible_screening_publications.parquet",
+        "screening_exclusion_overlap.csv",
         "manifest.json",
     }
     manifest, overlap = store.load_analysis()
@@ -202,7 +202,7 @@ def test_integrated_corpus_normalizes_lists_and_preserves_ut(tmp_path: Path) -> 
     store = prep.BiodiversityEvidenceStore(tmp_path / "corpus")
     paths = store.write(prep.BiodiversityEvidenceBundle(publications, manifest))
     assert {path.name for path in paths} == {
-        "biodiversity-evidence-corpus.parquet",
+        "biodiversity_evidence_corpus.parquet",
         "manifest.json",
     }
     loaded = store.load()

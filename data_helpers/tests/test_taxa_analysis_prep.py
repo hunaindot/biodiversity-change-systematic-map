@@ -166,8 +166,8 @@ def test_store_round_trip_is_three_files_and_rejects_stale_rules(
         taxa_analysis_prep.TaxaPreparedBundle(articles, benchmark, manifest)
     )
     assert {path.name for path in paths} == {
-        "taxa-publications.parquet",
-        "gbif-broad-benchmark.csv",
+        "taxa_publications.parquet",
+        "gbif_broad_benchmark.csv",
         "manifest.json",
     }
     assert {path.name for path in store.root.iterdir()} == {path.name for path in paths}
