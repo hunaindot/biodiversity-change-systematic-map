@@ -28,7 +28,7 @@
 
 ## CC1 A
 
-- Notebook: [screening_cc1a_recall.ipynb](../../notebooks/consistency-checks/screening_cc1a_recall.ipynb)
+- Notebook: [screening_cc1a_recall.ipynb](../../notebooks/consistency_checks/screening_cc1a_recall.ipynb)
 - Input sources:
   - `data/consistency-check-datasets/screening/annotated_screening_dataset.xlsx` sheet `l0-sample`
   - `data/labels/l0/L0) Screening.csv`
