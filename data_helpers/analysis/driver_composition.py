@@ -1,0 +1,1242 @@
+"""Reusable calculations for the income-group threat-composition analysis.
+
+The functions preserve the publication as the evidentiary unit. Country expansion is
+used only to assign geography and income group; multiple countries in the same group
+do not multiply a publication's contribution to that group.
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Sequence
+from dataclasses import dataclass
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
+
+from data_helpers.labels import parse_list_labels
+from data_helpers.visualization import BIODIVERSITY
+
+
+@dataclass
+class EvidencePreparation:
+    """Historically classified evidence and its audit tables."""
+
+    corpus: pd.DataFrame
+    negative: pd.DataFrame
+    observational: pd.DataFrame
+    world_bank_lookup: pd.DataFrame
+    historical_classifications: pd.DataFrame
+    world_bank_linked: pd.DataFrame
+    classified: pd.DataFrame
+    primary: pd.DataFrame
+    audit: pd.DataFrame
+    transitions: pd.DataFrame
+    missing_by_year: pd.DataFrame
+    reclassified_share: float
+
+
+@dataclass
+class CompositionAnalysis:
+    """Income-group threat composition and extreme-group contrast."""
+
+    attributions: pd.DataFrame
+    long_composition: pd.DataFrame
+    matrix: pd.DataFrame
+    extreme_contrast: pd.DataFrame
+    group_counts: pd.DataFrame
+    observed_threat_order: list[str]
+
+
+@dataclass
+class StandardizationAnalysis:
+    """Region and region-period standardized tier contrasts."""
+
+    attributions: pd.DataFrame
+    contrasts: pd.DataFrame
+    metadata: dict[str, int]
+
+
+def link_publications_to_world_bank(
+    records_df: pd.DataFrame,
+    world_bank_lookup_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Create one row per unique publication–World Bank country assignment."""
+    work = records_df[
+        ["UT", "publication_year", "pred_countries", "pred_threat_l0"]
+    ].copy()
+    work["country_code"] = work["pred_countries"].map(parse_list_labels)
+    work = work.explode("country_code", ignore_index=True).dropna(
+        subset=["country_code"]
+    )
+    work["country_code"] = work["country_code"].astype("string").str.strip()
+    work = work.loc[work["country_code"].ne("")].drop_duplicates(
+        ["UT", "country_code"]
+    )
+    linked = work.merge(
+        world_bank_lookup_df,
+        on="country_code",
+        how="inner",
+        sort=False,
+        validate="many_to_one",
+    ).reset_index(drop=True)
+    linked["_assignment_id"] = np.arange(len(linked), dtype=np.int64)
+    assert not linked.duplicated(["UT", "country_code"]).any()
+    return linked
+
+
+def attach_historical_income(
+    linked_df: pd.DataFrame,
+    historical_classification_df: pd.DataFrame,
+    fiscal_year_offset: int = 0,
+) -> pd.DataFrame:
+    """Attach one historical classification without changing assignment grain."""
+    work = linked_df.copy()
+    work["classification_fy"] = (
+        work["publication_year"].astype("Int64") + fiscal_year_offset
+    )
+    result = work.merge(
+        historical_classification_df,
+        on=["wb_entity_code", "classification_fy"],
+        how="left",
+        sort=False,
+        validate="many_to_one",
+    )
+    assert len(result) == len(work)
+    assert result["_assignment_id"].is_unique
+    assert np.array_equal(
+        result["_assignment_id"].to_numpy(),
+        work["_assignment_id"].to_numpy(),
+    )
+    assert not result.duplicated(["UT", "country_code"]).any()
+    return result
+
+
+def build_income_threat_attributions(
+    linked_df: pd.DataFrame,
+    group_column: str = "historical_income_group",
+) -> pd.DataFrame:
+    """Fractionally allocate each publication's unit weight across its threats."""
+    work = linked_df[
+        ["UT", "publication_year", group_column, "pred_threat_l0"]
+    ].drop_duplicates(["UT", group_column]).copy()
+    work = work.rename(columns={group_column: "income_group"})
+    work["threat"] = work["pred_threat_l0"].map(parse_list_labels)
+    work = work.explode("threat", ignore_index=True).dropna(subset=["threat"])
+    work["threat"] = work["threat"].astype("string").str.strip()
+    work = work.loc[work["threat"].ne("")].drop_duplicates(
+        ["UT", "income_group", "threat"]
+    )
+    work["threats_per_publication_group"] = work.groupby(
+        ["UT", "income_group"], observed=True
+    )["threat"].transform("nunique")
+    work["attribution_weight"] = 1 / work["threats_per_publication_group"]
+    weight_audit = work.groupby(
+        ["UT", "income_group"], observed=True
+    )["attribution_weight"].sum()
+    assert np.allclose(weight_audit, 1.0)
+    return work.reset_index(drop=True)
+
+
+def composition_from_attributions(
+    attribution_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Calculate within-income-group fractional threat shares."""
+    result = (
+        attribution_df.groupby(["income_group", "threat"], observed=True)[
+            "attribution_weight"
+        ]
+        .sum()
+        .rename("weighted_attributions")
+        .reset_index()
+    )
+    result["share"] = result["weighted_attributions"] / result.groupby(
+        "income_group", observed=True
+    )["weighted_attributions"].transform("sum")
+    result["share_pct"] = 100 * result["share"]
+    return result
+
+
+def composition_matrix(
+    attribution_df: pd.DataFrame,
+    threat_order: Sequence[str],
+    income_group_order: Sequence[str],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Return long and matrix forms of the threat composition."""
+    composition = composition_from_attributions(attribution_df)
+    matrix = (
+        composition.pivot(
+            index="threat", columns="income_group", values="share"
+        )
+        .fillna(0)
+        .reindex(
+            index=threat_order,
+            columns=income_group_order,
+            fill_value=0,
+        )
+    )
+    assert np.allclose(matrix.sum(axis=0), 1.0)
+    return composition, matrix
+
+
+def bootstrap_extreme_contrast(
+    attribution_df: pd.DataFrame,
+    threat_order: Sequence[str],
+    low_group: str,
+    high_group: str,
+    n_bootstrap: int,
+    seed: int,
+) -> pd.DataFrame:
+    """Bootstrap the high-minus-low composition contrast by publication."""
+
+    def publication_matrix(income_group: str) -> np.ndarray:
+        matrix = (
+            attribution_df.loc[
+                attribution_df["income_group"].eq(income_group)
+            ]
+            .pivot_table(
+                index="UT",
+                columns="threat",
+                values="attribution_weight",
+                aggfunc="sum",
+                fill_value=0,
+            )
+            .reindex(columns=threat_order, fill_value=0)
+        )
+        assert np.allclose(matrix.sum(axis=1), 1.0)
+        return matrix.to_numpy(float)
+
+    low = publication_matrix(low_group)
+    high = publication_matrix(high_group)
+    observed = 100 * (high.mean(axis=0) - low.mean(axis=0))
+    rng = np.random.default_rng(seed)
+    bootstrapped = np.empty((n_bootstrap, len(threat_order)))
+    for index in range(n_bootstrap):
+        low_sample = low[rng.integers(0, len(low), len(low))].mean(axis=0)
+        high_sample = high[rng.integers(0, len(high), len(high))].mean(axis=0)
+        bootstrapped[index] = 100 * (high_sample - low_sample)
+
+    result = pd.DataFrame(
+        {
+            "threat": threat_order,
+            "high_minus_low_pp": observed,
+            "bootstrap_ci_low": np.quantile(bootstrapped, 0.025, axis=0),
+            "bootstrap_ci_high": np.quantile(bootstrapped, 0.975, axis=0),
+        }
+    )
+    result["interval_excludes_zero"] = (
+        result["bootstrap_ci_low"].gt(0)
+        | result["bootstrap_ci_high"].lt(0)
+    )
+    return result.sort_values("high_minus_low_pp", ascending=False).reset_index(
+        drop=True
+    )
+
+
+def prepare_standardization_attributions(
+    linked_df: pd.DataFrame,
+    lower_tier_groups: set[str],
+    period_bins: Sequence[int],
+    period_labels: Sequence[str],
+) -> pd.DataFrame:
+    """Build publication-tier-region-period-threat rows for standardization."""
+    work = linked_df[
+        [
+            "UT",
+            "publication_year",
+            "historical_income_group",
+            "wb_region",
+            "pred_threat_l0",
+        ]
+    ].copy()
+    work["development_tier"] = np.where(
+        work["historical_income_group"].isin(lower_tier_groups),
+        "Lower-income tier",
+        "Higher-income tier",
+    )
+    work["publication_period"] = pd.cut(
+        work["publication_year"],
+        bins=period_bins,
+        labels=period_labels,
+        include_lowest=True,
+    ).astype("string")
+    assert work["publication_period"].notna().all()
+    work["threat"] = work["pred_threat_l0"].map(parse_list_labels)
+    work = work.explode("threat", ignore_index=True).dropna(subset=["threat"])
+    work["threat"] = work["threat"].astype("string").str.strip()
+    return work.loc[work["threat"].ne("")].copy()
+
+
+def _direct_standardize(
+    attribution_df: pd.DataFrame,
+    strata_columns: list[str],
+    threat_order: Sequence[str],
+    tier_order: Sequence[str],
+) -> tuple[pd.DataFrame, pd.Series, pd.Index]:
+    id_columns = ["UT", "development_tier", *strata_columns]
+    work = attribution_df.drop_duplicates([*id_columns, "threat"]).copy()
+    work["n_threats"] = work.groupby(id_columns, observed=True)[
+        "threat"
+    ].transform("nunique")
+    work["attribution_weight"] = 1 / work["n_threats"]
+
+    counts = (
+        work.drop_duplicates(id_columns)
+        .groupby([*strata_columns, "development_tier"], observed=True)["UT"]
+        .nunique()
+        .unstack(fill_value=0)
+        .reindex(columns=tier_order, fill_value=0)
+    )
+    common_strata = counts.loc[counts.gt(0).all(axis=1)].index
+    common_weights = counts.loc[common_strata].sum(axis=1)
+    common_weights = common_weights / common_weights.sum()
+
+    cells = (
+        work.groupby(
+            ["development_tier", *strata_columns, "threat"], observed=True
+        )["attribution_weight"]
+        .sum()
+        .rename("weighted_attributions")
+        .reset_index()
+    )
+    cells["share"] = cells["weighted_attributions"] / cells.groupby(
+        ["development_tier", *strata_columns], observed=True
+    )["weighted_attributions"].transform("sum")
+
+    standardized = {}
+    for tier in tier_order:
+        matrix = (
+            cells.loc[cells["development_tier"].eq(tier)]
+            .pivot_table(
+                index=strata_columns,
+                columns="threat",
+                values="share",
+                fill_value=0,
+            )
+            .reindex(
+                index=common_strata,
+                columns=threat_order,
+                fill_value=0,
+            )
+        )
+        standardized[tier] = matrix.mul(common_weights, axis=0).sum(axis=0)
+
+    raw = (
+        work.groupby(["development_tier", "threat"], observed=True)[
+            "attribution_weight"
+        ]
+        .sum()
+        .rename("weighted_attributions")
+        .reset_index()
+    )
+    raw["share"] = raw["weighted_attributions"] / raw.groupby(
+        "development_tier", observed=True
+    )["weighted_attributions"].transform("sum")
+    raw_matrix = (
+        raw.pivot(index="threat", columns="development_tier", values="share")
+        .fillna(0)
+        .reindex(index=threat_order, columns=tier_order, fill_value=0)
+    )
+    result = pd.DataFrame(
+        {
+            "threat": threat_order,
+            "raw_higher_minus_lower_pp": 100
+            * (raw_matrix[tier_order[1]] - raw_matrix[tier_order[0]]).to_numpy(),
+            "standardized_higher_minus_lower_pp": 100
+            * (
+                standardized[tier_order[1]] - standardized[tier_order[0]]
+            ).reindex(threat_order).to_numpy(),
+        }
+    )
+    return result, common_weights, common_strata
+
+
+def standardize_tier_contrasts(
+    attribution_df: pd.DataFrame,
+    threat_order: Sequence[str],
+    tier_order: Sequence[str],
+    n_bootstrap: int,
+    seed: int,
+) -> tuple[pd.DataFrame, dict[str, int]]:
+    """Compare raw, region-adjusted, and region×period-adjusted tier contrasts."""
+    region, _, common_regions = _direct_standardize(
+        attribution_df, ["wb_region"], threat_order, tier_order
+    )
+    joint, joint_weights, common_joint_strata = _direct_standardize(
+        attribution_df,
+        ["wb_region", "publication_period"],
+        threat_order,
+        tier_order,
+    )
+    comparison = region.rename(
+        columns={
+            "standardized_higher_minus_lower_pp": (
+                "region_standardized_higher_minus_lower_pp"
+            )
+        }
+    ).merge(
+        joint[["threat", "standardized_higher_minus_lower_pp"]].rename(
+            columns={
+                "standardized_higher_minus_lower_pp": (
+                    "region_period_standardized_higher_minus_lower_pp"
+                )
+            }
+        ),
+        on="threat",
+        how="left",
+        validate="one_to_one",
+    )
+
+    # Cluster bootstrap of the joint estimate, holding target weights fixed.
+    bootstrap = attribution_df.drop_duplicates(
+        [
+            "UT",
+            "development_tier",
+            "wb_region",
+            "publication_period",
+            "threat",
+        ]
+    ).copy()
+    bootstrap = bootstrap.loc[
+        pd.MultiIndex.from_frame(
+            bootstrap[["wb_region", "publication_period"]]
+        ).isin(common_joint_strata)
+    ].copy()
+    bootstrap["n_threats"] = bootstrap.groupby(
+        ["UT", "development_tier", "wb_region", "publication_period"],
+        observed=True,
+    )["threat"].transform("nunique")
+    bootstrap["attribution_weight"] = 1 / bootstrap["n_threats"]
+
+    strata = common_joint_strata.to_frame(index=False)
+    strata["stratum_code"] = np.arange(len(strata))
+    bootstrap = bootstrap.merge(
+        strata,
+        on=["wb_region", "publication_period"],
+        how="left",
+        validate="many_to_one",
+    )
+    tier_codes = pd.Categorical(
+        bootstrap["development_tier"], categories=tier_order
+    ).codes
+    threat_codes = pd.Categorical(
+        bootstrap["threat"], categories=threat_order
+    ).codes
+    publication_codes, publications = pd.factorize(bootstrap["UT"], sort=False)
+    n_strata = len(common_joint_strata)
+    n_threats = len(threat_order)
+    flat_codes = (
+        (tier_codes * n_strata + bootstrap["stratum_code"].to_numpy())
+        * n_threats
+        + threat_codes
+    )
+    rng = np.random.default_rng(seed)
+    differences = np.empty((n_bootstrap, n_threats))
+    fixed_weights = joint_weights.to_numpy(float)
+    for index in range(n_bootstrap):
+        multiplicity = rng.multinomial(
+            len(publications),
+            np.repeat(1 / len(publications), len(publications)),
+        )
+        totals = np.bincount(
+            flat_codes,
+            weights=(
+                bootstrap["attribution_weight"].to_numpy()
+                * multiplicity[publication_codes]
+            ),
+            minlength=2 * n_strata * n_threats,
+        ).reshape(2, n_strata, n_threats)
+        denominators = totals.sum(axis=2, keepdims=True)
+        shares = np.divide(
+            totals,
+            denominators,
+            out=np.zeros_like(totals),
+            where=denominators > 0,
+        )
+        standardized = (shares * fixed_weights[None, :, None]).sum(axis=1)
+        differences[index] = 100 * (standardized[1] - standardized[0])
+
+    comparison = comparison.merge(
+        pd.DataFrame(
+            {
+                "threat": threat_order,
+                "joint_bootstrap_ci_low": np.quantile(
+                    differences, 0.025, axis=0
+                ),
+                "joint_bootstrap_ci_high": np.quantile(
+                    differences, 0.975, axis=0
+                ),
+            }
+        ),
+        on="threat",
+        how="left",
+        validate="one_to_one",
+    )
+    comparison["joint_interval_excludes_zero"] = (
+        comparison["joint_bootstrap_ci_low"].gt(0)
+        | comparison["joint_bootstrap_ci_high"].lt(0)
+    )
+    comparison = comparison.sort_values(
+        "region_period_standardized_higher_minus_lower_pp",
+        ascending=False,
+    ).reset_index(drop=True)
+    metadata = {
+        "common_regions": len(common_regions),
+        "common_region_period_strata": len(common_joint_strata),
+    }
+    return comparison, metadata
+
+
+def publication_period_bins(
+    periods: Sequence[dict[str, int | str]],
+) -> tuple[list[int], list[str]]:
+    """Convert configured inclusive publication periods to pandas cut bins."""
+    bins = [int(periods[0]["start_year"]) - 1]
+    bins.extend(int(period["end_year"]) for period in periods)
+    labels = [str(period["label"]) for period in periods]
+    return bins, labels
+
+
+def income_transition_counts(
+    classified_df: pd.DataFrame,
+    income_groups: Sequence[str],
+) -> pd.DataFrame:
+    """Count assignments by current and publication-year income group.
+
+    Restricted to assignments carrying a standard group under both schemes, so
+    the counts are comparable; recomputable from the exported assignments file.
+    """
+    comparable = classified_df["historical_income_group"].isin(
+        income_groups
+    ) & classified_df["current_income_group"].isin(income_groups)
+    return (
+        classified_df.loc[
+            comparable,
+            ["current_income_group", "historical_income_group"],
+        ]
+        .value_counts()
+        .rename("publication_country_assignments")
+        .reset_index()
+    )
+
+
+def missing_historical_by_year(
+    classified_df: pd.DataFrame,
+    income_groups: Sequence[str],
+) -> pd.DataFrame:
+    """Count assignments left without a standard publication-year group."""
+    return (
+        classified_df.loc[
+            ~classified_df["historical_income_group"].isin(income_groups)
+        ]
+        .groupby("publication_year", dropna=False)
+        .agg(
+            publication_country_assignments=("UT", "size"),
+            unique_publications=("UT", "nunique"),
+        )
+        .reset_index()
+    )
+
+
+def prepare_historical_income_evidence(
+    corpus_df: pd.DataFrame,
+    *,
+    mapping_path: str | Path,
+    historical_path: str | Path,
+    income_groups: Sequence[str],
+    direction: str,
+    study_design: str,
+    start_year: int,
+    end_year: int,
+) -> EvidencePreparation:
+    """Filter, country-link, and historically classify the analysis evidence."""
+    corpus = corpus_df.copy()
+    assert corpus["UT"].notna().all() and corpus["UT"].is_unique
+    corpus["publication_year"] = pd.to_numeric(
+        corpus["publication_year"], errors="coerce"
+    ).astype("Int64")
+    negative = corpus.loc[corpus["s2_dir"].eq(direction)].copy()
+    observational = negative.loc[
+        negative["pred_study_design"].eq(study_design)
+    ].copy()
+
+    with Path(mapping_path).open(encoding="utf-8") as handle:
+        mapping_records = pd.DataFrame(json.load(handle)["records"])
+    world_bank_lookup = (
+        mapping_records.loc[
+            mapping_records["ipbes_iso3"].astype("string").str.len().eq(3)
+            & mapping_records["has_world_bank_economy"].eq(True),
+            [
+                "ipbes_iso3",
+                "wb_entity_code",
+                "wb_entity_name",
+                "wb_region",
+                "income_group",
+            ],
+        ]
+        .rename(
+            columns={
+                "ipbes_iso3": "country_code",
+                "income_group": "current_income_group",
+            }
+        )
+        .copy()
+    )
+    assert world_bank_lookup["country_code"].is_unique
+
+    historical = pd.read_parquet(
+        historical_path,
+        columns=[
+            "wb_entity_code",
+            "classification_fy",
+            "income",
+            "gni_reference_year",
+            "effective_from",
+            "effective_to",
+        ],
+    ).rename(columns={"income": "historical_income_group"})
+    historical["classification_fy"] = historical["classification_fy"].astype(
+        "Int64"
+    )
+    assert not historical.duplicated(
+        ["wb_entity_code", "classification_fy"]
+    ).any()
+
+    world_bank_linked = link_publications_to_world_bank(
+        observational, world_bank_lookup
+    )
+    classified = attach_historical_income(world_bank_linked, historical)
+    historical_standard = classified["historical_income_group"].isin(
+        income_groups
+    )
+    current_standard = classified["current_income_group"].isin(income_groups)
+    primary = classified.loc[
+        historical_standard
+        & classified["publication_year"].between(start_year, end_year)
+    ].copy()
+
+    comparable = historical_standard & current_standard
+    reclassified = comparable & classified["historical_income_group"].ne(
+        classified["current_income_group"]
+    )
+    audit = pd.DataFrame(
+        {
+            "metric": [
+                "Negative observational publications",
+                "World Bank-linked publication–country assignments",
+                "World Bank-linked unique publications",
+                f"Primary assignments: historical group, {start_year}–{end_year}",
+                "Primary unique publications",
+                "Countries in primary analysis",
+                "Assignments reclassified vs current group",
+            ],
+            "value": [
+                len(observational),
+                len(world_bank_linked),
+                world_bank_linked["UT"].nunique(),
+                len(primary),
+                primary["UT"].nunique(),
+                primary["wb_entity_code"].nunique(),
+                int(reclassified.sum()),
+            ],
+        }
+    )
+    transitions = income_transition_counts(classified, income_groups)
+    missing_by_year = missing_historical_by_year(classified, income_groups)
+    return EvidencePreparation(
+        corpus,
+        negative,
+        observational,
+        world_bank_lookup,
+        historical,
+        world_bank_linked,
+        classified,
+        primary,
+        audit,
+        transitions,
+        missing_by_year,
+        float(reclassified.sum() / comparable.sum()),
+    )
+
+
+def analyze_income_composition(
+    primary_df: pd.DataFrame,
+    *,
+    threat_order: Sequence[str],
+    income_groups: Sequence[str],
+    n_bootstrap: int,
+    seed: int,
+) -> CompositionAnalysis:
+    """Build the income-group composition and high-minus-low contrast."""
+    attributions = build_income_threat_attributions(primary_df)
+    observed_order = [
+        threat for threat in threat_order
+        if threat in set(attributions["threat"])
+    ]
+    long_composition, matrix = composition_matrix(
+        attributions, observed_order, income_groups
+    )
+    extreme_contrast = bootstrap_extreme_contrast(
+        attributions,
+        observed_order,
+        low_group="Low income",
+        high_group="High income",
+        n_bootstrap=n_bootstrap,
+        seed=seed,
+    )
+    extreme_contrast["low_income_share_pct"] = extreme_contrast["threat"].map(
+        100 * matrix["Low income"]
+    )
+    extreme_contrast["high_income_share_pct"] = extreme_contrast["threat"].map(
+        100 * matrix["High income"]
+    )
+    group_counts = (
+        primary_df.groupby("historical_income_group", observed=True)
+        .agg(
+            unique_publications=("UT", "nunique"),
+            represented_countries=("wb_entity_code", "nunique"),
+        )
+        .reindex(income_groups)
+    )
+    return CompositionAnalysis(
+        attributions,
+        long_composition,
+        matrix,
+        extreme_contrast,
+        group_counts,
+        observed_order,
+    )
+
+
+def analyze_standardized_tiers(
+    primary_df: pd.DataFrame,
+    *,
+    lower_tier_groups: set[str],
+    period_bins: Sequence[int],
+    period_labels: Sequence[str],
+    threat_order: Sequence[str],
+    tier_order: Sequence[str],
+    n_bootstrap: int,
+    seed: int,
+) -> StandardizationAnalysis:
+    """Build raw, region-adjusted, and region-period-adjusted tier contrasts."""
+    attributions = prepare_standardization_attributions(
+        primary_df,
+        lower_tier_groups,
+        period_bins,
+        period_labels,
+    )
+    contrasts, metadata = standardize_tier_contrasts(
+        attributions,
+        threat_order,
+        tier_order,
+        n_bootstrap=n_bootstrap,
+        seed=seed,
+    )
+    return StandardizationAnalysis(attributions, contrasts, metadata)
+
+
+def income_threat_diversity(
+    attribution_df: pd.DataFrame,
+    income_group_order: Sequence[str],
+) -> pd.DataFrame:
+    """Shannon entropy and effective threat count of each group's composition.
+
+    A diagnostic only: the manuscript reports composition contrasts, not spread.
+    """
+    composition = composition_from_attributions(attribution_df)
+    rows = []
+    for group in income_group_order:
+        shares = composition.loc[
+            composition["income_group"].eq(group), "share"
+        ]
+        shares = shares[shares > 0]
+        entropy = float(-(shares * np.log(shares)).sum())
+        rows.append(
+            {
+                "income_group": group,
+                "shannon_entropy": entropy,
+                "effective_number_of_threats": float(np.exp(entropy)),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_sensitivity_summary(
+    preparation: EvidencePreparation,
+    composition: CompositionAnalysis,
+    *,
+    income_groups: Sequence[str],
+    start_year: int,
+    end_year: int,
+    partial_end_year: int,
+) -> pd.DataFrame:
+    """Recalculate the extreme-group contrast under five sensitivity choices."""
+
+    def matrix_for(
+        linked_df: pd.DataFrame, group_column: str
+    ) -> pd.DataFrame:
+        attributions = build_income_threat_attributions(
+            linked_df, group_column
+        )
+        return composition_matrix(
+            attributions,
+            composition.observed_threat_order,
+            income_groups,
+        )[1]
+
+    primary_difference = composition.extreme_contrast.set_index("threat")[
+        "high_minus_low_pp"
+    ].reindex(composition.observed_threat_order)
+    historical_standard = preparation.classified[
+        "historical_income_group"
+    ].isin(income_groups)
+    current_standard = preparation.classified["current_income_group"].isin(
+        income_groups
+    )
+    all_negative = attach_historical_income(
+        link_publications_to_world_bank(
+            preparation.negative, preparation.world_bank_lookup
+        ),
+        preparation.historical_classifications,
+    )
+    all_negative = all_negative.loc[
+        all_negative["historical_income_group"].isin(income_groups)
+        & all_negative["publication_year"].between(start_year, end_year)
+    ]
+    current = preparation.classified.loc[
+        current_standard
+        & preparation.classified["publication_year"].between(
+            start_year, end_year
+        )
+    ]
+    fy_plus_one = attach_historical_income(
+        preparation.world_bank_linked,
+        preparation.historical_classifications,
+        fiscal_year_offset=1,
+    )
+    fy_plus_one = fy_plus_one.loc[
+        fy_plus_one["historical_income_group"].isin(income_groups)
+        & fy_plus_one["publication_year"].between(start_year, end_year)
+    ]
+    including_partial = preparation.classified.loc[
+        historical_standard
+        & preparation.classified["publication_year"].between(
+            start_year, partial_end_year
+        )
+    ]
+    sensitivity_matrices = {
+        "All negative study designs": matrix_for(
+            all_negative, "historical_income_group"
+        ),
+        "Current income classification": matrix_for(
+            current, "current_income_group"
+        ),
+        "FY = publication year + 1": matrix_for(
+            fy_plus_one, "historical_income_group"
+        ),
+        f"Include partial {partial_end_year}": matrix_for(
+            including_partial, "historical_income_group"
+        ),
+    }
+
+    country_fractional = preparation.primary[
+        [
+            "UT",
+            "country_code",
+            "historical_income_group",
+            "pred_threat_l0",
+        ]
+    ].rename(columns={"historical_income_group": "income_group"}).copy()
+    country_fractional["threat"] = country_fractional[
+        "pred_threat_l0"
+    ].map(parse_list_labels)
+    country_fractional = (
+        country_fractional.explode("threat", ignore_index=True)
+        .dropna(subset=["threat"])
+        .drop_duplicates(["UT", "country_code", "threat"])
+    )
+    country_fractional["attribution_weight"] = 1 / (
+        country_fractional.groupby("UT")["country_code"].transform("nunique")
+        * country_fractional.groupby("UT")["threat"].transform("nunique")
+    )
+    sensitivity_matrices["Country-fractional weighting"] = (
+        composition_from_attributions(country_fractional)
+        .pivot(index="threat", columns="income_group", values="share")
+        .fillna(0)
+        .reindex(
+            index=composition.observed_threat_order,
+            columns=income_groups,
+            fill_value=0,
+        )
+    )
+
+    rows = []
+    for label, matrix in sensitivity_matrices.items():
+        difference = 100 * (
+            matrix["High income"] - matrix["Low income"]
+        )
+        rows.append(
+            {
+                "comparison": label,
+                "rank_correlation": primary_difference.corr(
+                    difference, method="spearman"
+                ),
+                "largest_change_pp": (
+                    primary_difference - difference
+                ).abs().max(),
+                "direction_agreement": np.mean(
+                    np.sign(primary_difference) == np.sign(difference)
+                ),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def export_manuscript_tables(
+    preparation: EvidencePreparation,
+    composition: CompositionAnalysis,
+    standardization: StandardizationAnalysis,
+    sensitivity_df: pd.DataFrame,
+    *,
+    data_directory: str | Path,
+    table_directory: str | Path,
+    classified_assignments_file: str,
+    threat_attributions_file: str,
+) -> list[Path]:
+    """Write exactly the tables and derived data behind manuscript Result 2."""
+    data_directory = Path(data_directory)
+    table_directory = Path(table_directory)
+    data_directory.mkdir(parents=True, exist_ok=True)
+    table_directory.mkdir(parents=True, exist_ok=True)
+    classified_export = preparation.classified.copy()
+    attribution_export = composition.attributions.copy()
+    for frame in (classified_export, attribution_export):
+        for column in ("pred_countries", "pred_threat_l0"):
+            if column not in frame:
+                continue
+            frame[column] = frame[column].map(
+                lambda value: value
+                if isinstance(value, str)
+                or value is None
+                or (isinstance(value, float) and pd.isna(value))
+                else json.dumps(list(value), ensure_ascii=False)
+            )
+    assignments_path = data_directory / classified_assignments_file
+    attributions_path = data_directory / threat_attributions_file
+    classified_export.to_parquet(
+        assignments_path, index=False, compression="zstd"
+    )
+    attribution_export.to_parquet(
+        attributions_path, index=False, compression="zstd"
+    )
+    written = [assignments_path, attributions_path]
+    for frame, filename in (
+        (preparation.audit, "historical_income_classification_audit.csv"),
+        (composition.group_counts.reset_index(), "income_group_article_counts.csv"),
+        (composition.long_composition, "income_group_threat_composition.csv"),
+        (composition.extreme_contrast, "high_minus_low_income_bootstrap.csv"),
+        (
+            standardization.contrasts,
+            "region_period_standardized_tier_contrast.csv",
+        ),
+        (sensitivity_df, "sensitivity_summary.csv"),
+    ):
+        path = table_directory / filename
+        frame.to_csv(path, index=False)
+        written.append(path)
+    return written
+
+
+def plot_income_composition(
+    composition: CompositionAnalysis,
+    *,
+    income_groups: Sequence[str],
+    threat_colors: dict[str, str],
+    threat_names: dict[str, str],
+    contrast_excluded_threats: Sequence[str] = (),
+) -> plt.Figure:
+    """Plot within-group composition and the high-minus-low contrast."""
+    figure, (panel_a, panel_b) = plt.subplots(
+        1,
+        2,
+        figsize=(7.0, 4.8),
+        gridspec_kw={"width_ratios": [1.0, 1.08]},
+    )
+    positions = np.arange(len(income_groups))
+    bottoms = np.zeros(len(income_groups))
+    change_magnitude = (
+        composition.extreme_contrast.set_index("threat")["high_minus_low_pp"].abs()
+    )
+    original_position = {
+        threat: position
+        for position, threat in enumerate(composition.observed_threat_order)
+    }
+    plot_threat_order = sorted(
+        composition.observed_threat_order,
+        key=lambda threat: (
+            -float(change_magnitude.loc[threat]),
+            original_position[threat],
+        ),
+    )
+    for threat in plot_threat_order:
+        values = 100 * composition.matrix.loc[
+            threat, income_groups
+        ].to_numpy()
+        panel_a.bar(
+            positions,
+            values,
+            bottom=bottoms,
+            width=0.68,
+            color=threat_colors[threat],
+            edgecolor=BIODIVERSITY["paper"],
+            linewidth=0.35,
+            zorder=2,
+        )
+        bottoms += values
+    panel_a.set(
+        xticks=positions,
+        xticklabels=[
+            {
+                "Low income": "Low\nincome",
+                "Lower middle income": "Lower\nmiddle\nincome",
+                "Upper middle income": "Upper\nmiddle\nincome",
+                "High income": "High\nincome",
+            }.get(group, group)
+            for group in income_groups
+        ],
+        ylim=(0, 100),
+        yticks=[0, 50, 100],
+    )
+    panel_a.set_ylabel(
+        "Share of threat\nattributions (%)",
+        fontsize=7.8,
+    )
+
+    plot_df = (
+        composition.extreme_contrast.loc[
+            lambda df: ~df["threat"].isin(contrast_excluded_threats)
+        ]
+        .sort_values("high_minus_low_pp")
+        .reset_index(drop=True)
+    )
+    for position, row in plot_df.iterrows():
+        panel_b.plot(
+            [row["bootstrap_ci_low"], row["bootstrap_ci_high"]],
+            [position, position],
+            color=BIODIVERSITY["ink"],
+            linewidth=0.75,
+        )
+        panel_b.scatter(
+            row["high_minus_low_pp"],
+            position,
+            s=26,
+            color=threat_colors[row["threat"]],
+            edgecolor=BIODIVERSITY["paper"],
+            linewidth=0.4,
+            zorder=2,
+        )
+    panel_b.axvline(0, color=BIODIVERSITY["ink"], linewidth=0.7)
+    panel_b.set(
+        yticks=np.arange(len(plot_df)),
+        yticklabels=[threat_names[threat] for threat in plot_df["threat"]],
+    )
+    panel_b.set_xlabel(
+        "Difference in Threat Share (percentage points)\n"
+        "High Income minus Low Income",
+        fontsize=7.8,
+    )
+    for label, axis in zip("AB", [panel_a, panel_b]):
+        axis.text(
+            -0.075,
+            1.02,
+            label,
+            transform=axis.transAxes,
+            fontsize=9,
+            fontweight="bold",
+            va="bottom",
+        )
+        axis.grid(False)
+        axis.spines[["top", "right"]].set_visible(False)
+        axis.spines[["left", "bottom"]].set_color(BIODIVERSITY["neutral"])
+        axis.spines[["left", "bottom"]].set_linewidth(0.6)
+        axis.tick_params(
+            length=0,
+            colors=BIODIVERSITY["ink"],
+            labelsize=6.8,
+        )
+    figure.legend(
+        handles=[
+            Patch(
+                facecolor=threat_colors[threat],
+                edgecolor=BIODIVERSITY["paper"],
+                linewidth=0.35,
+                label=threat_names[threat],
+            )
+            for threat in plot_threat_order
+        ],
+        loc="lower left",
+        ncol=4,
+        mode="expand",
+        bbox_to_anchor=(0.08, 0.005, 0.88, 0.10),
+        frameon=False,
+        fontsize=6.0,
+        handlelength=1.1,
+        handleheight=0.9,
+        columnspacing=1.0,
+        labelspacing=0.4,
+        borderaxespad=0,
+    )
+    figure.subplots_adjust(
+        left=0.105,
+        right=0.985,
+        top=0.98,
+        bottom=0.24,
+        wspace=0.68,
+    )
+    return figure
+
+
+def plot_standardized_contrasts(
+    standardization: StandardizationAnalysis,
+    *,
+    threat_names: dict[str, str],
+    excluded_threats: Sequence[str] = (),
+) -> plt.Figure:
+    """Plot raw, region-adjusted, and region-period-adjusted contrasts."""
+    plot_df = (
+        standardization.contrasts.loc[
+            lambda df: ~df["threat"].isin(excluded_threats)
+        ]
+        .sort_values("region_period_standardized_higher_minus_lower_pp")
+        .reset_index(drop=True)
+    )
+    y = np.arange(len(plot_df))
+    figure, axis = plt.subplots(figsize=(7.0, 4.2))
+    for position, row in plot_df.iterrows():
+        estimates = [
+            row["raw_higher_minus_lower_pp"],
+            row["region_standardized_higher_minus_lower_pp"],
+            row["region_period_standardized_higher_minus_lower_pp"],
+        ]
+        axis.plot(
+            [min(estimates), max(estimates)],
+            [position, position],
+            color=BIODIVERSITY["neutral"],
+            linewidth=0.8,
+            zorder=1,
+        )
+        axis.plot(
+            [row["joint_bootstrap_ci_low"], row["joint_bootstrap_ci_high"]],
+            [position, position],
+            color=BIODIVERSITY["ink"],
+            linewidth=0.65,
+            zorder=2,
+        )
+    axis.scatter(
+        plot_df["raw_higher_minus_lower_pp"],
+        y,
+        marker="o",
+        s=23,
+        color="#7A7A7A",
+        label="Raw",
+        zorder=3,
+    )
+    axis.scatter(
+        plot_df["region_standardized_higher_minus_lower_pp"],
+        y,
+        marker="^",
+        s=27,
+        color="#0072B2",
+        label="Same region mix",
+        zorder=4,
+    )
+    axis.scatter(
+        plot_df["region_period_standardized_higher_minus_lower_pp"],
+        y,
+        marker="s",
+        s=27,
+        color=BIODIVERSITY["primary"],
+        label="Same region × period mix",
+        zorder=5,
+    )
+    axis.axvline(0, color=BIODIVERSITY["ink"], linewidth=0.7)
+    axis.set(
+        yticks=y,
+        yticklabels=[threat_names[threat] for threat in plot_df["threat"]],
+    )
+    axis.set_xlabel(
+        "Difference in Threat Share (percentage points)\n"
+        "Higher-Income Tier minus Lower-Income Tier",
+        fontsize=7.8,
+    )
+    axis.legend(
+        handles=[
+            Line2D(
+                [0],
+                [0],
+                marker="o",
+                linestyle="none",
+                markersize=4.5,
+                markerfacecolor="#7A7A7A",
+                markeredgecolor="#7A7A7A",
+                label="Raw",
+            ),
+            Line2D(
+                [0],
+                [0],
+                marker="^",
+                linestyle="none",
+                markersize=5,
+                markerfacecolor="#0072B2",
+                markeredgecolor="#0072B2",
+                label="Same region mix",
+            ),
+            Line2D(
+                [0],
+                [0],
+                marker="s",
+                linestyle="none",
+                markersize=5,
+                markerfacecolor=BIODIVERSITY["primary"],
+                markeredgecolor=BIODIVERSITY["primary"],
+                label="Same region × period mix",
+            ),
+            Line2D(
+                [0],
+                [0],
+                color=BIODIVERSITY["ink"],
+                linewidth=0.65,
+                label="95% bootstrap interval",
+            ),
+        ],
+        frameon=False,
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.27),
+        ncol=2,
+        fontsize=6.5,
+        columnspacing=1.8,
+        handletextpad=0.6,
+        labelspacing=0.5,
+        borderaxespad=0,
+    )
+    axis.grid(False)
+    axis.spines[["top", "right"]].set_visible(False)
+    axis.spines[["left", "bottom"]].set_color(BIODIVERSITY["neutral"])
+    axis.spines[["left", "bottom"]].set_linewidth(0.6)
+    axis.tick_params(
+        length=0,
+        colors=BIODIVERSITY["ink"],
+        labelsize=6.8,
+    )
+    figure.subplots_adjust(
+        left=0.33,
+        right=0.985,
+        top=0.98,
+        bottom=0.23,
+    )
+    return figure
