@@ -2,9 +2,9 @@
 Build and cache the GBIF canonical-name lookup dictionary.
 
 Usage:
-    python -m data_helpers.build_gbif
+    python -m data_helpers.sources.build_gbif
     # or directly:
-    python data_helpers/build_gbif.py
+    python data_helpers/sources/build_gbif.py
 
 Reads:  data/gbif/curated/gbif_curated.csv
 Writes: checklists/mappings/gbif_lookup_cache.pkl
@@ -18,9 +18,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from ._config import GBIF_CFG as _GBIF_CFG
+from data_helpers._config import GBIF_CFG as _GBIF_CFG
 
-REPO_ROOT   = Path(__file__).resolve().parent.parent
+REPO_ROOT   = Path(__file__).resolve().parents[2]
 GBIF_PATH   = REPO_ROOT / _GBIF_CFG["source"]
 CACHE_PATH  = REPO_ROOT / _GBIF_CFG["cache"]
 CHUNKSIZE   = _GBIF_CFG["chunksize"]
