@@ -208,7 +208,7 @@
     "direction": "negative",
     "threat_label": "Climate Change & Severe Weather",
     "study_design": "Observational",
-    "output_directory": "notebooks/data_processing/outputs/01-climate-data-prep",
+    "output_directory": "notebooks/data_processing/archive/outputs/01-climate-data-prep",
     "country_export": "country_world_bank_df.parquet",
     "timeseries_export": "world_bank_timeseries_df.parquet"
   },
@@ -366,7 +366,8 @@
   },
   "taxa_analysis_prep": {
     "description": "Canonical one-row-per-UT taxa handoff shared by all taxa results notebooks.",
-    "taxa_source": "data/coding-taxa/all/taxa_all.csv",
+    "taxa_source": "data/coding-taxa/all/taxa_all.parquet",
+    "taxa_lineage_source": "data/coding-taxa/all/taxa_lineages.parquet",
     "gbif_source": "data/gbif/curated/gbif_curated.csv",
     "gbif_eml_source": "data/gbif/extracted/eml.xml",
     "taxa_group_mapping": "checklists/mappings/taxa_broad_groups.json",
