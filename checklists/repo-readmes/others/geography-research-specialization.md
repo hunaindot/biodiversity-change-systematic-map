@@ -3,11 +3,13 @@
 Shared metric note for geographic and realm specialization diagnostics.
 This is supplementary methodology, not one of the four main findings.
 
-The current geographic implementation is
-`notebooks/results/threats_supplementary.ipynb`; its metric helper is parked at
-`data_helpers/analysis/parked/geography.py`. The exact same research-emphasis
-interpretation also applies when the metric is used for threat-by-realm
-comparisons in `notebooks/results/03_unchecked_realm_composition.ipynb`.
+The shared metric helper is
+`data_helpers/analysis/geo/geography.py`. Live F4 taxonomic analysis consumes its
+location quotient through `data_helpers/analysis/taxa/geography.py`; the archived
+`notebooks/results/threats_supplementary.ipynb` contains the threat-by-place maps.
+The exact same research-emphasis interpretation also applies when the metric is
+used for threat-by-realm comparisons in
+`notebooks/results/03_unchecked_realm_composition.ipynb`.
 
 ## Question and estimand
 
