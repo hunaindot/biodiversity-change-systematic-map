@@ -1,4 +1,6 @@
 /data/*
+!/data/taxa-clipart/
+!/data/taxa-clipart/**
 !/data/README.md
 !/data/labels/
 !/data/labels/**
