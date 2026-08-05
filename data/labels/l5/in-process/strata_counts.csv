@@ -1,6 +1,3 @@
-stratum,total,train,dev,test
-__MULTI__,91,55,18,18
-experimental,793,476,159,158
-modelling,416,250,83,83
-observational,3280,1968,656,656
-review,178,107,36,35
+version https://git-lfs.github.com/spec/v1
+oid sha256:8a6644c15078d3688fbf17d3d867ee42a9cc2cd8112ba86fd584aced29c362d1
+size 163
