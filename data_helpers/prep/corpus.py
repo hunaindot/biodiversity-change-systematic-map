@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 from pandas.api.types import is_bool_dtype
 
-from ._config import get_merged_corpus_config
+from data_helpers._config import get_merged_corpus_config
 
 
 class CorpusMergeError(ValueError):
@@ -158,4 +158,54 @@ def build_merged_corpus() -> pd.DataFrame:
     return corpus
 
 
-__all__ = ["CorpusMergeError", "build_merged_corpus"]
+def build_merged_corpus_from_eligible_screening(
+    eligible_screening: pd.DataFrame,
+) -> pd.DataFrame:
+    """Join configured coding outputs onto a prepared eligible screening table.
+
+    This is the data-processing counterpart to :func:`build_merged_corpus`.
+    It avoids rescanning the multi-gigabyte full-screening CSV when an audited
+    one-row-per-UT eligible screening artifact already exists.
+    """
+    config = get_merged_corpus_config()
+    key_column = str(config["key_column"])
+    screening = config["screening"]
+    if not isinstance(screening, dict):
+        raise CorpusMergeError(
+            "Merged-corpus screening configuration must be an object."
+        )
+    screening_columns = list(screening["columns"])
+    missing = set(screening_columns).difference(eligible_screening.columns)
+    if missing:
+        raise CorpusMergeError(
+            "Prepared eligible screening data lacks configured columns: "
+            f"{sorted(missing)}"
+        )
+    corpus = eligible_screening[screening_columns].copy()
+    _validate_key(corpus, key_column, "Prepared eligible screening data")
+
+    coding_sources = config["coding_sources"]
+    if not isinstance(coding_sources, list):
+        raise CorpusMergeError(
+            "Merged-corpus coding_sources configuration must be a list."
+        )
+    for source in coding_sources:
+        if not isinstance(source, dict):
+            raise CorpusMergeError(
+                "Each merged-corpus coding source must be an object."
+            )
+        corpus = _join_one_to_one(
+            corpus,
+            path=Path(source["path"]),
+            value_columns=list(source["columns"]),
+            key_column=key_column,
+            source_name=str(source["name"]),
+        )
+    return corpus
+
+
+__all__ = [
+    "CorpusMergeError",
+    "build_merged_corpus",
+    "build_merged_corpus_from_eligible_screening",
+]
