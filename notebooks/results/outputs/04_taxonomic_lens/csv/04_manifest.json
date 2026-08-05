@@ -1,0 +1,48 @@
+{
+  "analysis": "taxonomic attention versus described diversity, and its trajectory",
+  "anchor_publications": 171791,
+  "annual_output_growth_multiple": 7.079,
+  "bootstrap_replicates": 1000,
+  "direction": "negative",
+  "figures": [
+    "04_taxonomic_and_geographic_gap.pdf"
+  ],
+  "geography_coverage_pct": 56.2684,
+  "interpretation_boundaries": [
+    "Counts are unique publications; a publication naming several groups is split across them, never counted once per group.",
+    "Attention share measures what is published, not conservation need, ecological importance, population decline, or undescribed diversity.",
+    "The described-diversity benchmark is GBIF accepted species-rank counts \u2014 a described-diversity proxy, not a species inventory. It is weakest for bacteria and archaea, where described counts trail actual diversity by orders of magnitude.",
+    "77% of in-scope publications resolved to a benchmarkable group in 2000 and 67% in 2025; later years rest on a smaller share of the corpus.",
+    "The geographic comparison covers 56% of the anchor scope -- the share carrying a mapped study country -- and benchmarks against threatened birds and mammals only, with no reptile or amphibian indicator, so tropical deficits are floors."
+  ],
+  "invertebrate_share_pct": 19.706,
+  "manuscript_section": "Taxonomic attention is skewed against described diversity, and is not correcting",
+  "manuscript_source": "checklists/overleaf/main/main-31.tex",
+  "prepared_grouping_rules_sha256": "c211129eb583ecf57cab705564db4763cb671b1e46c5dde13aae62b164902c8f",
+  "prepared_schema_version": 3,
+  "primary_years": [
+    2000,
+    2025
+  ],
+  "random_seed": 20260731,
+  "reported_tables": [
+    "04_denominators.csv",
+    "04_attention_vs_described_diversity.csv",
+    "04_attention_trend_by_year.csv",
+    "04_attention_trend_summary.csv",
+    "04_attention_trend_robustness.csv",
+    "04_anchor_resolution_by_year.csv",
+    "04_taxa_geography_coverage.csv",
+    "04_vertebrates_evidence_vs_threatened_by_region.csv",
+    "04_vertebrates_regional_evidence_trend.csv",
+    "04_vertebrates_regional_evidence_trend_summary.csv",
+    "04_vertebrates_evidence_by_country.csv",
+    "04_vertebrates_regional_evidence_trend_summary_excl_china.csv",
+    "04_vertebrates_evidence_vs_threatened.csv",
+    "04_threatened_species_by_country.csv"
+  ],
+  "resolution_end_pct": 66.9298,
+  "resolution_start_pct": 76.6798,
+  "universe_publications": 245168,
+  "vertebrate_share_pct": 34.8262
+}
