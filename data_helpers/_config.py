@@ -20,7 +20,6 @@ if not isinstance(_cfg, dict):
 # Special keys — shared across splitter and samplers
 MISSING_KEY: str = _cfg["special_keys"]["missing"]
 MULTI_LABEL_KEY: str = _cfg["special_keys"]["multi_label"]
-NO_KINGDOM_KEY: str = _cfg["special_keys"]["no_kingdom"]
 
 # Column names — shared across creator scripts
 BASE_COLS: list[str] = _cfg["base_columns"]

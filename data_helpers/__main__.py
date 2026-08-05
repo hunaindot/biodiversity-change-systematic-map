@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 
-from .splitter import SplitError, run_from_config
+from data_helpers.datasets.splitter import SplitError, run_from_config
 
 
 def _parse_labels(raw: str | None) -> list[str] | None:
