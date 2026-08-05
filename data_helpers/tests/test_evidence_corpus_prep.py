@@ -6,9 +6,12 @@ import json
 from pathlib import Path
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 from data_helpers.prep import evidence_corpus_prep as prep
 from data_helpers.prep import corpus
+from data_helpers.prep import taxa_analysis_prep
 
 
 SCREENING_COLUMNS = [
@@ -74,11 +77,13 @@ def test_screening_preparation_reconciles_both_grains(tmp_path: Path) -> None:
         source,
         eligible_columns=SCREENING_COLUMNS,
         chunksize=2,
+        repository_root=tmp_path,
     )
     assert bundle.screening["UT"].tolist() == ["A", "B", "C", "D"]
     assert bundle.eligible["UT"].tolist() == ["A", "B"]
     assert bundle.manifest["summary"]["eligible_with_unclear_step"] == 1
     assert bundle.manifest["summary"]["eligible_negative"] == 1
+    assert bundle.manifest["source"]["path"] == "screening.csv"
     assert bundle.exclusion_overlap["records"].sum() == 2
     assert bundle.exclusion_overlap.iloc[0]["records"] == 1
 
@@ -138,8 +143,22 @@ def test_integrated_corpus_normalizes_lists_and_preserves_ut(tmp_path: Path) -> 
     merged = pd.DataFrame(
         {
             "UT": ["A", "B"],
+            "title": ["Title A", "Title B"],
+            "authors": ["Author A", "Author B"],
+            "abstract": ["Abstract A", "Abstract B"],
+            "source": ["WOS", "WOS"],
             "publication_year": [2000, 2001],
+            "wos_categories": ["Ecology", "Ecology"],
+            "doi": ["10/example/A", "10/example/B"],
+            "eligibility": ["ELIGIBLE", "ELIGIBLE"],
+            "s1_r": [1, 1],
+            "s2_r": [1, 1],
+            "s3_r": [1, 1],
+            "s4_r": [1, 1],
+            "s1_bio": ["biodiversity", "biodiversity"],
             "s2_dir": ["negative", "mixed"],
+            "s3_drivers": ["driver", "driver"],
+            "s4_link": ["link", "link"],
             "pred_study_design": ["Observational", "Experimental"],
             "driver": ['["Climate Change"]', '["Pollution"]'],
             "pred_threat_l0": [
@@ -150,9 +169,11 @@ def test_integrated_corpus_normalizes_lists_and_preserves_ut(tmp_path: Path) -> 
             "pred_subregions": ['["North America"]', '[]'],
             "pred_countries": ['["USA"]', '[]'],
             "locales": ['["Lake"]', '[]'],
+            "locale_coordinates": [None, None],
             "realm": ['["Freshwater"]', '["Terrestrial"]'],
             "pred_methods_data_collection": ['["FieldSurvey"]', '[]'],
             "pred_methods_analysis": ['["DiversityMetrics"]', '[]'],
+            "pred_has_comparison": [False, True],
             "pred_comparison_types": ['[]', '["ControlImpact"]'],
         }
     )
@@ -176,35 +197,93 @@ def test_integrated_corpus_normalizes_lists_and_preserves_ut(tmp_path: Path) -> 
             "detail_groups_all": [("Birds",), ("Vascular plants",)],
             "detail_groups": [("Birds",), ("Vascular plants",)],
             "taxa_record_status": ["resolved", "resolved"],
+            "n_llm_taxa": [1, 1],
+            "n_taxa_matched": [1, 1],
+            "n_taxa_unresolved": [0, 0],
+            "n_taxa_api_failed": [0, 0],
+            "n_drivers": [1, 1],
+            "n_broad_groups": [1, 1],
+            "taxa_broad_state": ["resolved", "resolved"],
+            "n_analysis_groups": [1, 1],
+            "taxa_analysis_state": ["resolved", "resolved"],
+            "n_detail_groups": [1, 1],
+            "taxa_detail_state": ["resolved", "resolved"],
+            "taxa_broad_inclusion_state": [
+                "Included: at least one benchmarkable broad group",
+                "Included: at least one benchmarkable broad group",
+            ],
+            "match_status_count__exact": [1, 1],
         }
     )
-    publications = prep.build_biodiversity_evidence_corpus(merged, taxa)
+    rank_values = {
+        "taxa_domain_labels": [("Eukaryota",), ("Eukaryota",)],
+        "taxa_kingdom_labels": [("Animalia",), ("Plantae",)],
+        "taxa_subkingdom_labels": [(), ()],
+        "taxa_phylum_labels": [("Chordata",), ("Tracheophyta",)],
+        "taxa_class_labels": [("Aves",), ("Magnoliopsida",)],
+        "taxa_order_labels": [(), ()],
+        "taxa_family_labels": [(), ()],
+        "taxa_genus_labels": [(), ()],
+        "taxa_species_labels": [(), ()],
+    }
+    for column, values in rank_values.items():
+        taxa[column] = values
+    publications, abstracts = prep.build_biodiversity_evidence_corpus(merged, taxa)
     assert publications["UT"].tolist() == ["A", "B"]
     assert publications.loc[0, "pred_countries"] == ("USA",)
-    assert publications.loc[0, "detail_groups"] == ("Birds",)
-    assert publications.loc[0, "class_labels"] == ("Aves",)
+    assert publications.loc[0, "taxa_class_labels"] == ("Aves",)
+    assert json.loads(publications.loc[0, "taxa_summary_json"])["groups"]["detail"]["included"] == ["Birds"]
+    assert abstracts.loc[0, "abstract"] == "Abstract A"
+    assert "abstract" not in publications
+    assert "wos_categories" not in publications
     assert "drivers" not in publications
 
     source = tmp_path / "source.txt"
     source.write_text("source", encoding="utf-8")
     manifest = prep.build_biodiversity_manifest(
         publications,
+        abstracts,
         sources={"fake": source},
         screening_manifest={
             "schema_version": 1,
             "rows": {"eligible_screening_publications": 2},
         },
         taxa_manifest={
-            "schema_version": 1,
+            "schema_version": 3,
             "grouping_rules_sha256": "abc",
+            "rows": {"taxa_matches": 2, "taxon_items": 0},
         },
+        repository_root=tmp_path,
     )
     store = prep.BiodiversityEvidenceStore(tmp_path / "corpus")
-    paths = store.write(prep.BiodiversityEvidenceBundle(publications, manifest))
+    matches = tmp_path / "taxa_matches.parquet"
+    pq.write_table(
+        pa.Table.from_arrays(
+            [
+                pa.array(["A", "B"], type=pa.string()),
+                pa.array(
+                    [[], []],
+                    type=taxa_analysis_prep.TAXA_MATCH_TABLE_SCHEMA.field(
+                        "taxa_matches"
+                    ).type,
+                ),
+            ],
+            schema=taxa_analysis_prep.TAXA_MATCH_TABLE_SCHEMA,
+        ),
+        matches,
+    )
+    paths = store.write(
+        prep.BiodiversityEvidenceBuild(publications, abstracts, matches, manifest)
+    )
     assert {path.name for path in paths} == {
         "biodiversity_evidence_corpus.parquet",
+        "biodiversity_evidence_abstracts.parquet",
         "manifest.json",
     }
     loaded = store.load()
+    assert loaded.publications.columns.tolist() == list(prep.EVIDENCE_COLUMNS)
     assert loaded.publications.loc[0, "pred_countries"] == ("USA",)
+    assert len(loaded.publications.loc[0, "taxa_matches"]) == 0
     assert loaded.manifest["rows"]["publications"] == 2
+    assert loaded.manifest["sources"]["fake"]["path"] == "source.txt"
+    assert store.load_abstracts().loc[0, "abstract"] == "Abstract A"

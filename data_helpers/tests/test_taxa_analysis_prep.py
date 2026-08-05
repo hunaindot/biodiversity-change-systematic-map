@@ -52,7 +52,7 @@ def _write_taxa(path: Path) -> None:
             ]
         )
 
-    pd.DataFrame(
+    frame = pd.DataFrame(
         {
             "UT": ["A", "B", "C", "D"],
             "class": [
@@ -102,7 +102,59 @@ def _write_taxa(path: Path) -> None:
             "n_taxa_unresolved": [0, 0, 1, 0],
             "n_taxa_api_failed": [0] * 4,
         }
-    ).to_csv(path, index=False)
+    )
+    rank_values = {
+        "domain": ['["Eukaryota"]'] * 4,
+        "kingdom": ['["Animalia"]', '["Plantae"]', "[]", "[]"],
+        "subkingdom": ["[]"] * 4,
+        "phylum": ['["Chordata", "Arthropoda"]', '["Tracheophyta"]', "[]", "[]"],
+        "order": ['["Primates", "Coleoptera"]', "[]", "[]", "[]"],
+        "family": ["[]"] * 4,
+        "genus": ["[]"] * 4,
+        "species": ["[]"] * 4,
+    }
+    for column, values in rank_values.items():
+        frame[column] = values
+    frame.to_csv(path, index=False)
+
+
+def _write_lineage(path: Path) -> None:
+    statuses = ["exact", "fuzzy_accepted", "exact", "special_value"]
+    rows = []
+    for index, (ut, status) in enumerate(zip(["A", "B", "C", "D"], statuses)):
+        resolved = status != "special_value"
+        rows.append(
+            {
+                "UT": ut,
+                "llm_taxon_index": 0,
+                "llm_canonical_name": f"Taxon {ut}",
+                "llm_taxon_rank": "species" if resolved else None,
+                "match_status": status,
+                "matched_taxon_key": str(index + 1) if resolved else None,
+                "matched_name": f"Matched {ut}" if resolved else None,
+                "matched_rank": "species" if resolved else None,
+                "taxonomic_status": "accepted" if resolved else None,
+                "match_type": "exact" if resolved else None,
+                "confidence": 1.0 if resolved else None,
+                "synonym": False if resolved else None,
+                "broad_group": None,
+                "broad_group_rule_id": None,
+                "broad_group_reason": None,
+                "broad_group_eligible": resolved,
+                "analysis_group": None,
+                "analysis_group_rule_id": None,
+                "analysis_group_reason": None,
+                "detail_group": None,
+                "detail_group_rule_id": None,
+                "detail_group_reason": None,
+                "error_message": None,
+                "lineage_position": 0 if resolved else None,
+                "lineage_key": str(index + 1) if resolved else None,
+                "lineage_rank": "species" if resolved else None,
+                "lineage_name": f"Matched {ut}" if resolved else None,
+            }
+        )
+    pd.DataFrame(rows).to_parquet(path, index=False)
 
 
 @pytest.fixture()
@@ -127,6 +179,8 @@ def test_preparation_preserves_grain_and_states(prepared) -> None:
     assert articles.loc[0, "drivers"] == (LAND, CLIMATE)
     assert articles.loc[0, "analysis_groups"] == ("Vertebrates", "Arthropods")
     assert articles.loc[0, "class_labels"] == ("Mammalia", "Insecta")
+    assert articles.loc[0, "taxa_class_labels"] == ("Mammalia", "Insecta")
+    assert articles.loc[0, "taxa_phylum_labels"] == ("Chordata", "Arthropoda")
     assert articles.loc[2, "taxa_analysis_state"] == "unresolved_only"
     assert articles["taxa_broad_inclusion_state"].tolist() == [
         taxa_analysis_prep.INCLUSION_ORDER[0],
@@ -139,7 +193,7 @@ def test_preparation_preserves_grain_and_states(prepared) -> None:
     assert mapping["schema_version"] == 3
 
 
-def test_store_round_trip_is_three_files_and_rejects_stale_rules(
+def test_store_round_trip_is_four_files_and_rejects_stale_rules(
     tmp_path: Path, prepared
 ) -> None:
     mapping, taxa_path, articles, audits = prepared
@@ -154,23 +208,33 @@ def test_store_round_trip_is_three_files_and_rejects_stale_rules(
         ),
         audit=pd.DataFrame([{"stage": "accepted species", "records": 100}]),
     )
+    store = taxa_analysis_prep.TaxaPreparedStore(tmp_path / "bundle")
+    lineage_path = tmp_path / "lineage.parquet"
+    _write_lineage(lineage_path)
+    match_summary = store.write_matches(
+        lineage_path, expected_uts=articles["UT"]
+    )
     manifest = taxa_analysis_prep.build_manifest(
         articles,
         benchmark,
         mapping=mapping,
         audits=audits,
-        sources={"taxa": taxa_path},
+        match_summary=match_summary,
+        sources={"taxa": taxa_path, "lineage": lineage_path},
+        repository_root=tmp_path,
     )
-    store = taxa_analysis_prep.TaxaPreparedStore(tmp_path / "bundle")
     paths = store.write(
         taxa_analysis_prep.TaxaPreparedBundle(articles, benchmark, manifest)
     )
     assert {path.name for path in paths} == {
         "taxa_publications.parquet",
+        "taxa_matches.parquet",
         "gbif_broad_benchmark.csv",
         "manifest.json",
     }
     assert {path.name for path in store.root.iterdir()} == {path.name for path in paths}
+    assert manifest["sources"]["taxa"]["path"] == "taxa.csv"
+    assert manifest["sources"]["lineage"]["path"] == "lineage.parquet"
 
     loaded = store.load(mapping=mapping)
     assert loaded.articles.loc[0, "broad_groups"] == (
@@ -178,6 +242,7 @@ def test_store_round_trip_is_three_files_and_rejects_stale_rules(
         "Invertebrates",
     )
     assert loaded.benchmark.counts["described_species_count"].sum() == 100
+    assert loaded.manifest["taxa_matches_audit"]["taxon_items"] == 4
 
     changed = copy.deepcopy(mapping)
     changed["schemes"]["broad"]["rules"][0]["group"] = "Other"
