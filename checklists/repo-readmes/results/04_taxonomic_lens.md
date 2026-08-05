@@ -22,7 +22,7 @@ remains the deepest regional deficit.
 - Integrated evidence input:
   `notebooks/data_processing/outputs/04_biodiversity_evidence_corpus_prep/biodiversity_evidence_corpus.parquet`.
 - Shared grouping and benchmark specification:
-  `checklists/repo-readmes/reference/taxa-grouping-and-benchmark.md`.
+  `checklists/repo-readmes/others/taxa-grouping-and-benchmark.md`.
 - Result outputs: `notebooks/results/outputs/04_taxonomic_lens/`.
 - Manuscript section: *The taxonomic gap in biodiversity evidence persists while the
   geographic one narrows unevenly*.

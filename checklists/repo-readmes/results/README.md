@@ -44,8 +44,8 @@ it is intentionally not duplicated in this directory.
   `checklists/mappings/results_config.json` through `data_helpers/results_config.py`;
   do not copy a local palette into a new result. The supplementary threats notebook
   retains an older local map palette as a documented exception.
-- Reusable taxonomic and geographic methods that are not findings live under
-  `checklists/repo-readmes/reference/`.
+- Supporting taxonomic and geographic method notes that are not findings live under
+  `checklists/repo-readmes/others/`.
 
 ## Refreshing these documents
 
