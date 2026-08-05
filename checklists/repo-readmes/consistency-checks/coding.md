@@ -19,7 +19,7 @@
 
 # CC1 Executions
 
-- Notebook: [coding_cc1_manual_baseline.ipynb](../../notebooks/consistency-checks/coding_cc1_manual_baseline.ipynb)
+- Notebook: [coding_cc1_manual_baseline.ipynb](../../notebooks/consistency_checks/coding_cc1_manual_baseline.ipynb)
 - Input workbook:
   - `data/consistency-check-datasets/data-coding/annotated_coding_dataset.xlsx`
 - Reference truth files:
