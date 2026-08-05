@@ -6,13 +6,15 @@ This repository implements LLM-based screening and coding of bibliographic recor
 root/
 ├── labelling/              # Core package that applies the LLM screening and coding workflow to bibliographic records
 ├── evals_local/            # Checks whether the model outputs reproduce the reference labels and expected metrics
-├── data_helpers/           # Creates the prepared datasets and splits that make the labelling workflow reproducible
-├── notebooks/              # Broad notebook workspace used across the codebase, mostly for validation and data analysis
-├── checklists/             # Holds prompts, mappings, and reference assets the classification workflow depends on
+├── data_helpers/           # Prepares the labelling datasets, builds the analysis corpus, and holds the analysis and plotting modules
+├── notebooks/              # Notebook workspace: consistency checks, corpus preparation, and the results analyses
+├── checklists/             # Holds prompts, mappings, reference assets, design docs, and manuscript sources
 └── data/                   # Carries the datasets and generated artifacts through preparation, labelling, and evaluation
 ```
 
 The structure above is meant as a quick orientation. Several of the main workflow folders have their own README with fuller usage and configuration detail, while folders such as `data/` are included mainly to show how inputs, labels, and generated artifacts are organized across the repo.
+
+Broadly, the repository runs in two stages. The **labelling stage** screens and codes Web-of-Science records (`labelling/`, `evals_local/`, and the dataset-preparation half of `data_helpers/`), and is what the Quick start below reproduces. The **analysis stage** merges those coded outputs into a one-row-per-publication corpus and analyses it (`notebooks/data_processing/`, then `notebooks/results/`, using the analysis modules in `data_helpers/`). See [Analysis and results](#analysis-and-results) for that second stage.
 
 ---
 
@@ -73,13 +75,38 @@ While Quick Start uses the provided `data/labels/` splits, the labelling package
 
 ---
 
+## Analysis and results
+
+Once records have been screened and coded, the analysis stage merges those outputs into a single analysis corpus and reports on it. This stage is notebook-driven, with all substantive logic living in importable modules under `data_helpers/` so it stays testable.
+
+**1. Corpus preparation** — `notebooks/data_processing/` joins the screening and coding outputs into validated, one-row-per-publication artifacts, each written to its own folder under `notebooks/data_processing/outputs/<NN>_<notebook-name>/`. The three corpus preps (`02`, `03`, `04`) also write a `manifest.json` recording what was built; `01-climate-data-prep` currently does not.
+
+| Notebook | Builds |
+| --- | --- |
+| `01-climate-data-prep.ipynb` | Climate-country evidence handoff and World Bank observations |
+| `02_taxa_analysis_prep.ipynb` | Taxa publications table and the fixed GBIF described-diversity benchmark |
+| `03_screening_analysis_prep.ipynb` | Complete-screening table and exclusion-criteria overlap |
+| `04_biodiversity_evidence_corpus_prep.ipynb` | Integrated evidence corpus (screening, driver, threats, geography, realm, study, taxa) |
+
+**2. Results** — `notebooks/results/` loads those prepared artifacts and applies only analysis-specific filters, estimators, figures, and exports. `00_screening.ipynb` is the supporting screening audit. The four manuscript findings are implemented by `01_evidence_growth.ipynb`, `02_income_composition.ipynb`, `03_realm_composition.ipynb`, and `04_taxonomic_lens.ipynb`. `03_unchecked_realm_composition.ipynb` is an explicitly unchecked companion analysis, and `threats_supplementary.ipynb` contains supplementary diagnostics. Superseded notebooks live under `notebooks/results/archive/`. Figures and tables are written to `notebooks/results/outputs/<section>/`.
+
+Two conventions matter when reading any result:
+
+- **Counting means unique documents.** A publication naming five countries adds one to each, not five, so shares can sum to more than 100%.
+- **Non-mappable label values are skipped but always reported.** Values such as `[]`, `Not Applicable`, `Unclear`, and invalid ISO3 codes are counted in an audit rather than dropped silently.
+
+Each manuscript finding has a canonical specification under [`checklists/repo-readmes/results/`](checklists/repo-readmes/results/) defining its universe, denominator, estimator, and caveats. Start there rather than reverse-engineering a notebook.
+
+---
+
 ## For more detail
 
 Quick start assumes the normal path for this repo: use the provided `data/labels/` splits, run a labelling task, and let evals run from that workflow. If you want to go beyond that default path, the package READMEs are the right place to look.
 
 - [`labelling/README.md`](labelling/README.md) explains the orchestrator, available tasks, run outputs, and environment settings for screening and coding runs.
 - [`evals_local/README.md`](evals_local/README.md) explains how to rerun evals manually and how prediction-vs-truth metrics are written.
-- [`data_helpers/README.md`](data_helpers/README.md) explains how to rebuild datasets from the reference screening/coding workbooks under `data/consistency-check-datasets/`, recreate train/dev/test splits, and sample review sets.
+- [`data_helpers/README.md`](data_helpers/README.md) explains how to rebuild datasets from the reference screening/coding workbooks under `data/consistency-check-datasets/`, recreate train/dev/test splits, and sample review sets. It also documents every corpus-construction, analysis, and plotting module, and which results notebook uses each one.
+- [`checklists/repo-readmes/results/`](checklists/repo-readmes/results/) holds the canonical specification for each of the four manuscript findings—the universe, denominator, estimator, and caveats behind every reported number. Supporting method notes cover [taxonomic grouping and the GBIF benchmark](checklists/repo-readmes/others/taxa-grouping-and-benchmark.md) and [geographic research specialization](checklists/repo-readmes/others/geography-research-specialization.md); the machine-readable Threat-L0 palette and order remain in [`checklists/mappings/results_config.json`](checklists/mappings/results_config.json).
 - [`checklists/repo-readmes/others/evaluation-metrics-overview.md`](checklists/repo-readmes/others/evaluation-metrics-overview.md) explains the current screening and coding metrics, aggregation rules, and output files.
 - [`checklists/repo-readmes/consistency-checks/screening.md`](checklists/repo-readmes/consistency-checks/screening.md) records the screening consistency-check and eval workflow, plus every experiment run (`CC1A/B`, `CC2` across train/dev/test) with its result summary.
 - [`checklists/repo-readmes/consistency-checks/coding.md`](checklists/repo-readmes/consistency-checks/coding.md) records the coding consistency-check and eval workflow, plus every experiment run (`CC1` manual baseline and `CC2` for `L1`–`L6` across train/dev/test) with its result summary

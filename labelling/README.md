@@ -260,5 +260,5 @@ Key settings:
 - This README focuses on the normal workflow used in this repo.
 - The root [README](../README.md) explains how this package fits into the full project flow.
 - [`evals_local/README.md`](../evals_local/README.md) covers standalone eval usage in more detail.
-- [`checklists/repo-readmes/results/taxa-grouping-and-benchmark.md`](../checklists/repo-readmes/results/taxa-grouping-and-benchmark.md) is the canonical specification for the taxon grouping rules and the GBIF described-diversity benchmark that `taxa-with-api` feeds.
+- [`checklists/repo-readmes/others/taxa-grouping-and-benchmark.md`](../checklists/repo-readmes/others/taxa-grouping-and-benchmark.md) is the canonical specification for the taxon grouping rules and the GBIF described-diversity benchmark that `taxa-with-api` feeds.
 - Run the package tests with `venv/bin/python -m pytest labelling`.
