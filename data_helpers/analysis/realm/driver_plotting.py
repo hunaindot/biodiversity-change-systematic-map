@@ -868,7 +868,7 @@ def plot_pollution_nameability_trends(
         axis.text(
             -0.16,
             1.08,
-            chr(ord("A") + panel),
+            chr(ord("a") + panel),
             transform=axis.transAxes,
             ha="left",
             va="bottom",

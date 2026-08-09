@@ -1050,7 +1050,7 @@ def plot_income_composition(
         "High Income minus Low Income",
         fontsize=7.8,
     )
-    for label, axis in zip("AB", [panel_a, panel_b]):
+    for label, axis in zip("ab", [panel_a, panel_b]):
         axis.text(
             -0.075,
             1.02,

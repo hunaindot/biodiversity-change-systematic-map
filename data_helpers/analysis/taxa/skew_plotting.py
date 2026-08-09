@@ -707,7 +707,7 @@ def plot_representation_and_trend(
             left_values=region_table[region_threat_column].to_numpy(dtype=float),
             right_values=region_table[region_evidence_column].to_numpy(dtype=float),
             colors=region_colors,
-            captions=("Threatened\nvertebrates", "Vertebrate\nevidence"),
+            captions=("Threatened birds\nand mammals", "Vertebrate\nevidence"),
             segment_label_min_pct=region_segment_label_min_pct,
             label_min_gap=region_label_min_gap,
         )
@@ -727,13 +727,13 @@ def plot_representation_and_trend(
         )
 
     if manuscript:
-        # Panel letters match 02/03: uppercase, bold, 9 pt, just outside the axes.
+        # Panel letters match 02/03: lowercase, bold, 9 pt, just outside the axes.
         panel_axes = (
             (axis_bars, axis_trend, axis_region_bars, axis_region_trend)
             if add_regional
             else (axis_bars, axis_trend)
         )
-        for label, axis in zip("ABCD", panel_axes):
+        for label, axis in zip("abcd", panel_axes):
             axis.text(
                 -0.075, 1.02, label, transform=axis.transAxes, fontsize=9,
                 fontweight="bold", va="bottom", color=ink,
