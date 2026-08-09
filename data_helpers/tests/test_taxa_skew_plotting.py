@@ -120,8 +120,14 @@ def test_representation_figure_labels_every_group_directly() -> None:
     bars, trend = figure.axes
     bar_labels = {t.get_text() for t in bars.texts}
     assert set(GROUPS).issubset(bar_labels)
-    # Fungi at 3% of attention is below the label threshold and carries no percentage.
-    assert "3%" not in bar_labels
+    # Fungi at 3% of attention is too narrow to carry a legible percentage label.
+    assert "3.0%" not in bar_labels
+    described_percentages = [
+        float(text.get_text().removesuffix("%"))
+        for text in bars.texts
+        if text.get_text().endswith("%") and text.get_position()[0] == 0.0
+    ]
+    assert sum(described_percentages) == 100.0
     assert {t.get_text() for t in trend.texts}.issuperset(set(GROUPS) - {"Other"})
     plt.close(figure)
 

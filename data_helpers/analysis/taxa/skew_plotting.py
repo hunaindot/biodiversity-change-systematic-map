@@ -424,6 +424,26 @@ def _separate_labels(
     return [min(max(value, lower), upper) for value in positions]
 
 
+def _rounded_percentage_labels(values: "np.ndarray", decimals: int) -> "np.ndarray":
+    """Round a composition while preserving an exact displayed total of 100%."""
+    if decimals < 0:
+        raise ValueError("decimals must be non-negative")
+    values = np.asarray(values, dtype=float)
+    total = float(values.sum())
+    if total <= 0:
+        return np.zeros_like(values)
+
+    scale = 10 ** decimals
+    target_units = 100 * scale
+    scaled = values / total * target_units
+    units = np.floor(scaled).astype(int)
+    remainder = target_units - int(units.sum())
+    if remainder:
+        order = np.argsort(-(scaled - units), kind="stable")
+        units[order[:remainder]] += 1
+    return units.astype(float) / scale
+
+
 def _stacked_pair(
     axis: plt.Axes,
     *,
@@ -434,6 +454,7 @@ def _stacked_pair(
     captions: tuple[str, str],
     segment_label_min_pct: float,
     label_min_gap: float,
+    segment_label_decimals: int | None = None,
     icon_lookup: Mapping[str, str] | None = None,
     icon_zoom: float = 0.072,
     xlim: tuple[float, float] = (-0.42, 2.35),
@@ -453,13 +474,23 @@ def _stacked_pair(
     label_x_text = label_x_icon + (0.22 if icon_lookup else -0.05)
 
     left_base = right_base = 0.0
+    label_values = (
+        (
+            _rounded_percentage_labels(left_values, segment_label_decimals),
+            _rounded_percentage_labels(right_values, segment_label_decimals),
+        )
+        if segment_label_decimals is not None
+        else (left_values, right_values)
+    )
+    label_format = ".0f" if segment_label_decimals is None else f".{segment_label_decimals}f"
     anchors: list[float] = []
     for index, name in enumerate(categories):
         color = colors[name]
         l_value, r_value = float(left_values[index]), float(right_values[index])
-        for x_pos, base, value in (
-            (x_left_bar, left_base, l_value),
-            (x_right_bar, right_base, r_value),
+        l_label, r_label = float(label_values[0][index]), float(label_values[1][index])
+        for x_pos, base, value, label_value in (
+            (x_left_bar, left_base, l_value, l_label),
+            (x_right_bar, right_base, r_value, r_label),
         ):
             axis.bar(
                 x_pos, value, bottom=base, width=bar_width, color=color,
@@ -467,7 +498,8 @@ def _stacked_pair(
             )
             if value >= segment_label_min_pct:
                 axis.text(
-                    x_pos, base + value / 2, f"{value:.0f}%", ha="center", va="center",
+                    x_pos, base + value / 2, f"{label_value:{label_format}}%",
+                    ha="center", va="center",
                     fontsize=7, color=paper, fontweight="bold", zorder=4,
                 )
         _ribbon(
@@ -521,6 +553,7 @@ def _trend_lines(
     ylabel: str,
     xlabel: str,
     label_min_gap: float,
+    tick_label_size: float = 7.0,
 ) -> None:
     """One line per series with a direct end-label, shared by both trend panels."""
     ends: list[tuple[str, float, float]] = []
@@ -555,6 +588,7 @@ def _trend_lines(
     axis.set_ylabel(ylabel)
     axis.set_xlabel(xlabel)
     _neutral_axes(axis)
+    axis.tick_params(labelsize=tick_label_size)
 
 
 def plot_representation_and_trend(
@@ -682,6 +716,7 @@ def plot_representation_and_trend(
         captions=("Described\nspecies", "Research\nattention"),
         segment_label_min_pct=segment_label_min_pct,
         label_min_gap=label_min_gap,
+        segment_label_decimals=1,
         icon_lookup=icon_lookup or None,
         icon_zoom=icon_zoom,
     )
@@ -694,9 +729,10 @@ def plot_representation_and_trend(
         year_col="publication_year",
         value_col="fractional_attention_share_pct",
         ylim=(0, 42),
-        ylabel="Research attention %",
+        ylabel="Research attention (%)",
         xlabel="Publication year",
         label_min_gap=0.0,
+        tick_label_size=8.0,
     )
 
     if add_regional:
@@ -710,6 +746,7 @@ def plot_representation_and_trend(
             captions=("Threatened birds\nand mammals", "Vertebrate\nevidence"),
             segment_label_min_pct=region_segment_label_min_pct,
             label_min_gap=region_label_min_gap,
+            segment_label_decimals=1,
         )
         region_top = float(regional_trend[region_evidence_column].max())
         _trend_lines(
@@ -721,9 +758,10 @@ def plot_representation_and_trend(
             year_col="publication_year",
             value_col=region_evidence_column,
             ylim=(0, max(55.0, region_top * 1.1)),
-            ylabel="Share of vertebrate evidence %",
+            ylabel="Share of vertebrate evidence (%)",
             xlabel="Publication year",
             label_min_gap=region_trend_label_min_gap,
+            tick_label_size=8.0,
         )
 
     if manuscript:
