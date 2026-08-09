@@ -79,14 +79,15 @@ While Quick Start uses the provided `data/labels/` splits, the labelling package
 
 Once records have been screened and coded, the analysis stage merges those outputs into a single analysis corpus and reports on it. This stage is notebook-driven, with all substantive logic living in importable modules under `data_helpers/` so it stays testable.
 
-**1. Corpus preparation** — `notebooks/data_processing/` joins the screening and coding outputs into validated, one-row-per-publication artifacts, each written to its own folder under `notebooks/data_processing/outputs/<NN>_<notebook-name>/`. The three corpus preps (`02`, `03`, `04`) also write a `manifest.json` recording what was built; `01-climate-data-prep` currently does not.
+**1. Corpus preparation** — `notebooks/data_processing/` joins the screening and coding outputs into validated, one-row-per-publication artifacts, each written to its own folder under `notebooks/data_processing/outputs/<NN>_<notebook-name>/`. Each active corpus prep writes a `manifest.json` recording what was built.
 
 | Notebook | Builds |
 | --- | --- |
-| `01-climate-data-prep.ipynb` | Climate-country evidence handoff and World Bank observations |
-| `02_taxa_analysis_prep.ipynb` | Taxa publications table and the fixed GBIF described-diversity benchmark |
+| `02_taxa_analysis_prep.ipynb` | Taxa publications table, typed nested match/lineage artifact, and fixed GBIF described-diversity benchmark |
 | `03_screening_analysis_prep.ipynb` | Complete-screening table and exclusion-criteria overlap |
-| `04_biodiversity_evidence_corpus_prep.ipynb` | Integrated evidence corpus (screening, driver, threats, geography, realm, study, taxa) |
+| `04_biodiversity_evidence_corpus_prep.ipynb` | 40-column integrated evidence corpus plus a separate `UT`/`abstract` sidecar |
+
+The retired climate prep notebook and its two prepared artifacts are preserved together under `notebooks/data_processing/archive/`; only archived climate analyses consume them.
 
 **2. Results** — `notebooks/results/` loads those prepared artifacts and applies only analysis-specific filters, estimators, figures, and exports. `00_screening.ipynb` is the supporting screening audit. The four manuscript findings are implemented by `01_evidence_growth.ipynb`, `02_income_composition.ipynb`, `03_realm_composition.ipynb`, and `04_taxonomic_lens.ipynb`. `03_unchecked_realm_composition.ipynb` is an explicitly unchecked companion analysis, and `threats_supplementary.ipynb` contains supplementary diagnostics. Superseded notebooks live under `notebooks/results/archive/`. Figures and tables are written to `notebooks/results/outputs/<section>/`.
 
