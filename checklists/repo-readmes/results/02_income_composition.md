@@ -8,11 +8,11 @@ region and publication period constant?
 
 Lower-income-country evidence assigns larger shares of attention to agriculture and
 aquaculture and to biological resource use. Higher-income-country evidence assigns
-larger shares to pollution, invasive and problematic species, and climate change. The
-agriculture, biological-resource-use, invasive-species, and climate contrasts persist
-after standardizing the higher- and lower-income tiers to a common regional and temporal
-composition. Pollution does not behave as a stable income contrast under region-only
-adjustment and is interpreted more cautiously.
+larger shares to pollution, invasive and problematic species, and climate change. All
+five contrasts persist after jointly standardizing the higher- and lower-income tiers to
+a common regional and temporal composition. Pollution attenuates after region-only
+standardization (+0.68 percentage points) but remains positive after joint
+region-and-period standardization (+2.83 points; 95% bootstrap interval +1.70 to +3.88).
 
 ## Live sources
 
@@ -22,41 +22,46 @@ adjustment and is interpreted more cautiously.
 - Historical World Bank input:
   `data/world-bank/snapshots/wdi-2026-06-30/curated/classifications_historical.parquet`.
 - Country crosswalk: `checklists/mappings/ipbes_world_bank_mapping.json`.
+- Geographic map crosswalk: `checklists/mappings/ipbes_regions.json`.
+- Country polygons:
+  `data/ipbes-polygons/ipbes_regions_subregions_shape_1.1/IPBES_Regions_Subregions2.shp`.
 - Result outputs: `notebooks/results/outputs/02_income_composition/`.
 - Manuscript section: *Biodiversity-loss evidence differs systematically across national
   income groups*.
 
 ## Analysis universe
 
-The primary analysis retains publications that:
+All three panels retain publications that:
 
 - report a negative biodiversity impact;
-- have `pred_study_design == "Observational"`;
 - identify at least one study country that maps to a World Bank economy;
 - can be assigned one of the four standard World Bank income groups in the publication
   year; and
 - were published in a complete year from 2000 through 2025.
 
-There are 116,684 negative-direction observational publications before geographic and
-income matching. Country linkage produces 107,929 publication–country assignments from
-97,430 unique publications. The primary historical-income window contains 104,556
-assignments from 94,443 unique publications across 213 countries.
+There is no primary study-design restriction. The observational subset is retained only
+as a sensitivity comparison. Across all available publication years, the
+negative-direction evidence contains 253,081 publications; World Bank linkage produces
+171,595 publication–country assignments from 151,541 unique publications. The complete
+2000–2025 historical-income window used by every panel contains 166,282 assignments from
+146,892 unique publications across 213 countries. The largest country count is 25,689
+for the United States.
 
 Income is matched to the official classification in force in the publication year, not
-to the current classification. This reclassifies 11.0% of comparable
-publication–country assignments; the audit records 11,841 reclassified assignments.
+to the current classification. This reclassifies 10.6% of comparable in-window
+publication–country assignments; the audit records 17,709 reclassified assignments.
 
 The income-group coverage used in the manuscript figure is:
 
 | Historical income group | Unique publications | Represented countries |
 | --- | ---: | ---: |
-| Low income | 4,973 | 69 |
-| Lower middle income | 15,981 | 99 |
-| Upper middle income | 30,808 | 89 |
-| High income | 45,554 | 85 |
+| Low income | 6,986 | 70 |
+| Lower middle income | 23,659 | 101 |
+| Upper middle income | 48,284 | 90 |
+| High income | 73,385 | 85 |
 
 Publications that study countries in more than one income group contribute to each
-relevant group, so these group counts sum above the 94,443-publication denominator.
+relevant group, so these group counts sum above the 146,892-publication denominator.
 Multiple countries in the same income group do not multiply a publication's contribution
 to that group.
 
@@ -84,58 +89,68 @@ causal estimates.
 
 | Threat category | Low-income share | High-income share | Difference | 95% bootstrap interval |
 | --- | ---: | ---: | ---: | ---: |
-| Agriculture & aquaculture | 25.04% | 9.01% | −16.03 points | −16.99 to −14.95 |
-| Biological resource use | 21.40% | 9.19% | −12.21 points | −13.25 to −11.17 |
-| Pollution | 13.63% | 22.98% | +9.34 points | +8.47 to +10.27 |
-| Invasive & problematic species | 8.91% | 17.96% | +9.05 points | +8.25 to +9.92 |
-| Climate change & severe weather | 8.98% | 14.95% | +5.96 points | +5.19 to +6.71 |
-| Natural system modifications | 6.16% | 10.65% | +4.49 points | +3.88 to +5.05 |
+| Agriculture & aquaculture | 24.23% | 8.55% | −15.68 points | −16.61 to −14.79 |
+| Biological resource use | 18.78% | 8.62% | −10.16 points | −10.95 to −9.29 |
+| Pollution | 14.55% | 24.31% | +9.75 points | +8.95 to +10.53 |
+| Invasive & problematic species | 8.63% | 17.07% | +8.45 points | +7.80 to +9.08 |
+| Climate change & severe weather | 11.40% | 17.33% | +5.93 points | +5.18 to +6.63 |
+| Natural system modifications | 6.73% | 9.97% | +3.24 points | +2.73 to +3.75 |
 
 ### Higher-income minus lower-income standardized tiers
 
 | Threat category | Raw | Region-standardized | Region-and-period standardized | 95% interval for joint standardization |
 | --- | ---: | ---: | ---: | ---: |
-| Invasive & problematic species | +6.23 | +5.28 | +5.23 | +4.38 to +6.01 |
-| Climate change & severe weather | +3.23 | +3.91 | +2.96 | +1.11 to +3.90 |
-| Pollution | +1.13 | −0.06 | +1.54 | +0.21 to +2.81 |
-| Natural system modifications | +3.27 | +0.84 | +1.19 | +0.47 to +1.84 |
-| Biological resource use | −6.97 | −5.56 | −5.38 | −6.35 to −4.42 |
-| Agriculture & aquaculture | −6.46 | −5.98 | −6.99 | −7.93 to −5.89 |
+| Invasive & problematic species | +5.76 | +4.74 | +5.01 | +4.34 to +5.64 |
+| Pollution | +1.88 | +0.68 | +2.83 | +1.70 to +3.88 |
+| Climate change & severe weather | +3.06 | +4.38 | +2.24 | +1.07 to +3.26 |
+| Natural system modifications | +2.44 | −0.04 | +0.30 | −0.35 to +0.86 |
+| Biological resource use | −5.70 | −4.77 | −4.24 | −4.97 to −3.53 |
+| Agriculture & aquaculture | −6.40 | −6.70 | −7.56 | −8.38 to −6.67 |
 
 Pooling the middle-income groups attenuates the tier contrasts relative to the extreme
-high-versus-low comparison. Pollution is the exception to the stable pattern: its tier
-contrast falls to approximately zero under region-only standardization. It is therefore
-not interpreted as a robust income difference even though the joint-standardized
-estimate is positive.
+high-versus-low comparison. Agriculture, biological resource use, invasive species,
+climate change, and pollution retain joint-standardized intervals excluding zero.
+Natural system modifications attenuates to +0.30 points, with an interval spanning zero.
 
 ## Robustness
 
 The notebook recalculates the extreme-group contrast under five alternatives:
 
-- all negative-direction study designs;
+- observational studies only;
 - current rather than historical income classification;
 - fiscal year equal to publication year plus one;
 - inclusion of the partial 2026 year; and
 - country-fractional weighting.
 
-All specifications preserve the direction of every contrast. Spearman rank correlations
-with the primary contrast range from 0.993 to 1.000, and the largest individual change is
-4.22 percentage points under current income classification.
+All ten categories displayed in panel c preserve their direction across the alternatives.
+Spearman rank correlations across all 12 categories range from 0.993 to 1.000, and the
+largest individual change is 5.01 percentage points under current income classification.
 
 ## Figures and outputs
 
-The manuscript figure is `figures/income_composition.pdf`. Panel A shows within-group
-composition; Panel B shows high-income-minus-low-income differences with bootstrap
-intervals.
+The manuscript figure is `figures/income_composition.pdf`. All panels use the same
+146,892 country-resolved biodiversity-loss publications from all study designs across
+213 countries. Countries are coloured with fixed 1--3--10 count classes from 1 through
+30,000 using a nine-step yellow-green-to-blue biodiversity ramp; grey denotes zero
+publications in this shared subset. Panel b shows composition across the
+four historical income groups, abbreviated LIC, LMIC, UMIC, and HIC, with each article
+count in parentheses beneath its abbreviation. All 12 observed threat
+categories are retained in the legend. Its ten contrasted categories are stacked
+bottom-up in panel c's signed order, followed by `Other threats` and `Unclear` as a
+residual block at the top. The legend reads in the reverse direction, matching panel c
+from top to bottom (pollution through agriculture), before listing `Other threats` and
+`Unclear`. Panel c
+shows the raw HIC-minus-LIC differences with bootstrap intervals, ordered from the most
+negative to the most positive contrast.
 
 The current manuscript source references it as
-`checklists/overleaf/main/attachments/income_composition.pdf`. That attachment is not
-present in this checkout and must be synchronized from the live result output before a
-local manuscript build.
+`checklists/overleaf/main/attachments/income_composition.pdf`; keep that manuscript copy
+synchronized with the live result output before compiling the paper.
 
 Reported files are:
 
 - `csv/historical_income_classification_audit.csv`;
+- `csv/country_article_counts.csv`;
 - `csv/income_group_article_counts.csv`;
 - `csv/income_group_threat_composition.csv`;
 - `csv/high_minus_low_income_bootstrap.csv`;
@@ -160,7 +175,9 @@ define an additional finding.
 
 ## Refresh checklist
 
-Verify the 94,443-publication denominator, 213-country coverage, and reclassified share
-against `historical_income_classification_audit.csv`. Recalculate all displayed contrasts
-from the two exported contrast tables, then confirm that the manuscript still treats
-pollution as unstable under region-only adjustment.
+Verify the shared 146,892-publication denominator, 213-country coverage, 166,282 unique
+publication–country assignments, maximum country count of 25,689, and 10.6% reclassified
+share against the notebook assertions and exported audit tables. Recalculate all
+displayed contrasts from the two exported contrast tables, including pollution's
+region-only point estimate (+0.68; no interval calculated) and joint estimate (+2.83;
+95% bootstrap interval +1.70 to +3.88).

@@ -140,7 +140,7 @@ def load_results_config(path: str | Path | None = None) -> dict[str, Any]:
     driver = config.get("driver_composition", {})
     for key in [
         "direction",
-        "study_design",
+        "sensitivity_study_design",
         "primary_start_year",
         "primary_end_year",
         "partial_end_year",

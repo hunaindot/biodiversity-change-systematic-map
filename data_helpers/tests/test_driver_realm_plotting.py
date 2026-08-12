@@ -115,6 +115,7 @@ def test_horizontal_bar_views_accept_all_and_core_realms(
         driver_colors=DRIVER_COLORS,
         figure_height=height,
         show_segment_labels=realm_order == CORE_REALMS,
+        segment_label_decimals=1,
     )
     axis = figure.axes[0]
     assert figure.get_figheight() == pytest.approx(height)
@@ -127,7 +128,9 @@ def test_horizontal_bar_views_accept_all_and_core_realms(
     )
     if realm_order == CORE_REALMS:
         assert axis.texts
-        assert all(text.get_text().endswith("%") for text in axis.texts)
+        assert all(
+            text.get_text().endswith(".0%") for text in axis.texts
+        )
     else:
         assert not axis.texts
     plt.close(figure)
@@ -146,6 +149,39 @@ def test_bar_view_requires_fractional_shares_to_sum_to_one() -> None:
             realm_supports=SUPPORTS,
             driver_colors=DRIVER_COLORS,
         )
+
+
+def test_bar_labels_preserve_rounded_total() -> None:
+    estimates = _estimates()
+    shares = (0.3333, 0.1667, 0.1667, 0.1667, 0.1666)
+    for realm in CORE_REALMS:
+        realm_rows = estimates["realm"].eq(realm)
+        estimates.loc[realm_rows, "fractional_share"] = shares
+    figure = plot_driver_fractional_bars(
+        estimates.loc[lambda frame: frame["realm"].isin(CORE_REALMS)],
+        driver_order=DRIVERS,
+        realm_order=CORE_REALMS,
+        driver_names=DRIVER_NAMES,
+        realm_names=REALM_NAMES,
+        realm_supports=SUPPORTS,
+        driver_colors=DRIVER_COLORS,
+        show_segment_labels=True,
+        segment_label_decimals=1,
+        segment_label_min_pct=0,
+    )
+    labels_by_realm = {
+        position: [
+            float(text.get_text().removesuffix("%"))
+            for text in figure.axes[0].texts
+            if text.get_position()[1] == position
+        ]
+        for position in range(len(CORE_REALMS))
+    }
+    assert all(
+        sum(labels) == pytest.approx(100.0)
+        for labels in labels_by_realm.values()
+    )
+    plt.close(figure)
 
 
 def test_nested_bars_align_conditional_threat_detail_to_driver_blocks(

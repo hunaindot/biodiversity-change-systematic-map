@@ -230,7 +230,7 @@
   "driver_composition": {
     "description": "Historical-income threat-composition settings for results notebook 02_income_composition (manuscript Result 2) and its archived unchecked companion.",
     "direction": "negative",
-    "study_design": "Observational",
+    "sensitivity_study_design": "Observational",
     "primary_start_year": 2000,
     "primary_end_year": 2025,
     "partial_end_year": 2026,

@@ -18,8 +18,37 @@ import pandas as pd
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
+from data_helpers.analysis.geo.count_plotting import (
+    add_class_colorbar,
+    build_count_scale,
+)
 from data_helpers.labels import parse_list_labels
 from data_helpers.visualization import BIODIVERSITY
+
+
+GEO_COUNT_BINS = (
+    1,
+    3,
+    10,
+    30,
+    100,
+    300,
+    1_000,
+    3_000,
+    10_000,
+    30_000,
+)
+GEO_COUNT_COLORS = (
+    "#FFFFD9",
+    "#EDF8B1",
+    "#C7E9B4",
+    "#7FCDBB",
+    "#41B6C4",
+    "#1D91C0",
+    "#225EA8",
+    "#253494",
+    "#081D58",
+)
 
 
 @dataclass
@@ -87,6 +116,84 @@ def link_publications_to_world_bank(
     linked["_assignment_id"] = np.arange(len(linked), dtype=np.int64)
     assert not linked.duplicated(["UT", "country_code"]).any()
     return linked
+
+
+def build_country_article_counts(primary_df: pd.DataFrame) -> pd.DataFrame:
+    """Count unique primary-analysis publications for each linked country.
+
+    The input is the publication-country frame returned as
+    :attr:`EvidencePreparation.primary`.  Country labels are retained for the
+    manuscript-table export, while the map itself joins on the renamed ISO3
+    code.  A country code must resolve to exactly one name and one World Bank
+    region; conflicting lookup metadata indicate an upstream join problem and
+    fail here rather than being hidden by aggregation.
+    """
+    required_columns = {
+        "UT",
+        "country_code",
+        "wb_entity_name",
+        "wb_region",
+    }
+    missing_columns = required_columns.difference(primary_df.columns)
+    if missing_columns:
+        missing = ", ".join(sorted(missing_columns))
+        raise ValueError(f"primary_df is missing required columns: {missing}")
+
+    work = primary_df.loc[:, sorted(required_columns)].copy()
+    if work["country_code"].isna().any():
+        raise ValueError("primary_df contains missing country_code values")
+    work["country_code"] = work["country_code"].astype("string").str.strip()
+    if work["country_code"].eq("").any():
+        raise ValueError("primary_df contains blank country_code values")
+
+    metadata_cardinality = work.groupby(
+        "country_code", observed=True, sort=False
+    ).agg(
+        country_names=(
+            "wb_entity_name",
+            lambda values: values.nunique(dropna=False),
+        ),
+        regions=("wb_region", lambda values: values.nunique(dropna=False)),
+    )
+    conflicting = metadata_cardinality.loc[
+        metadata_cardinality["country_names"].ne(1)
+        | metadata_cardinality["regions"].ne(1)
+    ]
+    if not conflicting.empty:
+        codes = ", ".join(map(str, conflicting.index.tolist()))
+        raise ValueError(
+            "Each country_code must map to exactly one country name and region; "
+            f"conflicts found for: {codes}"
+        )
+
+    country_metadata = work.drop_duplicates(
+        ["country_code", "wb_entity_name", "wb_region"]
+    ).rename(
+        columns={
+            "country_code": "iso3",
+            "wb_entity_name": "country",
+            "wb_region": "region",
+        }
+    )[
+        ["iso3", "country", "region"]
+    ]
+    counts = (
+        work.groupby("country_code", observed=True, sort=False)["UT"]
+        .nunique()
+        .rename("record_count")
+        .rename_axis("iso3")
+        .reset_index()
+    )
+    result = country_metadata.merge(
+        counts,
+        on="iso3",
+        how="inner",
+        validate="one_to_one",
+    )
+    result["record_count"] = result["record_count"].astype(int)
+    return result.sort_values("iso3").reset_index(drop=True)[
+        ["iso3", "country", "region", "record_count"]
+    ]
 
 
 def attach_historical_income(
@@ -549,11 +656,11 @@ def prepare_historical_income_evidence(
     historical_path: str | Path,
     income_groups: Sequence[str],
     direction: str,
-    study_design: str,
+    sensitivity_study_design: str,
     start_year: int,
     end_year: int,
 ) -> EvidencePreparation:
-    """Filter, country-link, and historically classify the analysis evidence."""
+    """Prepare all-design evidence and an observational sensitivity subset."""
     corpus = corpus_df.copy()
     assert corpus["UT"].notna().all() and corpus["UT"].is_unique
     corpus["publication_year"] = pd.to_numeric(
@@ -561,7 +668,7 @@ def prepare_historical_income_evidence(
     ).astype("Int64")
     negative = corpus.loc[corpus["s2_dir"].eq(direction)].copy()
     observational = negative.loc[
-        negative["pred_study_design"].eq(study_design)
+        negative["pred_study_design"].eq(sensitivity_study_design)
     ].copy()
 
     with Path(mapping_path).open(encoding="utf-8") as handle:
@@ -607,7 +714,7 @@ def prepare_historical_income_evidence(
     ).any()
 
     world_bank_linked = link_publications_to_world_bank(
-        observational, world_bank_lookup
+        negative, world_bank_lookup
     )
     classified = attach_historical_income(world_bank_linked, historical)
     historical_standard = classified["historical_income_group"].isin(
@@ -619,22 +726,28 @@ def prepare_historical_income_evidence(
         & classified["publication_year"].between(start_year, end_year)
     ].copy()
 
-    comparable = historical_standard & current_standard
+    primary_years = classified["publication_year"].between(
+        start_year,
+        end_year,
+    )
+    comparable = historical_standard & current_standard & primary_years
     reclassified = comparable & classified["historical_income_group"].ne(
         classified["current_income_group"]
     )
     audit = pd.DataFrame(
         {
             "metric": [
-                "Negative observational publications",
-                "World Bank-linked publication–country assignments",
-                "World Bank-linked unique publications",
-                f"Primary assignments: historical group, {start_year}–{end_year}",
-                "Primary unique publications",
-                "Countries in primary analysis",
+                "Negative publications (all study designs)",
+                f"Negative {sensitivity_study_design.lower()} publications",
+                "All-design World Bank-linked publication–country assignments",
+                "All-design World Bank-linked unique publications",
+                f"All-design primary assignments: historical group, {start_year}–{end_year}",
+                "All-design primary unique publications",
+                "Countries in all-design primary analysis",
                 "Assignments reclassified vs current group",
             ],
             "value": [
+                len(negative),
                 len(observational),
                 len(world_bank_linked),
                 world_bank_linked["UT"].nunique(),
@@ -798,15 +911,16 @@ def build_sensitivity_summary(
     current_standard = preparation.classified["current_income_group"].isin(
         income_groups
     )
-    all_negative = attach_historical_income(
+    observational = attach_historical_income(
         link_publications_to_world_bank(
-            preparation.negative, preparation.world_bank_lookup
+            preparation.observational,
+            preparation.world_bank_lookup,
         ),
         preparation.historical_classifications,
     )
-    all_negative = all_negative.loc[
-        all_negative["historical_income_group"].isin(income_groups)
-        & all_negative["publication_year"].between(start_year, end_year)
+    observational = observational.loc[
+        observational["historical_income_group"].isin(income_groups)
+        & observational["publication_year"].between(start_year, end_year)
     ]
     current = preparation.classified.loc[
         current_standard
@@ -830,8 +944,9 @@ def build_sensitivity_summary(
         )
     ]
     sensitivity_matrices = {
-        "All negative study designs": matrix_for(
-            all_negative, "historical_income_group"
+        "Observational study design only": matrix_for(
+            observational,
+            "historical_income_group",
         ),
         "Current income classification": matrix_for(
             current, "current_income_group"
@@ -902,6 +1017,7 @@ def export_manuscript_tables(
     composition: CompositionAnalysis,
     standardization: StandardizationAnalysis,
     sensitivity_df: pd.DataFrame,
+    country_counts: pd.DataFrame | None = None,
     *,
     data_directory: str | Path,
     table_directory: str | Path,
@@ -935,9 +1051,12 @@ def export_manuscript_tables(
         attributions_path, index=False, compression="zstd"
     )
     written = [assignments_path, attributions_path]
-    for frame, filename in (
+    table_exports = [
         (preparation.audit, "historical_income_classification_audit.csv"),
-        (composition.group_counts.reset_index(), "income_group_article_counts.csv"),
+        (
+            composition.group_counts.reset_index(),
+            "income_group_article_counts.csv",
+        ),
         (composition.long_composition, "income_group_threat_composition.csv"),
         (composition.extreme_contrast, "high_minus_low_income_bootstrap.csv"),
         (
@@ -945,7 +1064,16 @@ def export_manuscript_tables(
             "region_period_standardized_tier_contrast.csv",
         ),
         (sensitivity_df, "sensitivity_summary.csv"),
-    ):
+    ]
+    if country_counts is not None:
+        expected_columns = ["iso3", "country", "region", "record_count"]
+        if list(country_counts.columns) != expected_columns:
+            raise ValueError(
+                "country_counts columns must be exactly "
+                f"{expected_columns}; got {list(country_counts.columns)}"
+            )
+        table_exports.append((country_counts, "country_article_counts.csv"))
+    for frame, filename in table_exports:
         path = table_directory / filename
         frame.to_csv(path, index=False)
         written.append(path)
@@ -958,9 +1086,38 @@ def plot_income_composition(
     income_groups: Sequence[str],
     threat_colors: dict[str, str],
     threat_names: dict[str, str],
+    country_counts: pd.DataFrame | None = None,
+    polygons: pd.DataFrame | None = None,
     contrast_excluded_threats: Sequence[str] = (),
+    polygon_iso_column: str = "ISO_3",
+    figsize: tuple[float, float] = (7.4, 7.2),
 ) -> plt.Figure:
-    """Plot within-group composition and the high-minus-low contrast."""
+    """Plot income composition, optionally with country evidence coverage.
+
+    Supplying both ``country_counts`` and ``polygons`` builds the manuscript's
+    three-panel composite (map, composition, contrast).  Omitting both retains
+    the original two-panel figure for callers that have not migrated.  Passing
+    only one map input is an error because it would silently produce an
+    incomplete coverage panel.
+    """
+    if (country_counts is None) != (polygons is None):
+        raise ValueError(
+            "country_counts and polygons must either both be provided or both "
+            "be omitted"
+        )
+    if country_counts is not None and polygons is not None:
+        return _plot_income_composition_composite(
+            composition,
+            income_groups=income_groups,
+            threat_colors=threat_colors,
+            threat_names=threat_names,
+            country_counts=country_counts,
+            polygons=polygons,
+            contrast_excluded_threats=contrast_excluded_threats,
+            polygon_iso_column=polygon_iso_column,
+            figsize=figsize,
+        )
+
     figure, (panel_a, panel_b) = plt.subplots(
         1,
         2,
@@ -1097,6 +1254,309 @@ def plot_income_composition(
         top=0.98,
         bottom=0.24,
         wspace=0.68,
+    )
+    return figure
+
+
+def _plot_income_composition_composite(
+    composition: CompositionAnalysis,
+    *,
+    income_groups: Sequence[str],
+    threat_colors: dict[str, str],
+    threat_names: dict[str, str],
+    country_counts: pd.DataFrame,
+    polygons: pd.DataFrame,
+    contrast_excluded_threats: Sequence[str],
+    polygon_iso_column: str,
+    figsize: tuple[float, float],
+) -> plt.Figure:
+    """Build the map-plus-composition manuscript composite."""
+    expected_count_columns = ["iso3", "country", "region", "record_count"]
+    missing_count_columns = set(expected_count_columns).difference(
+        country_counts.columns
+    )
+    if missing_count_columns:
+        missing = ", ".join(sorted(missing_count_columns))
+        raise ValueError(
+            f"country_counts is missing required columns: {missing}"
+        )
+    if (
+        country_counts["iso3"].isna().any()
+        or country_counts["iso3"].duplicated().any()
+    ):
+        raise ValueError("country_counts.iso3 must be complete and unique")
+    if polygon_iso_column not in polygons.columns:
+        raise ValueError(
+            f"polygons is missing ISO column {polygon_iso_column!r}"
+        )
+
+    record_counts = pd.to_numeric(
+        country_counts["record_count"], errors="coerce"
+    )
+    if record_counts.isna().any() or record_counts.lt(0).any():
+        raise ValueError(
+            "country_counts.record_count must be non-negative numeric"
+        )
+    maximum_count = int(record_counts.max())
+    if maximum_count < 1:
+        raise ValueError(
+            "country_counts must contain at least one publication"
+        )
+
+    figure = plt.figure(figsize=figsize)
+    outer_grid = figure.add_gridspec(
+        2,
+        1,
+        height_ratios=[1.0, 1.1],
+        hspace=0.25,
+    )
+    map_grid = outer_grid[0].subgridspec(
+        2,
+        3,
+        height_ratios=[1.0, 0.10],
+        width_ratios=[0.28, 0.44, 0.28],
+        hspace=0.02,
+    )
+    map_axis = figure.add_subplot(map_grid[0, :], label="panel_a_map")
+    colorbar_axis = figure.add_subplot(
+        map_grid[1, 1], label="panel_a_colorbar"
+    )
+    lower_grid = outer_grid[1].subgridspec(
+        1,
+        2,
+        width_ratios=[1.0, 1.32],
+        wspace=0.74,
+    )
+    composition_axis = figure.add_subplot(
+        lower_grid[0, 0], label="panel_b_composition"
+    )
+    contrast_axis = figure.add_subplot(
+        lower_grid[0, 1], label="panel_c_contrast"
+    )
+
+    map_counts = country_counts[["iso3", "record_count"]].copy()
+    map_counts["record_count"] = record_counts.astype(int).to_numpy()
+    mapped_polygons = polygons.merge(
+        map_counts,
+        left_on=polygon_iso_column,
+        right_on="iso3",
+        how="left",
+        sort=False,
+        validate="many_to_one",
+    )
+    mapped_polygons["record_count"] = (
+        mapped_polygons["record_count"].fillna(0).astype(int)
+    )
+    mapped_evidence = mapped_polygons.loc[
+        mapped_polygons["record_count"].gt(0)
+    ]
+    count_cmap, count_norm, count_bins = build_count_scale(
+        maximum_count,
+        bins=GEO_COUNT_BINS,
+        colors=GEO_COUNT_COLORS,
+    )
+    map_edge_color = BIODIVERSITY["neutral"]
+    mapped_polygons.plot(
+        ax=map_axis,
+        color="#D9D9D9",
+        edgecolor=map_edge_color,
+        linewidth=0.15,
+    )
+    if not mapped_evidence.empty:
+        mapped_evidence.plot(
+            ax=map_axis,
+            column="record_count",
+            cmap=count_cmap,
+            norm=count_norm,
+            edgecolor=map_edge_color,
+            linewidth=0.15,
+        )
+    map_axis.set_xlim(-170, 180)
+    map_axis.set_ylim(-58, 84)
+    map_axis.set_axis_off()
+    add_class_colorbar(
+        figure,
+        colorbar_axis,
+        count_cmap,
+        count_norm,
+        count_bins,
+        "Articles per country",
+    )
+
+    excluded = set(contrast_excluded_threats)
+    contrast_df = (
+        composition.extreme_contrast.loc[
+            lambda frame: ~frame["threat"].isin(excluded)
+        ]
+        .sort_values("high_minus_low_pp")
+        .reset_index(drop=True)
+    )
+    residual_threat_order = [
+        threat
+        for threat in composition.observed_threat_order
+        if threat in excluded
+    ]
+    plot_threat_order = [
+        *contrast_df["threat"].tolist(),
+        *residual_threat_order,
+    ]
+
+    positions = np.arange(len(income_groups))
+    bottoms = np.zeros(len(income_groups))
+    for threat in plot_threat_order:
+        values = 100 * composition.matrix.loc[threat, income_groups].to_numpy()
+        composition_axis.bar(
+            positions,
+            values,
+            bottom=bottoms,
+            width=0.68,
+            color=threat_colors[threat],
+            edgecolor=BIODIVERSITY["paper"],
+            linewidth=0.35,
+            zorder=2,
+        )
+        bottoms += values
+
+    group_publications = composition.group_counts.reindex(income_groups)[
+        "unique_publications"
+    ]
+    if group_publications.isna().any():
+        raise ValueError(
+            "composition.group_counts lacks unique-publication counts for all "
+            "income_groups"
+        )
+    group_abbreviations = {
+        "Low income": "LIC",
+        "Lower middle income": "LMIC",
+        "Upper middle income": "UMIC",
+        "High income": "HIC",
+    }
+    composition_axis.set(
+        xticks=positions,
+        xticklabels=[
+            f"{group_abbreviations.get(group, group)}\n($n$ = {int(count):,})"
+            for group, count in zip(
+                income_groups, group_publications, strict=True
+            )
+        ],
+        ylim=(0, 100),
+        yticks=[0, 50, 100],
+    )
+    composition_axis.set_ylabel(
+        "Share of threat attributions (%)",
+        fontsize=7.8,
+    )
+
+    for position, row in contrast_df.iterrows():
+        contrast_axis.plot(
+            [row["bootstrap_ci_low"], row["bootstrap_ci_high"]],
+            [position, position],
+            color=BIODIVERSITY["ink"],
+            linewidth=0.75,
+        )
+        contrast_axis.scatter(
+            row["high_minus_low_pp"],
+            position,
+            s=26,
+            color=threat_colors[row["threat"]],
+            edgecolor=BIODIVERSITY["paper"],
+            linewidth=0.4,
+            zorder=2,
+        )
+    contrast_axis.axvline(0, color=BIODIVERSITY["ink"], linewidth=0.7)
+    contrast_axis.set(
+        yticks=np.arange(len(contrast_df)),
+        yticklabels=[threat_names[threat] for threat in contrast_df["threat"]],
+    )
+    contrast_axis.set_xlabel(
+        "Difference in threat share (percentage points)\n"
+        "HIC minus LIC",
+        fontsize=7.8,
+    )
+
+    legend_column_count = 4
+    legend_display_order = [
+        *reversed(contrast_df["threat"].tolist()),
+        *residual_threat_order,
+    ]
+    # Matplotlib fills multi-column legends down columns. Interleave the
+    # handles so the visible left-to-right row order runs from panel c's top
+    # (most positive contrast) to its bottom, then ends with the residuals.
+    legend_threat_order = [
+        threat
+        for column in range(legend_column_count)
+        for threat in legend_display_order[column::legend_column_count]
+    ]
+    figure.legend(
+        handles=[
+            Patch(
+                facecolor=threat_colors[threat],
+                edgecolor=BIODIVERSITY["paper"],
+                linewidth=0.35,
+                label=(
+                    "Other threats"
+                    if threat == "Other Options"
+                    else threat_names[threat]
+                ),
+            )
+            for threat in legend_threat_order
+        ],
+        loc="lower left",
+        ncol=legend_column_count,
+        mode="expand",
+        bbox_to_anchor=(0.08, 0.02, 0.88, 0.10),
+        frameon=False,
+        fontsize=6.0,
+        handlelength=1.1,
+        handleheight=0.9,
+        columnspacing=1.0,
+        labelspacing=0.4,
+        borderaxespad=0,
+    )
+
+    for label, axis, x_position in (
+        ("b", composition_axis, -0.16),
+        ("c", contrast_axis, -0.56),
+    ):
+        axis.text(
+            x_position,
+            1.02,
+            label,
+            transform=axis.transAxes,
+            fontsize=9,
+            fontweight="bold",
+            va="bottom",
+        )
+        axis.grid(False)
+        axis.spines[["top", "right"]].set_visible(False)
+        axis.spines[["left", "bottom"]].set_color(BIODIVERSITY["neutral"])
+        axis.spines[["left", "bottom"]].set_linewidth(0.6)
+        axis.tick_params(
+            length=0,
+            colors=BIODIVERSITY["ink"],
+            labelsize=6.8,
+        )
+    composition_axis.tick_params(axis="x", labelsize=6.1)
+    figure.subplots_adjust(
+        left=0.08,
+        right=0.985,
+        top=0.98,
+        bottom=0.145,
+    )
+    figure.canvas.draw()
+    panel_label_x = figure.transFigure.inverted().transform(
+        composition_axis.transAxes.transform((-0.16, 0))
+    )[0]
+    panel_label_y = figure.transFigure.inverted().transform(
+        map_axis.transAxes.transform((0, 1.02))
+    )[1]
+    figure.text(
+        panel_label_x,
+        panel_label_y,
+        "a",
+        fontsize=9,
+        fontweight="bold",
+        va="bottom",
     )
     return figure
 

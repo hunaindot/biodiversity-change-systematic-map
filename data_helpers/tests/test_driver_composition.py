@@ -6,9 +6,18 @@ These cover the transition, missing-assignment and threat-diversity helpers that
 
 from __future__ import annotations
 
+import json
+
+import matplotlib
+
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from matplotlib.colors import to_hex
+from shapely.geometry import box
 
 from data_helpers.analysis import driver_composition as dc
 
@@ -98,3 +107,419 @@ def test_diversity_falls_when_one_threat_dominates() -> None:
         skewed_value["effective_number_of_threats"]
         < even_value["effective_number_of_threats"]
     )
+
+
+def test_primary_uses_all_designs_and_sensitivity_uses_observational(
+    tmp_path,
+) -> None:
+    countries = [
+        ("AAA", "WBA", "Alpha", "Low income"),
+        ("BBB", "WBB", "Beta", "Lower middle income"),
+        ("CCC", "WBC", "Gamma", "Upper middle income"),
+        ("DDD", "WBD", "Delta", "High income"),
+    ]
+    mapping_path = tmp_path / "mapping.json"
+    mapping_path.write_text(
+        json.dumps(
+            {
+                "records": [
+                    {
+                        "ipbes_iso3": iso3,
+                        "wb_entity_code": entity_code,
+                        "wb_entity_name": country,
+                        "wb_region": "Test region",
+                        "income_group": income_group,
+                        "has_world_bank_economy": True,
+                    }
+                    for iso3, entity_code, country, income_group in countries
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    historical_path = tmp_path / "historical.parquet"
+    pd.DataFrame(
+        [
+            {
+                "wb_entity_code": entity_code,
+                "classification_fy": year,
+                "income": income_group,
+                "gni_reference_year": year - 1,
+                "effective_from": f"{year - 1}-07-01",
+                "effective_to": f"{year}-06-30",
+            }
+            for _, entity_code, _, income_group in countries
+            for year in (2001, 2002)
+        ]
+    ).to_parquet(historical_path, index=False)
+    corpus = pd.DataFrame(
+        [
+            ("obs-low", "negative", "Observational", "AAA", "T1"),
+            ("obs-lmic", "negative", "Observational", "BBB", "T2"),
+            ("obs-umic", "negative", "Observational", "CCC", "T2"),
+            ("obs-high", "negative", "Observational", "DDD", "T2"),
+            ("exp-low", "negative", "Experimental", "AAA", "T1"),
+            ("exp-high", "negative", "Experimental", "DDD", "T3"),
+            ("positive", "positive", "Experimental", "AAA", "T3"),
+        ],
+        columns=[
+            "UT",
+            "s2_dir",
+            "pred_study_design",
+            "country",
+            "threat",
+        ],
+    )
+    corpus["publication_year"] = 2001
+    corpus["pred_countries"] = corpus["country"].map(lambda value: [value])
+    corpus["pred_threat_l0"] = corpus["threat"].map(lambda value: [value])
+
+    preparation = dc.prepare_historical_income_evidence(
+        corpus,
+        mapping_path=mapping_path,
+        historical_path=historical_path,
+        income_groups=GROUPS,
+        direction="negative",
+        sensitivity_study_design="Observational",
+        start_year=2000,
+        end_year=2001,
+    )
+
+    assert set(preparation.observational["UT"]) == {
+        "obs-low",
+        "obs-lmic",
+        "obs-umic",
+        "obs-high",
+    }
+    assert set(preparation.primary["UT"]) == {
+        "obs-low",
+        "obs-lmic",
+        "obs-umic",
+        "obs-high",
+        "exp-low",
+        "exp-high",
+    }
+    audit = preparation.audit.set_index("metric")["value"]
+    assert audit["Negative publications (all study designs)"] == 6
+    assert audit["Negative observational publications"] == 4
+
+    composition = dc.analyze_income_composition(
+        preparation.primary,
+        threat_order=["T1", "T2", "T3"],
+        income_groups=GROUPS,
+        n_bootstrap=10,
+        seed=1,
+    )
+    sensitivity = dc.build_sensitivity_summary(
+        preparation,
+        composition,
+        income_groups=GROUPS,
+        start_year=2000,
+        end_year=2001,
+        partial_end_year=2002,
+    ).set_index("comparison")
+    assert "Observational study design only" in sensitivity.index
+    assert "All negative study designs" not in sensitivity.index
+    assert sensitivity.loc[
+        "Observational study design only", "largest_change_pp"
+    ] > 0
+
+
+def test_build_country_article_counts_preserves_metadata_and_unique_articles() -> None:
+    primary = pd.DataFrame(
+        {
+            "UT": ["u1", "u1", "u2", "u3"],
+            "country_code": ["BBB", "BBB", "BBB", "AAA"],
+            "wb_entity_name": ["Beta", "Beta", "Beta", "Alpha"],
+            "wb_region": ["South", "South", "South", "North"],
+        }
+    )
+
+    result = dc.build_country_article_counts(primary)
+
+    assert list(result.columns) == [
+        "iso3",
+        "country",
+        "region",
+        "record_count",
+    ]
+    assert result.to_dict("records") == [
+        {
+            "iso3": "AAA",
+            "country": "Alpha",
+            "region": "North",
+            "record_count": 1,
+        },
+        {
+            "iso3": "BBB",
+            "country": "Beta",
+            "region": "South",
+            "record_count": 2,
+        },
+    ]
+
+
+def test_build_country_article_counts_rejects_conflicting_metadata() -> None:
+    primary = pd.DataFrame(
+        {
+            "UT": ["u1", "u2"],
+            "country_code": ["AAA", "AAA"],
+            "wb_entity_name": ["Alpha", "Alternate Alpha"],
+            "wb_region": ["North", "North"],
+        }
+    )
+
+    with pytest.raises(ValueError, match="conflicts found for: AAA"):
+        dc.build_country_article_counts(primary)
+
+
+def _minimal_export_inputs():
+    preparation = dc.EvidencePreparation(
+        corpus=pd.DataFrame(),
+        negative=pd.DataFrame(),
+        observational=pd.DataFrame(),
+        world_bank_lookup=pd.DataFrame(),
+        historical_classifications=pd.DataFrame(),
+        world_bank_linked=pd.DataFrame(),
+        classified=pd.DataFrame({"UT": ["u1"]}),
+        primary=pd.DataFrame(),
+        audit=pd.DataFrame({"metric": ["example"], "value": [1]}),
+        transitions=pd.DataFrame(),
+        missing_by_year=pd.DataFrame(),
+        reclassified_share=0.0,
+    )
+    composition = dc.CompositionAnalysis(
+        attributions=pd.DataFrame(
+            {
+                "UT": ["u1"],
+                "income_group": ["Low income"],
+                "threat": ["T1"],
+                "attribution_weight": [1.0],
+            }
+        ),
+        long_composition=pd.DataFrame({"threat": ["T1"]}),
+        matrix=pd.DataFrame(),
+        extreme_contrast=pd.DataFrame({"threat": ["T1"]}),
+        group_counts=pd.DataFrame(
+            {"unique_publications": [1]}, index=pd.Index(["Low income"])
+        ),
+        observed_threat_order=["T1"],
+    )
+    standardization = dc.StandardizationAnalysis(
+        attributions=pd.DataFrame(),
+        contrasts=pd.DataFrame({"threat": ["T1"]}),
+        metadata={},
+    )
+    return preparation, composition, standardization
+
+
+def test_export_manuscript_tables_writes_country_article_counts(
+    tmp_path,
+) -> None:
+    preparation, composition, standardization = _minimal_export_inputs()
+    country_counts = pd.DataFrame(
+        {
+            "iso3": ["AAA"],
+            "country": ["Alpha"],
+            "region": ["North"],
+            "record_count": [2],
+        }
+    )
+
+    written = dc.export_manuscript_tables(
+        preparation,
+        composition,
+        standardization,
+        pd.DataFrame({"comparison": ["example"]}),
+        country_counts=country_counts,
+        data_directory=tmp_path / "data",
+        table_directory=tmp_path / "tables",
+        classified_assignments_file="assignments.parquet",
+        threat_attributions_file="attributions.parquet",
+    )
+
+    country_path = tmp_path / "tables" / "country_article_counts.csv"
+    assert country_path in written
+    pd.testing.assert_frame_equal(pd.read_csv(country_path), country_counts)
+
+
+def _plotting_composition() -> tuple[
+    dc.CompositionAnalysis,
+    list[str],
+    dict[str, str],
+    dict[str, str],
+]:
+    threats = [f"T{index}" for index in range(10)] + [
+        "Other Options",
+        "Unclear",
+    ]
+    shares = np.arange(len(threats), 0, -1, dtype=float)
+    shares /= shares.sum()
+    matrix = pd.DataFrame(
+        {group: shares for group in GROUPS},
+        index=threats,
+    )
+    contrasts = np.arange(len(threats), 0, -1, dtype=float)
+    extreme = pd.DataFrame(
+        {
+            "threat": threats,
+            "high_minus_low_pp": contrasts,
+            "bootstrap_ci_low": contrasts - 0.5,
+            "bootstrap_ci_high": contrasts + 0.5,
+        }
+    )
+    group_counts = pd.DataFrame(
+        {
+            "unique_publications": [6_986, 23_659, 48_284, 73_385],
+            "represented_countries": [70, 101, 90, 85],
+        },
+        index=GROUPS,
+    )
+    composition = dc.CompositionAnalysis(
+        attributions=pd.DataFrame(),
+        long_composition=pd.DataFrame(),
+        matrix=matrix,
+        extreme_contrast=extreme,
+        group_counts=group_counts,
+        observed_threat_order=threats,
+    )
+    color_values = plt.get_cmap("tab20")(np.linspace(0, 1, len(threats)))
+    colors = {
+        threat: to_hex(color)
+        for threat, color in zip(threats, color_values, strict=True)
+    }
+    names = {threat: f"Display {threat}" for threat in threats}
+    return composition, threats, colors, names
+
+
+def test_income_composition_composite_has_map_counts_and_full_legend() -> None:
+    geopandas = pytest.importorskip("geopandas")
+    composition, threats, colors, names = _plotting_composition()
+    country_counts = pd.DataFrame(
+        {
+            "iso3": ["AAA", "BBB"],
+            "country": ["Alpha", "Beta"],
+            "region": ["North", "South"],
+            "record_count": [5, 50],
+        }
+    )
+    polygons = geopandas.GeoDataFrame(
+        {"ISO_3": ["AAA", "BBB", "CCC"]},
+        geometry=[box(-10, 0, 0, 10), box(0, 0, 10, 10), box(10, 0, 20, 10)],
+        crs="EPSG:4326",
+    )
+
+    figure = dc.plot_income_composition(
+        composition,
+        income_groups=GROUPS,
+        threat_colors=colors,
+        threat_names=names,
+        country_counts=country_counts,
+        polygons=polygons,
+        contrast_excluded_threats=["Other Options", "Unclear"],
+    )
+    axes = {axis.get_label(): axis for axis in figure.axes}
+
+    assert set(axes) == {
+        "panel_a_map",
+        "panel_a_colorbar",
+        "panel_b_composition",
+        "panel_c_contrast",
+    }
+    assert axes["panel_a_colorbar"].get_xlabel() == "Articles per country"
+    assert [
+        label.get_text()
+        for label in axes["panel_a_colorbar"].get_xticklabels()
+    ] == [
+        "1",
+        "3",
+        "10",
+        "30",
+        "100",
+        "300",
+        "1,000",
+        "3,000",
+        "10,000",
+        "30,000",
+    ]
+    assert list(axes["panel_a_colorbar"].collections[-1].cmap.colors) == list(
+        dc.GEO_COUNT_COLORS
+    )
+    assert axes["panel_c_contrast"].get_xlabel() == (
+        "Difference in threat share (percentage points)\nHIC minus LIC"
+    )
+    assert [
+        label.get_text()
+        for label in axes["panel_c_contrast"].get_yticklabels()
+    ] == [names[threat] for threat in reversed(threats[:10])]
+    expected_stack_order = [
+        *reversed(threats[:10]),
+        "Other Options",
+        "Unclear",
+    ]
+    composition_patches = axes["panel_b_composition"].patches
+    assert [
+        to_hex(composition_patches[index * len(GROUPS)].get_facecolor())
+        for index in range(len(expected_stack_order))
+    ] == [colors[threat] for threat in expected_stack_order]
+    assert [
+        label.get_text()
+        for label in axes["panel_b_composition"].get_xticklabels()
+    ] == [
+        "LIC\n($n$ = 6,986)",
+        "LMIC\n($n$ = 23,659)",
+        "UMIC\n($n$ = 48,284)",
+        "HIC\n($n$ = 73,385)",
+    ]
+    assert {text.get_text() for text in axes["panel_b_composition"].texts} == {
+        "b"
+    }
+    assert not axes["panel_a_map"].texts
+    assert {text.get_text() for text in figure.texts} == {"a"}
+    assert {text.get_text() for text in axes["panel_c_contrast"].texts} == {
+        "c"
+    }
+    figure.canvas.draw()
+    panel_a_label = figure.texts[0]
+    panel_b_label = axes["panel_b_composition"].texts[0]
+    panel_a_x = panel_a_label.get_transform().transform(
+        panel_a_label.get_position()
+    )[0]
+    panel_b_x = panel_b_label.get_transform().transform(
+        panel_b_label.get_position()
+    )[0]
+    assert panel_a_x == pytest.approx(panel_b_x, abs=1.0)
+    expected_legend_display_order = [
+        *reversed(expected_stack_order[:10]),
+        *expected_stack_order[10:],
+    ]
+    expected_legend_handle_order = [
+        threat
+        for column in range(4)
+        for threat in expected_legend_display_order[column::4]
+    ]
+    assert [
+        text.get_text() for text in figure.legends[0].texts
+    ] == [
+        (
+            "Other threats"
+            if threat == "Other Options"
+            else names[threat]
+        )
+        for threat in expected_legend_handle_order
+    ]
+    assert axes["panel_b_composition"].get_legend() is None
+    plt.close(figure)
+
+
+def test_income_composition_plot_rejects_one_map_input() -> None:
+    composition, _, colors, names = _plotting_composition()
+
+    with pytest.raises(ValueError, match="must either both be provided"):
+        dc.plot_income_composition(
+            composition,
+            income_groups=GROUPS,
+            threat_colors=colors,
+            threat_names=names,
+            country_counts=pd.DataFrame(),
+        )
