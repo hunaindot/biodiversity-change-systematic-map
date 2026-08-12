@@ -393,7 +393,8 @@ class EcosystemTask(TaskDefinition):
                 name = biome.get("name")
                 if not name or name in seen:
                     continue
-                candidates.append({"name": name, "desc": biome.get("short_desc", "")})
+                desc = biome.get("short_desc") or biome.get("desc", "")
+                candidates.append({"name": name, "desc": desc})
                 lookup[name] = biome.get("efg", [])
                 seen.add(name)
         return candidates, lookup
@@ -407,7 +408,8 @@ class EcosystemTask(TaskDefinition):
                 name = efg.get("name")
                 if not name or name in seen:
                     continue
-                candidates.append({"name": name, "desc": efg.get("short_desc", "")})
+                desc = efg.get("short_desc") or efg.get("desc", "")
+                candidates.append({"name": name, "desc": desc})
                 seen.add(name)
         return candidates
 
