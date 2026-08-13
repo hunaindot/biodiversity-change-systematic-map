@@ -8,6 +8,7 @@ do not multiply a publication's contribution to that group.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -66,6 +67,7 @@ class EvidencePreparation:
     audit: pd.DataFrame
     transitions: pd.DataFrame
     missing_by_year: pd.DataFrame
+    country_exclusions: pd.DataFrame
     reclassified_share: float
 
 
@@ -90,6 +92,69 @@ class StandardizationAnalysis:
     metadata: dict[str, int]
 
 
+_SPECIAL_COUNTRY_TOKENS = {
+    "",
+    "NA",
+    "NONE",
+    "NOTAPPLICABLE",
+    "UNCLEAR",
+    "UNC",
+    "UNCL",
+    "UNK",
+    "UNKN",
+    "UNKNOWN",
+    "UNS",
+    "UNR",
+    "UNL",
+    "UNP",
+    "ALLCOUNTRIES",
+    "ALLREGIONS",
+    "ALLSUBREGIONS",
+    "GLOBAL",
+    "WORLDWIDE",
+}
+
+
+def _normalise_country_token(value: object) -> str:
+    """Normalize a coded country label for matching and audit."""
+    return re.sub(r"[^A-Za-z]", "", str(value)).upper()
+
+
+def country_complete_case_exclusions(
+    records_df: pd.DataFrame,
+    world_bank_lookup_df: pd.DataFrame,
+    valid_ipbes_iso3: set[str],
+) -> pd.DataFrame:
+    """List country tokens that trigger whole-publication exclusion.
+
+    Special non-country labels are ignored. Every other token must resolve to
+    the analysis-specific World Bank lookup. A valid IPBES ISO3 without a
+    separate World Bank economy is distinguished from an unrecognized token.
+    """
+    work = records_df[["UT", "publication_year", "pred_countries"]].copy()
+    work["token"] = work["pred_countries"].map(parse_list_labels)
+    work = work.explode("token", ignore_index=True).dropna(subset=["token"])
+    work["token"] = work["token"].astype("string").str.strip()
+    work["normalized_token"] = work["token"].map(_normalise_country_token)
+    lookup_codes = set(world_bank_lookup_df["country_code"])
+    ineligible = (
+        ~work["normalized_token"].isin(_SPECIAL_COUNTRY_TOKENS)
+        & ~work["normalized_token"].isin(lookup_codes)
+    )
+    result = work.loc[
+        ineligible,
+        ["UT", "publication_year", "token", "normalized_token"],
+    ].drop_duplicates(["UT", "normalized_token"])
+    result["exclusion_reason"] = np.where(
+        result["normalized_token"].isin(valid_ipbes_iso3),
+        "valid_iso3_without_world_bank_economy",
+        "unresolved_country_token",
+    )
+    return result.sort_values(
+        ["UT", "normalized_token"], kind="stable"
+    ).reset_index(drop=True)
+
+
 def link_publications_to_world_bank(
     records_df: pd.DataFrame,
     world_bank_lookup_df: pd.DataFrame,
@@ -102,7 +167,7 @@ def link_publications_to_world_bank(
     work = work.explode("country_code", ignore_index=True).dropna(
         subset=["country_code"]
     )
-    work["country_code"] = work["country_code"].astype("string").str.strip()
+    work["country_code"] = work["country_code"].map(_normalise_country_token)
     work = work.loc[work["country_code"].ne("")].drop_duplicates(
         ["UT", "country_code"]
     )
@@ -666,9 +731,8 @@ def prepare_historical_income_evidence(
     corpus["publication_year"] = pd.to_numeric(
         corpus["publication_year"], errors="coerce"
     ).astype("Int64")
-    negative = corpus.loc[corpus["s2_dir"].eq(direction)].copy()
-    observational = negative.loc[
-        negative["pred_study_design"].eq(sensitivity_study_design)
+    negative_before_country_validation = corpus.loc[
+        corpus["s2_dir"].eq(direction)
     ].copy()
 
     with Path(mapping_path).open(encoding="utf-8") as handle:
@@ -694,6 +758,27 @@ def prepare_historical_income_evidence(
         .copy()
     )
     assert world_bank_lookup["country_code"].is_unique
+
+    valid_ipbes_iso3 = set(
+        mapping_records.loc[
+            mapping_records["ipbes_iso3"]
+            .astype("string")
+            .str.fullmatch(r"[A-Za-z]{3}", na=False),
+            "ipbes_iso3",
+        ].str.upper()
+    )
+    country_exclusions = country_complete_case_exclusions(
+        negative_before_country_validation,
+        world_bank_lookup,
+        valid_ipbes_iso3,
+    )
+    excluded_ids = set(country_exclusions["UT"])
+    negative = negative_before_country_validation.loc[
+        ~negative_before_country_validation["UT"].isin(excluded_ids)
+    ].copy()
+    observational = negative.loc[
+        negative["pred_study_design"].eq(sensitivity_study_design)
+    ].copy()
 
     historical = pd.read_parquet(
         historical_path,
@@ -737,6 +822,10 @@ def prepare_historical_income_evidence(
     audit = pd.DataFrame(
         {
             "metric": [
+                "Negative publications before country complete-case exclusion",
+                "Country-complete-case excluded publications",
+                "Excluded publications: unresolved country token",
+                "Excluded publications: valid ISO3 without World Bank economy",
                 "Negative publications (all study designs)",
                 f"Negative {sensitivity_study_design.lower()} publications",
                 "All-design World Bank-linked publication–country assignments",
@@ -747,6 +836,20 @@ def prepare_historical_income_evidence(
                 "Assignments reclassified vs current group",
             ],
             "value": [
+                len(negative_before_country_validation),
+                len(excluded_ids),
+                country_exclusions.loc[
+                    country_exclusions["exclusion_reason"].eq(
+                        "unresolved_country_token"
+                    ),
+                    "UT",
+                ].nunique(),
+                country_exclusions.loc[
+                    country_exclusions["exclusion_reason"].eq(
+                        "valid_iso3_without_world_bank_economy"
+                    ),
+                    "UT",
+                ].nunique(),
                 len(negative),
                 len(observational),
                 len(world_bank_linked),
@@ -772,6 +875,7 @@ def prepare_historical_income_evidence(
         audit,
         transitions,
         missing_by_year,
+        country_exclusions,
         float(reclassified.sum() / comparable.sum()),
     )
 
@@ -1053,6 +1157,10 @@ def export_manuscript_tables(
     written = [assignments_path, attributions_path]
     table_exports = [
         (preparation.audit, "historical_income_classification_audit.csv"),
+        (
+            preparation.country_exclusions,
+            "country_complete_case_exclusions.csv",
+        ),
         (
             composition.group_counts.reset_index(),
             "income_group_article_counts.csv",

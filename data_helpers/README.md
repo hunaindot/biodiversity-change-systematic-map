@@ -98,6 +98,8 @@ data_helpers/
 | File | Role |
 | --- | --- |
 | `geography.py` | Maps predicted geography labels onto the IPBES reference: per-polygon counts (`geo_counts`), the Empirical-Bayes Location Quotient (`location_quotient`), and reference loading (`load_crosswalk`, `load_polygons`). Special label values are skipped but always reported in an audit. F1 uses the counts and polygons for study-volume choropleths; F4 reaches the location quotient through `analysis/taxa/geography.py`; the archived `threats_supplementary.ipynb` uses both. |
+| `attention.py` | Builds Result 05's complete IPBES hierarchy, unique publication–country assignments, publication-fractional attention composition, low/zero/no-key states, and geography-resolution audits. |
+| `attention_plotting.py` | Draws Result 05's simplified equal-slot region → country wheel and log-scaled attention bars, including the large all-place reference version. Regions and positive-attention countries read clockwise from 12 o'clock in descending fractional-attention order; zero and no-key leaves finish each region block. |
 
 ### `tests/`
 
@@ -112,8 +114,8 @@ notebook body is stable — for example
 Every results notebook also imports `results_config` and `visualization`; only the
 analysis-specific modules are listed here.
 
-These are the six live notebooks under `notebooks/results/`; all six were re-executed
-clean on 2026-08-01 after the helper cleanup.
+These are the seven live analysis notebooks under `notebooks/results/` (excluding the
+archived supplementary notebook).
 
 | Notebook | Modules |
 | --- | --- |
@@ -123,6 +125,7 @@ clean on 2026-08-01 after the helper cleanup.
 | `03_realm_composition.ipynb` | `analysis.realm.driver`, `analysis.realm.driver_plotting`, `analysis.realm.claims`, `prep.evidence_corpus_prep` |
 | `03_unchecked_realm_composition.ipynb` | `analysis.realm.driver`, `analysis.realm.driver_plotting`, `analysis.realm.threat`, `analysis.realm.threat_plotting`, `prep.evidence_corpus_prep` |
 | `04_taxonomic_lens.ipynb` | `prep.taxa_analysis_prep`, `analysis.geo.geography`, `analysis.taxa.geography`, `analysis.taxa.skew`, `analysis.taxa.skew_plotting`, `analysis.taxa.driver_conditional`, `analysis.taxa.driver_conditional_plotting`, `analysis.taxa.claims` |
+| `05_geography_attention.ipynb` | `prep.evidence_corpus_prep`, `analysis.geo.attention`, `analysis.geo.attention_plotting` |
 
 Archived notebooks and the modules they still need are documented in
 `notebooks/results/archive/README.md` and

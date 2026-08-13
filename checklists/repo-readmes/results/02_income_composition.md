@@ -11,8 +11,8 @@ aquaculture and to biological resource use. Higher-income-country evidence assig
 larger shares to pollution, invasive and problematic species, and climate change. All
 five contrasts persist after jointly standardizing the higher- and lower-income tiers to
 a common regional and temporal composition. Pollution attenuates after region-only
-standardization (+0.68 percentage points) but remains positive after joint
-region-and-period standardization (+2.83 points; 95% bootstrap interval +1.70 to +3.88).
+standardization (+0.63 percentage points) but remains positive after joint
+region-and-period standardization (+2.79 points; 95% bootstrap interval +1.63 to +3.87).
 
 ## Live sources
 
@@ -34,6 +34,7 @@ region-and-period standardization (+2.83 points; 95% bootstrap interval +1.70 to
 All three panels retain publications that:
 
 - report a negative biodiversity impact;
+- contain no unresolved or income-ineligible non-special country token after normalization;
 - identify at least one study country that maps to a World Bank economy;
 - can be assigned one of the four standard World Bank income groups in the publication
   year; and
@@ -41,27 +42,28 @@ All three panels retain publications that:
 
 There is no primary study-design restriction. The observational subset is retained only
 as a sensitivity comparison. Across all available publication years, the
-negative-direction evidence contains 253,081 publications; World Bank linkage produces
-171,595 publication–country assignments from 151,541 unique publications. The complete
-2000–2025 historical-income window used by every panel contains 166,282 assignments from
-146,892 unique publications across 213 countries. The largest country count is 25,689
+negative-direction evidence contains 253,081 publications. Country validation excludes
+1,823 publications in full; World Bank linkage of the remaining records produces 170,426
+publication–country assignments from 151,270 unique publications. The complete 2000–2025
+historical-income window used by every panel contains 165,175 assignments from 146,631
+unique publications across 213 countries. The largest country count is 25,667
 for the United States.
 
 Income is matched to the official classification in force in the publication year, not
 to the current classification. This reclassifies 10.6% of comparable in-window
-publication–country assignments; the audit records 17,709 reclassified assignments.
+publication–country assignments; the audit records 17,505 reclassified assignments.
 
 The income-group coverage used in the manuscript figure is:
 
 | Historical income group | Unique publications | Represented countries |
 | --- | ---: | ---: |
-| Low income | 6,986 | 70 |
-| Lower middle income | 23,659 | 101 |
-| Upper middle income | 48,284 | 90 |
-| High income | 73,385 | 85 |
+| Low income | 6,956 | 70 |
+| Lower middle income | 23,549 | 101 |
+| Upper middle income | 48,122 | 89 |
+| High income | 73,235 | 85 |
 
 Publications that study countries in more than one income group contribute to each
-relevant group, so these group counts sum above the 146,892-publication denominator.
+relevant group, so these group counts sum above the 146,631-publication denominator.
 Multiple countries in the same income group do not multiply a publication's contribution
 to that group.
 
@@ -89,28 +91,28 @@ causal estimates.
 
 | Threat category | Low-income share | High-income share | Difference | 95% bootstrap interval |
 | --- | ---: | ---: | ---: | ---: |
-| Agriculture & aquaculture | 24.23% | 8.55% | −15.68 points | −16.61 to −14.79 |
-| Biological resource use | 18.78% | 8.62% | −10.16 points | −10.95 to −9.29 |
-| Pollution | 14.55% | 24.31% | +9.75 points | +8.95 to +10.53 |
-| Invasive & problematic species | 8.63% | 17.07% | +8.45 points | +7.80 to +9.08 |
-| Climate change & severe weather | 11.40% | 17.33% | +5.93 points | +5.18 to +6.63 |
-| Natural system modifications | 6.73% | 9.97% | +3.24 points | +2.73 to +3.75 |
+| Agriculture & aquaculture | 24.31% | 8.55% | −15.76 points | −16.58 to −14.84 |
+| Biological resource use | 18.66% | 8.59% | −10.07 points | −10.94 to −9.24 |
+| Pollution | 14.61% | 24.34% | +9.73 points | +8.95 to +10.53 |
+| Invasive & problematic species | 8.58% | 17.05% | +8.47 points | +7.76 to +9.14 |
+| Climate change & severe weather | 11.34% | 17.31% | +5.97 points | +5.29 to +6.67 |
+| Natural system modifications | 6.75% | 9.99% | +3.24 points | +2.73 to +3.70 |
 
 ### Higher-income minus lower-income standardized tiers
 
 | Threat category | Raw | Region-standardized | Region-and-period standardized | 95% interval for joint standardization |
 | --- | ---: | ---: | ---: | ---: |
-| Invasive & problematic species | +5.76 | +4.74 | +5.01 | +4.34 to +5.64 |
-| Pollution | +1.88 | +0.68 | +2.83 | +1.70 to +3.88 |
-| Climate change & severe weather | +3.06 | +4.38 | +2.24 | +1.07 to +3.26 |
-| Natural system modifications | +2.44 | −0.04 | +0.30 | −0.35 to +0.86 |
-| Biological resource use | −5.70 | −4.77 | −4.24 | −4.97 to −3.53 |
-| Agriculture & aquaculture | −6.40 | −6.70 | −7.56 | −8.38 to −6.67 |
+| Invasive & problematic species | +5.78 | +4.79 | +5.06 | +4.40 to +5.72 |
+| Pollution | +1.86 | +0.63 | +2.79 | +1.63 to +3.87 |
+| Climate change & severe weather | +3.10 | +4.44 | +2.30 | +1.02 to +3.40 |
+| Natural system modifications | +2.44 | −0.02 | +0.32 | −0.32 to +0.93 |
+| Biological resource use | −5.68 | −4.78 | −4.26 | −4.98 to −3.53 |
+| Agriculture & aquaculture | −6.43 | −6.78 | −7.65 | −8.47 to −6.83 |
 
 Pooling the middle-income groups attenuates the tier contrasts relative to the extreme
 high-versus-low comparison. Agriculture, biological resource use, invasive species,
 climate change, and pollution retain joint-standardized intervals excluding zero.
-Natural system modifications attenuates to +0.30 points, with an interval spanning zero.
+Natural system modifications attenuates to +0.32 points, with an interval spanning zero.
 
 ## Robustness
 
@@ -124,12 +126,12 @@ The notebook recalculates the extreme-group contrast under five alternatives:
 
 All ten categories displayed in panel c preserve their direction across the alternatives.
 Spearman rank correlations across all 12 categories range from 0.993 to 1.000, and the
-largest individual change is 5.01 percentage points under current income classification.
+largest individual change is 5.00 percentage points under current income classification.
 
 ## Figures and outputs
 
 The manuscript figure is `figures/income_composition.pdf`. All panels use the same
-146,892 country-resolved biodiversity-loss publications from all study designs across
+146,631 country-resolved biodiversity-loss publications from all study designs across
 213 countries. Countries are coloured with fixed 1--3--10 count classes from 1 through
 30,000 using a nine-step yellow-green-to-blue biodiversity ramp; grey denotes zero
 publications in this shared subset. Panel b shows composition across the
@@ -150,6 +152,7 @@ synchronized with the live result output before compiling the paper.
 Reported files are:
 
 - `csv/historical_income_classification_audit.csv`;
+- `csv/country_complete_case_exclusions.csv`;
 - `csv/country_article_counts.csv`;
 - `csv/income_group_article_counts.csv`;
 - `csv/income_group_threat_composition.csv`;
@@ -175,9 +178,9 @@ define an additional finding.
 
 ## Refresh checklist
 
-Verify the shared 146,892-publication denominator, 213-country coverage, 166,282 unique
-publication–country assignments, maximum country count of 25,689, and 10.6% reclassified
+Verify the shared 146,631-publication denominator, 213-country coverage, 165,175 unique
+publication–country assignments, maximum country count of 25,667, and 10.6% reclassified
 share against the notebook assertions and exported audit tables. Recalculate all
 displayed contrasts from the two exported contrast tables, including pollution's
-region-only point estimate (+0.68; no interval calculated) and joint estimate (+2.83;
-95% bootstrap interval +1.70 to +3.88).
+region-only point estimate (+0.63; no interval calculated) and joint estimate (+2.79;
+95% bootstrap interval +1.63 to +3.87).

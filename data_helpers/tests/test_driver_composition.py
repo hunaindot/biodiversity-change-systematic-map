@@ -286,6 +286,7 @@ def _minimal_export_inputs():
         audit=pd.DataFrame({"metric": ["example"], "value": [1]}),
         transitions=pd.DataFrame(),
         missing_by_year=pd.DataFrame(),
+        country_exclusions=pd.DataFrame(),
         reclassified_share=0.0,
     )
     composition = dc.CompositionAnalysis(
@@ -341,6 +342,95 @@ def test_export_manuscript_tables_writes_country_article_counts(
     country_path = tmp_path / "tables" / "country_article_counts.csv"
     assert country_path in written
     pd.testing.assert_frame_equal(pd.read_csv(country_path), country_counts)
+
+
+def test_country_complete_case_exclusion_drops_all_mixed_assignments(
+    tmp_path,
+) -> None:
+    mapping_path = tmp_path / "mapping.json"
+    mapping_path.write_text(
+        json.dumps(
+            {
+                "records": [
+                    {
+                        "ipbes_iso3": "AAA",
+                        "wb_entity_code": "WBA",
+                        "wb_entity_name": "Alpha",
+                        "wb_region": "Test region",
+                        "income_group": "Low income",
+                        "has_world_bank_economy": True,
+                    },
+                    {
+                        "ipbes_iso3": "BBB",
+                        "wb_entity_code": None,
+                        "wb_entity_name": None,
+                        "wb_region": None,
+                        "income_group": None,
+                        "has_world_bank_economy": False,
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    historical_path = tmp_path / "historical.parquet"
+    pd.DataFrame(
+        [
+            {
+                "wb_entity_code": "WBA",
+                "classification_fy": 2001,
+                "income": "Low income",
+                "gni_reference_year": 2000,
+                "effective_from": "2000-07-01",
+                "effective_to": "2001-06-30",
+            }
+        ]
+    ).to_parquet(historical_path, index=False)
+    corpus = pd.DataFrame(
+        {
+            "UT": ["valid", "invalid-mixed", "ineligible-mixed"],
+            "publication_year": [2001, 2001, 2001],
+            "s2_dir": ["negative", "negative", "negative"],
+            "pred_study_design": ["Observational"] * 3,
+            "pred_countries": [
+                ["aaa"],
+                ["AAA", "XXX"],
+                ["AAA", "BBB"],
+            ],
+            "pred_threat_l0": [["T1"], ["T1"], ["T1"]],
+        }
+    )
+
+    preparation = dc.prepare_historical_income_evidence(
+        corpus,
+        mapping_path=mapping_path,
+        historical_path=historical_path,
+        income_groups=GROUPS,
+        direction="negative",
+        sensitivity_study_design="Observational",
+        start_year=2000,
+        end_year=2001,
+    )
+
+    assert preparation.primary[["UT", "country_code"]].values.tolist() == [
+        ["valid", "AAA"]
+    ]
+    assert preparation.country_exclusions[
+        ["UT", "normalized_token", "exclusion_reason"]
+    ].to_dict("records") == [
+        {
+            "UT": "ineligible-mixed",
+            "normalized_token": "BBB",
+            "exclusion_reason": "valid_iso3_without_world_bank_economy",
+        },
+        {
+            "UT": "invalid-mixed",
+            "normalized_token": "XXX",
+            "exclusion_reason": "unresolved_country_token",
+        },
+    ]
+    audit = preparation.audit.set_index("metric")["value"]
+    assert audit["Country-complete-case excluded publications"] == 2
 
 
 def _plotting_composition() -> tuple[

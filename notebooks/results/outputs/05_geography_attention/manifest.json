@@ -1,0 +1,77 @@
+{
+  "result": "05_geography_attention",
+  "status": "exploratory_supporting_analysis",
+  "analysis_parameters": {
+    "direction": "negative",
+    "start_year": 2000,
+    "end_year": 2025,
+    "low_evidence_threshold": 100,
+    "low_attention_threshold_pct": 0.1,
+    "highlight_attention_threshold_pct": 1.0,
+    "visual_levels": [
+      "region",
+      "country"
+    ],
+    "clockwise_start_angle": 90,
+    "region_ordering": "fractional_attention_descending",
+    "country_ordering": "positive_fractional_attention_descending_then_zero_then_no_key",
+    "displayed_region_order": [
+      "Asia and the Pacific",
+      "Americas",
+      "Europe and Central Asia",
+      "Africa",
+      "Antarctica"
+    ],
+    "attention_weighting": "1/k across each publication's resolved ISO3 codes",
+    "publication_base": "exact Result 02 historical-income-eligible publication set",
+    "country_complete_case_rule": "inherited from Result 02",
+    "attention_denominator": "Result 02's 146,631 income-classifiable publications",
+    "zero_evidence_display": "omitted from figure; retained in exported tables",
+    "no_iso3_display": "omitted from figure; retained in exported tables"
+  },
+  "inputs": {
+    "evidence_corpus_directory": "notebooks/data_processing/outputs/04_biodiversity_evidence_corpus_prep",
+    "evidence_corpus_manifest": "notebooks/data_processing/outputs/04_biodiversity_evidence_corpus_prep/manifest.json",
+    "evidence_corpus_manifest_sha256": "abdab9f88db0db0acafdd0794d07f268dd179b0baf6fb4b2b5d14f6dea666319",
+    "result02_classified_assignments": "notebooks/results/outputs/02_income_composition/data/historical_income_publication_country_assignments.parquet",
+    "result02_classified_assignments_sha256": "5a9b2139a3b70a8a184b6d294b3daa5c1cecaeac459bb1d727302831c429f48a",
+    "ipbes_mapping": "checklists/mappings/ipbes_regions.json",
+    "ipbes_mapping_sha256": "8bb23260ba0c5c72d9c96a0eed970aba02a400b7d8fe314991e341589fdaf7c5"
+  },
+  "reconciliation": {
+    "window_publications_before_country_validation": 146631,
+    "complete_case_excluded_publications": 0,
+    "analysis_publications": 146631,
+    "mapped_country_publications": 146631,
+    "no_mapped_country_publications": 0,
+    "mapped_publication_country_assignments": 165216,
+    "mapping_leaves": 257,
+    "mapping_valid_iso3_leaves": 249,
+    "mapping_unresolvable_key_leaves": 8,
+    "observed_country_leaves": 213,
+    "supported_country_leaves": 125,
+    "observed_below_threshold_country_leaves": 88,
+    "zero_captured_country_leaves": 36,
+    "below_threshold_valid_iso3_leaves": 124,
+    "excluded_publications_with_mapped_country_before_exclusion": 0
+  },
+  "grain": {
+    "assignments": "one unique publication (UT) \u00d7 resolved ISO3",
+    "countries": "one row per complete IPBES mapping leaf",
+    "hierarchy": "root + region + subregion + mapping leaf"
+  },
+  "artifacts": [
+    "data/publication_country_assignments.parquet",
+    "csv/country_attention.csv",
+    "csv/hierarchy_attention.csv",
+    "csv/geography_coverage.csv",
+    "csv/geography_coverage_reasons.csv",
+    "csv/geography_status_by_region.csv",
+    "csv/geography_gap_inventory.csv",
+    "csv/geography_attention_audit.csv",
+    "csv/unresolved_country_tokens.csv",
+    "csv/excluded_unresolved_publications.csv",
+    "figures/geography_attention_hierarchy_reference.pdf",
+    "manifest.json"
+  ]
+}

@@ -10,6 +10,16 @@ one live results notebook and one matching document here.
 | 3. Realm composition | `notebooks/results/03_realm_composition.ipynb` | `l1_driver_composition_core_realms.pdf` | `03_realm_composition.md` |
 | 4. Taxonomic lens | `notebooks/results/04_taxonomic_lens.ipynb` | `04_taxonomic_and_geographic_gap.pdf` | `04_taxonomic_lens.md` |
 
+## Supporting analysis
+
+| Analysis | Results notebook | Primary figure | Documentation |
+| --- | --- | --- | --- |
+| Complete IPBES geography attention and coverage | `notebooks/results/05_geography_attention.ipynb` | `geography_attention_hierarchy_reference.pdf` | `05_geography_attention.md` |
+
+Result 05 is a live exploratory diagnostic, not a fifth manuscript finding. It is kept
+separate because it extends the geographic evidence-volume analysis to every IPBES
+mapping leaf, including low, zero-captured, and currently unresolvable places.
+
 `notebooks/results/00_screening.ipynb` supplies the screening audit used to introduce
 Finding 1. It is not a fifth substantive finding. Similarly,
 `03_unchecked_realm_composition.ipynb` and `threats_supplementary.ipynb` contain useful
