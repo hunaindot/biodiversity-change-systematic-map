@@ -1,0 +1,49 @@
+{
+  "result": "06_research_capacity_and_hotspots",
+  "status": "descriptive_exploratory_supporting_analysis",
+  "analysis_parameters": {
+    "country_universe": "213 observed valid-ISO3 countries exported by Result 05",
+    "research_attention_measure": "publication-fractional attention share percent",
+    "analysis_scope": "descriptive summaries and visualization only",
+    "income_group_role": "qualitative descriptive context only",
+    "graded_hotspot_count_used": false,
+    "primary_figure": "pooled two-group box plot on logarithmic display scale",
+    "income_context_figure": "2x2 box-plot facets by current World Bank income group",
+    "world_bank_classification_fy": 2027,
+    "hotspot_source_count": 36,
+    "territory_rule_reunion": "fold into France",
+    "territory_rule_new_caledonia": "retain as separate observed attention unit"
+  },
+  "inputs": {
+    "result05_country_attention": "notebooks/results/outputs/05_geography_attention/csv/country_attention.csv",
+    "result05_country_attention_sha256": "54b814c710ea4352e607c83e75a5912fc9d2f2378ec6cb21ac881714045fa6d3",
+    "world_bank_country_crosswalk": "data/world-bank/snapshots/wdi-2026-06-30/curated/ipbes_world_bank_crosswalk.parquet",
+    "world_bank_country_crosswalk_sha256": "32e3d6080bb83cd303b462771bbc3b6dfb48b5f31201640ad3857a84bca94992",
+    "world_bank_current_classification": "data/world-bank/snapshots/wdi-2026-06-30/curated/classifications_current.parquet",
+    "world_bank_current_classification_sha256": "b9b22007f78c3778402356aa1f3beb16b52bd51744ed185860ca9703688ea767",
+    "biodiversity_hotspot_mapping": "checklists/mappings/biodiversity_hotspots.json",
+    "biodiversity_hotspot_mapping_sha256": "ccc1db87869afac26ab084fff46e07ec11ae6cf4c781447c89a62964a4897fa9"
+  },
+  "reconciliation": {
+    "source_hotspots": 36,
+    "source_country_names": 136,
+    "manual_name_rules": 21,
+    "post_mapping_unmatched_source_names": 0,
+    "represented_hotspot_countries_after_territory_rule": 135,
+    "non_hotspot_attention_countries": 78,
+    "countries_linked_to_world_bank": 213
+  },
+  "artifacts": [
+    "csv/country_hotspot_categorical_and_graded.csv",
+    "csv/country_world_bank_linkage.csv",
+    "csv/country_research_attention_hotspot_analysis.csv",
+    "csv/country_name_match_audit.csv",
+    "csv/country_name_reconciliation_summary.csv",
+    "csv/hotspot_attention_descriptive_summary.csv",
+    "csv/hotspot_attention_descriptive_by_income_group.csv",
+    "csv/discussion_summary.csv",
+    "figures/hotspot_attention_boxplot.pdf",
+    "figures/hotspot_attention_boxplot_by_income_group.pdf",
+    "manifest.json"
+  ]
+}

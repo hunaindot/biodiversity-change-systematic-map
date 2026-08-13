@@ -455,6 +455,26 @@
       "Antarctica": "#CC79A7"
     }
   },
+  "research_capacity_hotspots": {
+    "description": "Result 06 - descriptive country-level comparison of publication-fractional research attention between biodiversity-hotspot and non-hotspot countries, with current World Bank income groups used only for qualitative contextual comparison.",
+    "output_directory": "notebooks/results/outputs/06_research_capacity_and_hotspots",
+    "table_subdirectory": "csv",
+    "figure_subdirectory": "figures",
+    "hotspot_mapping": "checklists/mappings/biodiversity_hotspots.json",
+    "world_bank_crosswalk_file": "ipbes_world_bank_crosswalk.parquet",
+    "world_bank_current_classification_file": "classifications_current.parquet",
+    "hotspot_exposure_file": "country_hotspot_categorical_and_graded.csv",
+    "world_bank_linkage_file": "country_world_bank_linkage.csv",
+    "analysis_file": "country_research_attention_hotspot_analysis.csv",
+    "name_match_audit_file": "country_name_match_audit.csv",
+    "name_reconciliation_summary_file": "country_name_reconciliation_summary.csv",
+    "descriptive_summary_file": "hotspot_attention_descriptive_summary.csv",
+    "income_descriptive_summary_file": "hotspot_attention_descriptive_by_income_group.csv",
+    "discussion_file": "discussion_summary.csv",
+    "boxplot_figure_filename": "hotspot_attention_boxplot",
+    "income_boxplot_figure_filename": "hotspot_attention_boxplot_by_income_group",
+    "manifest_filename": "manifest.json"
+  },
   "temporal_development": {
     "description": "Shared parameters, figure annotations, and manuscript claims for 01_evidence_growth (manuscript Result 1) and its unchecked companion.",
     "output_directory": "notebooks/results/outputs/01_evidence_growth",
