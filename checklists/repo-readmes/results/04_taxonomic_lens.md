@@ -79,6 +79,130 @@ attention falls 45.27 points below it. The bootstrap interval is 34.59–35.05% 
 vertebrate attention share and 19.53–19.90% for the invertebrate share. These narrow
 intervals do not capture incompleteness or taxonomic uncertainty in the backbone.
 
+## Exploratory fixed-rank hierarchy
+
+The notebook also builds one supplementary Kingdom → Phylum → Class → Order sunburst
+without changing the broad-group finding. It reuses the accepted per-item GBIF lineages,
+removes duplicate paths within a publication, and independently gives each article total
+weight one at every rank it resolves to. It never pushes an upper-rank-only record into a
+lower rank. The benchmark independently counts accepted species-rank records with a
+complete path through the same rank.
+
+The fixed research matches use a newer GBIF API classification than the 28-Aug-2023
+benchmark. Bacterial and archaeal domains and viral realms can be mapped unambiguously
+to the snapshot's `Bacteria`, `Archaea`, and `Viruses` kingdom containers; no lower-rank
+rename is guessed. Rank-alignment diagnostics retain exact paths present on both sides
+and report the removed evidence. The wheel uses that exact-path layer for its research
+geometry and display selection, but its described-species percentages use the complete
+benchmarkable GBIF base independently.
+
+| Terminal rank | Research publications resolved | Share of 171,791 anchor | Research / GBIF paths | Exact shared paths | Pre-alignment research attention retained |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Kingdom | 171,791 | 100.0% | 8 / 9 | 8 | 100.0% |
+| Phylum | 161,668 | 94.1% | 110 / 271 | 95 | 93.7% |
+| Class | 158,500 | 92.3% | 310 / 705 | 223 | 75.9% |
+| Order | 149,709 | 87.1% | 1,026 / 2,543 | 723 | 72.5% |
+
+### Denominator reference: headline figure versus hierarchy wheel
+
+The two figures use different, explicitly defined comparison bases. These are not two
+estimates of the same species total:
+
+| Figure or processing stage | Research denominator | GBIF described-species denominator | Meaning |
+| --- | ---: | ---: | --- |
+| Headline broad-group figure | 171,791 publications | 2,590,832 species | Complete benchmarkable broad-group base |
+| Complete through Order, before exact alignment | 149,709 Order-resolved publications | 2,403,786 species | Records with a complete Kingdom → Phylum → Class → Order path on their respective side |
+| Exact Order-alignment selection layer | 113,342 publications | 2,184,949 species | Diagnostic common-path base used to select and place the research hierarchy |
+| Retained hierarchy wheel | 113,342 publications | 2,590,832 species | Exact-path research geometry paired with the independent complete benchmarkable GBIF base |
+
+The headline figure starts from 2,598,208 accepted GBIF species-rank records. It removes
+7,376 records that satisfy no broad-group rule, leaving **2,590,832** benchmarkable
+species. Its described-species percentages are therefore independent of which detailed
+taxa occur in the research corpus. Its research percentages independently use the full
+**171,791-publication** taxonomic anchor; each publication contributes total weight one
+across its benchmarkable broad groups.
+
+The hierarchy wheel uses exact Order paths only to define its research geometry. The
+species-side denominator is not narrowed to taxa observed in the corpus: every legend
+species percentage is calculated over the same **2,590,832** benchmarkable accepted
+GBIF records used by the headline figure.
+
+The GBIF denominator narrows in two steps:
+
+1. Of the 2,590,832 benchmarkable species, **187,046** lack a complete canonical path
+   through Order in the fixed snapshot: 5,239 first lack Phylum, 102,818 first lack
+   Class, and 78,989 reach Class but lack Order. This leaves **2,403,786** species with
+   complete Order paths.
+2. A further **218,837** species occur on 1,820 complete GBIF Order paths that are not
+   exact members of the research-side path set. This leaves **2,184,949** species on the
+   723 exact shared paths used by the research selection layer. Among the unmatched paths, 124 paths
+   containing 29,799 species reuse an Order name under a different higher lineage,
+   providing a strong cross-version/reclassification signal. For the remaining paths,
+   absence can reflect no corpus observation, publications resolved only to a higher
+   rank, a renamed taxon, or another cross-version difference; these causes cannot be
+   separated safely without a formal taxonomy crosswalk.
+
+The research denominator narrows independently. Of the 171,791 anchor publications,
+149,709 resolve through Order and 113,342 have at least one of the 723 exact shared
+Order paths. After filtering, each retained publication is rebalanced across only its
+retained paths and again contributes total weight one. Research-attention percentages
+in the wheel therefore use **113,342 publications**. Described-species percentages use
+the independent **2,590,832-species** benchmark. These are deliberately different
+denominators for different quantities; each is internally global and consistent.
+
+The display reconciliation is local and exhaustive. Each named taxon receives the full
+fixed-snapshot GBIF count at its exact path. Under an expanded parent, `Remaining` is
+then calculated as the parent's full count minus all individually displayed child
+counts. It therefore combines real but unshown child taxa and accepted species lacking
+the next rank. `Remaining` and `Other` are presentation labels, not replacement taxa in
+the source data. The export
+`csv/04_rank_hierarchy_gbif_display_assignments.csv` retains every complete real child
+taxon and its displayed destination, while
+`csv/04_rank_hierarchy_full_gbif_counts.csv` retains the unaggregated rank counts.
+
+GBIF-only or cross-version taxa do not receive named zero-research wedges. They enter the
+relevant `Remaining` complement at the highest reliable displayed parent. This avoids
+interpreting taxonomy-version absence as zero research attention. Three zero-angle
+`Remaining` containers were added where the older research-selected layout had no
+residual node: classes under Annelida and Nematoda, and orders under Pinopsida. The audit
+also flags two complete GBIF Classes that exceed the original within-parent display
+threshold but remain aggregated because they are not compatible named research paths:
+Squamata under Chordata and Prasinophyceae under Chlorophyta. Their actual names and
+counts remain in the assignment export.
+
+Consequently, the wheel's research percentages remain a supplementary description of
+the exact Order-aligned publication subset and must not be read as refinements of the
+headline broad-group research percentages. Its described-species percentages, however,
+now share the headline figure's complete benchmarkable GBIF base.
+
+The reproducible summaries are
+`csv/04_rank_hierarchy_resolution_audit.csv`,
+`csv/04_rank_hierarchy_alignment_audit.csv`, and
+`csv/04_rank_hierarchy_order_comparison.csv`.
+
+The nine kingdom-level GBIF containers are Animalia, Archaea, Bacteria, Chromista,
+Fungi, Plantae, Protozoa, Viruses, and `incertae sedis`. They are not 17 competing
+biological kingdoms; `incertae sedis` is a placement state, and the API can expose
+domains, kingdoms, and viral realms together if rank is ignored.
+
+The retained wheel uses 113,342 publications on the 723 exact shared Order paths for
+research geometry and all 2,590,832 benchmarkable accepted GBIF species for the legend's
+described shares. Research attention alone controls angular span. The four-column
+hierarchy below the wheel reports paired global percentages through Class; Order names
+remain in the outer ring and their complete paired values remain in the exported tables. Every expanded parent
+reconciles with its displayed children independently on both measures. The existing
+named-node selection is frozen from the aligned research/GBIF screening layer to
+preserve the reviewed geometry; the full-GBIF rebase changes counts and local
+`Remaining` complements, not named biological wedges. Below-threshold or unavailable
+detail is labelled `Remaining`, coloured within its parent palette, and terminal.
+Terminal branches continue through unused rings as unlabelled tints without inventing
+descendants. Only the combined top-level `Other kingdoms` branch remains neutral grey.
+
+The sunburst remains supplementary because exact Order alignment excludes a material
+part of the anchor. The complete-base comparison remains
+`04_taxonomic_and_geographic_gap.pdf`; promoting the wheel would require re-matching the
+research corpus and rebuilding the benchmark from the same GBIF release.
+
 ## Taxonomic trajectory
 
 The number of anchor publications per year rises from 1,940 in 2000 to 13,734 in 2025,
@@ -155,6 +279,73 @@ The finding has one combined vector figure:
 The manuscript copies it to
 `checklists/overleaf/main/attachments/taxonomic_and_geographic_gap.pdf`.
 
+One additional vector figure is exploratory and is not a manuscript asset:
+
+- `figures/04_rank_hierarchy_research_attention_sunburst_exploratory.pdf` — the
+  Kingdom → Phylum → Class → Order wheel.
+  Angular span is research attention only; a four-column hierarchy through Class below
+  the enlarged wheel reports `(research attention, described species)`. Orders remain
+  encoded and selectively labelled in the outer ring but are not repeated below. Each measure has one global denominator
+  at every rank—113,342 publications for research and 2,590,832 accepted species for
+  described diversity—so each displayed set of children sums to its parent. Eleven roomy wedges also
+  carry an in-wheel name and representative PhyloPic silhouette as orientation aids;
+  these annotations do not encode another measure.
+
+The PDF is authored at Nature's maximum recommended double-column display size,
+180 × 170 mm, rather
+than being reduced from an oversized landscape canvas. All final-size lettering is
+5.0–6.4 pt. The wheel occupies the upper band; the lower hierarchy keeps each Phylum
+subtree intact while distributing Animalia first and Plantae thereafter across four
+aligned columns. Kingdom, Phylum, and Class use fixed, equally spaced indentation tabs
+in every column. This avoids both the approximately 3-pt effective lettering produced
+by the former LaTeX reduction and collisions between long `Remaining` labels and their
+percentage pairs. Omitting duplicate Order rows from this lower hierarchy releases
+enough page area for a substantially larger wheel without changing its data or geometry.
+
+The hierarchy resolution, cross-snapshot alignment, and GBIF-source audits are retained
+as standalone CSVs because they document the sunburst's comparison boundary.
+`csv/04_rank_hierarchy_sunburst_manifest.json` points to the 723-path exact Order
+selection input, the complete fixed-snapshot GBIF rank counts, the real-taxon-to-display
+assignment table, the plotted-node/colour table, and the reconciliation audit. The
+reviewed named-node geometry is unchanged. Rebasing adds only three zero-angle
+`Remaining` containers, giving 96 exported nodes: 4 Kingdoms, 11 Phyla, 38 Classes, and
+43 Orders. Fungi remains a named terminal Kingdom because its lower-rank segments are
+too small for this view. `Other` and `Remaining` are terminal at every rank.
+The four rank rings use unequal radial widths: Kingdom 0.30, Phylum 0.34,
+Class 0.46, and Order 0.72 plotting units. The wider outer rings reserve more radial
+space for readable Class and Order labels while retaining the reviewed wheel diameter.
+Rank colour separation is likewise explicit rather than relying on small incremental
+lightening. Kingdom retains its dark saturated base hue. Descendants use fixed HLS
+targets while preserving Kingdom-family hue and small sibling hue offsets: Phylum
+lightness/saturation 0.58/0.64, Class 0.70/0.52, and Order 0.83/0.40. Thus every outward
+step is both lighter and less saturated, making Kingdom–Phylum and Class–Order boundaries
+legible even before reading separators. Descendant `Remaining` segments use their
+parent Kingdom colour family; only `Other kingdoms` is neutral grey.
+The Order-label pass now uses that space directly. Named, non-grey Order segments are
+tested using each full taxonomic name laid along the radius; the word is drawn only if
+its rendered box, including padding, remains inside the annular wedge. No abbreviation
+is invented and there is no angular preselection beyond the fit itself. The current
+Nature-sized render retains 26 full radial Order names. Poales keeps its existing curved icon/name treatment
+and is excluded from the radial pass; `Other` and `Remaining orders` stay unlabelled in
+the wheel. All retained Order names remain upright on both halves of the circle.
+Ten Order landmarks have configured representative silhouettes. Each complete
+icon–gap–name unit must pass the same padded wedge-boundary test; a failed icon candidate
+falls back to its centered text-only name rather than losing the label. At the final
+180-mm artwork size eight icon–name pairs fit: Rodentia, Primates, Artiodactyla,
+Carnivora, Anura, Decapoda, Fabales, and Pinales. The other configured candidates retain their names
+without silhouettes. The broader curved labels retain their silhouettes where they
+fit. Assets are public-domain PhyloPic silhouettes under CC0 1.0 or
+PDM 1.0, with exact source, creator, and license metadata in
+`checklists/mappings/taxa_broad_groups.json`.
+In-wheel annotations require at least 18° of angular span and must pass rendered
+per-glyph and icon fit tests inside the wedge. Each word follows its circular arc;
+the complete icon–gap–word unit is centered on the wedge's angular and radial midpoint.
+The icon uses a depth-aware gap before the first letter, and broader inner ranks use
+slightly larger type and silhouettes. The current fit retains Animalia,
+Plantae, Chordata, Arthropoda, Tracheophyta, Mammalia, Aves, Insecta, Magnoliopsida,
+Liliopsida, and Poales. Smaller sectors remain unlabelled rather than being crowded.
+The manifest records both the retained taxa and their canonical clipart asset keys.
+
 The manifest identifies the reported tables:
 
 - `csv/04_denominators.csv`;
@@ -202,4 +393,6 @@ new analytical and manuscript decision.
 Start with `csv/04_manifest.json`. Verify the universe, anchor, taxonomic shares,
 resolution endpoints, and geographic coverage against it, then check every detailed
 value against the named CSV. Use 35.5%, not the retired 36.1% China endpoint, and confirm
-that only the combined 2×2 figure is present before updating manuscript-facing text.
+that the combined 2×2 figure remains the only manuscript-facing asset. The six
+fixed-rank hierarchy figures must remain explicitly exploratory unless both sides are
+rebuilt from one GBIF release.

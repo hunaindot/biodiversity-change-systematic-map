@@ -91,7 +91,7 @@ data_helpers/
 | `taxa/driver_conditional.py` | F4 | Eight-group driver-conditioned taxonomic-attention analysis, complete-pattern bootstrap, planned contrasts, and sensitivity estimators. |
 | `taxa/skew_plotting.py` | F4 | Connected-dot and representation-ratio figure for taxonomic attention versus described diversity. |
 | `taxa/driver_conditional_plotting.py` | F4 | Resolution audit, specialization heatmap, focal interval plot, and detail-group supplement. |
-| `taxa/clipart.py` | F4 | Caches the PhyloPic taxon silhouettes declared in `taxa_broad_groups.json` under `data/taxa-clipart/` and embeds them into axes, tinted to each group's own color. Assets are CC0 1.0; keep `CLIPART_CREDIT` on any published figure that uses them. |
+| `taxa/clipart.py` | F4 | Caches the PhyloPic taxon silhouettes declared in `taxa_broad_groups.json` under `data/taxa-clipart/` and embeds them into axes, tinted to each group's own color. Assets use public-domain CC0/PDM 1.0 terms; keep `CLIPART_CREDIT` on any published figure that uses them. |
 
 ### `analysis/geo/` — shared geographic analysis
 

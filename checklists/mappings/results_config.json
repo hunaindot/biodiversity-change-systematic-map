@@ -407,7 +407,69 @@
     "geography_min_support": 100,
     "geography_eb_kappa": 30,
     "threat_gap_group": "Vertebrates",
-    "threat_gap_source": "data/world-bank/snapshots/wdi-2026-06-30/curated/ipbes_wdi_latest.parquet"
+    "threat_gap_source": "data/world-bank/snapshots/wdi-2026-06-30/curated/ipbes_wdi_latest.parquet",
+    "hierarchy_exploration": {
+      "description": "Exploratory Kingdom-Phylum-Class-Order sunburst. Uses the curated extract of the fixed 2023-08-28 GBIF snapshot, records the raw archive metadata for provenance, and retains exact hierarchy paths common to the newer research-match classification and that fixed snapshot.",
+      "gbif_source": "data/gbif/curated/gbif_curated.csv",
+      "gbif_raw_archive_metadata": "data/gbif/raw-2/eml.xml",
+      "sunburst": {
+        "description": "Research-attention angular sunburst with independent denominators: research geometry uses the exact Order-aligned publication subset, while described-species percentages use the complete benchmarkable accepted-GBIF base used by the headline figure. Named taxa receive their full fixed-snapshot GBIF counts and Remaining is the exact local complement under each expanded parent. Remaining aggregates are terminal and continue through unused outer rings as unlabeled parent-coloured tints; the combined top-level Other kingdoms remains neutral. The Nature-sized display keeps Orders in the enlarged outer ring but limits the compact paired-percentage hierarchy below it to Kingdom, Phylum, and Class.",
+        "terminal_rank": "order",
+        "gbif_root_group_mapping": {
+          "Animalia": [
+            "Vertebrates",
+            "Invertebrates"
+          ],
+          "Plantae": [
+            "Plants"
+          ],
+          "Fungi": [
+            "Fungi"
+          ],
+          "Other kingdoms": [
+            "Other"
+          ]
+        },
+        "major_kingdoms": [
+          "Animalia",
+          "Plantae",
+          "Fungi"
+        ],
+        "terminal_kingdoms": [
+          "Fungi"
+        ],
+        "phylum_min_within_parent_pct": 2.0,
+        "class_min_within_parent_pct": 2.0,
+        "order_max_children": 6,
+        "order_max_other_within_parent_pct": 5.0,
+        "relaxed_order_expansion_min_class_research_share_pct": 5.0,
+        "order_named_min_global_share_pct": 1.0,
+        "legend_order_min_global_share_pct": 1.0,
+        "legend_show_orders": false,
+        "in_wheel_label_min_angle_deg": 18.0,
+        "class_label_min_angle_deg": 5.0,
+        "order_label_min_angle_deg": 0.0,
+        "extend_terminal_branches": true,
+        "inner_radius": 0.44,
+        "rank_ring_widths": {
+          "kingdom": 0.3,
+          "phylum": 0.34,
+          "class": 0.46,
+          "order": 0.72
+        },
+        "rank_color_lightness": {
+          "phylum": 0.58,
+          "class": 0.7,
+          "order": 0.83
+        },
+        "rank_color_saturation": {
+          "phylum": 0.64,
+          "class": 0.52,
+          "order": 0.4
+        },
+        "figure_filename": "rank_hierarchy_research_attention_sunburst_exploratory"
+      }
+    }
   },
   "geography_attention": {
     "description": "Result 05 - complete IPBES geography coverage and country-level research attention. The simplified region-country wheel groups displayed places by region, while publication-fractional attention is encoded radially and shares below 0.1% use pale region hues.",

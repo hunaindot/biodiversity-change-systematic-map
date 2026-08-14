@@ -346,6 +346,155 @@ def load_results_config(path: str | Path | None = None) -> dict[str, Any]:
         raise ValueError("Taxonomic-lens geography_min_support must be positive.")
     if lens["threat_gap_group"] not in lens["benchmark_groups"]:
         raise ValueError("Taxonomic-lens threat_gap_group is not a benchmark group.")
+    hierarchy = lens.get("hierarchy_exploration", {})
+    for key in [
+        "gbif_source",
+        "gbif_raw_archive_metadata",
+    ]:
+        if hierarchy.get(key) in (None, "", [], {}):
+            raise ValueError(f"Missing taxonomic hierarchy setting: {key}")
+    sunburst = hierarchy.get("sunburst", {})
+    for key in [
+        "terminal_rank",
+        "major_kingdoms",
+        "terminal_kingdoms",
+        "phylum_min_within_parent_pct",
+        "class_min_within_parent_pct",
+        "order_max_children",
+        "order_max_other_within_parent_pct",
+        "relaxed_order_expansion_min_class_research_share_pct",
+        "order_named_min_global_share_pct",
+        "legend_order_min_global_share_pct",
+        "legend_show_orders",
+        "in_wheel_label_min_angle_deg",
+        "class_label_min_angle_deg",
+        "order_label_min_angle_deg",
+        "extend_terminal_branches",
+        "inner_radius",
+        "rank_ring_widths",
+        "rank_color_lightness",
+        "rank_color_saturation",
+        "figure_filename",
+    ]:
+        if sunburst.get(key) in (None, "", [], {}):
+            raise ValueError(f"Missing taxonomic sunburst setting: {key}")
+    if sunburst["terminal_rank"] != "order":
+        raise ValueError("Taxonomic sunburst terminal_rank must be order.")
+    if len(sunburst["major_kingdoms"]) != len(set(sunburst["major_kingdoms"])):
+        raise ValueError("Taxonomic sunburst major_kingdoms must be unique.")
+    if len(sunburst["terminal_kingdoms"]) != len(
+        set(sunburst["terminal_kingdoms"])
+    ):
+        raise ValueError("Taxonomic sunburst terminal_kingdoms must be unique.")
+    if not set(sunburst["terminal_kingdoms"]).issubset(
+        sunburst["major_kingdoms"]
+    ):
+        raise ValueError(
+            "Taxonomic sunburst terminal_kingdoms must be major_kingdoms."
+        )
+    if min(
+        sunburst["phylum_min_within_parent_pct"],
+        sunburst["class_min_within_parent_pct"],
+        sunburst["order_max_other_within_parent_pct"],
+        sunburst["relaxed_order_expansion_min_class_research_share_pct"],
+        sunburst["order_named_min_global_share_pct"],
+        sunburst["legend_order_min_global_share_pct"],
+        sunburst["in_wheel_label_min_angle_deg"],
+        sunburst["class_label_min_angle_deg"],
+        sunburst["order_label_min_angle_deg"],
+    ) < 0:
+        raise ValueError("Taxonomic sunburst share thresholds cannot be negative.")
+    if sunburst["order_max_other_within_parent_pct"] >= 100:
+        raise ValueError("Taxonomic sunburst Other threshold must be below 100%.")
+    if sunburst["order_max_children"] <= 0:
+        raise ValueError("Taxonomic sunburst Order child budget must be positive.")
+    if sunburst["relaxed_order_expansion_min_class_research_share_pct"] > 100:
+        raise ValueError(
+            "Taxonomic sunburst relaxed Class threshold cannot exceed 100%."
+        )
+    if sunburst["order_named_min_global_share_pct"] > 100:
+        raise ValueError(
+            "Taxonomic sunburst Order threshold cannot exceed 100%."
+        )
+    if sunburst["legend_order_min_global_share_pct"] > 100:
+        raise ValueError(
+            "Taxonomic sunburst Order legend threshold cannot exceed 100%."
+        )
+    if not isinstance(sunburst["legend_show_orders"], bool):
+        raise ValueError("Taxonomic sunburst legend_show_orders must be boolean.")
+    if sunburst["in_wheel_label_min_angle_deg"] > 360:
+        raise ValueError(
+            "Taxonomic sunburst in-wheel label threshold cannot exceed 360°."
+        )
+    if sunburst["class_label_min_angle_deg"] > 360:
+        raise ValueError(
+            "Taxonomic sunburst Class-label threshold cannot exceed 360°."
+        )
+    if sunburst["order_label_min_angle_deg"] > 360:
+        raise ValueError(
+            "Taxonomic sunburst Order-label threshold cannot exceed 360°."
+        )
+    if not isinstance(sunburst["extend_terminal_branches"], bool):
+        raise ValueError(
+            "Taxonomic sunburst extend_terminal_branches must be boolean."
+        )
+    if (
+        not isinstance(sunburst["inner_radius"], (int, float))
+        or isinstance(sunburst["inner_radius"], bool)
+        or sunburst["inner_radius"] <= 0
+    ):
+        raise ValueError("Taxonomic sunburst inner_radius must be positive.")
+    ring_widths = sunburst["rank_ring_widths"]
+    if not isinstance(ring_widths, dict) or set(ring_widths) != {
+        "kingdom",
+        "phylum",
+        "class",
+        "order",
+    }:
+        raise ValueError(
+            "Taxonomic sunburst rank_ring_widths must cover all four ranks."
+        )
+    if any(
+        not isinstance(width, (int, float))
+        or isinstance(width, bool)
+        or width <= 0
+        for width in ring_widths.values()
+    ):
+        raise ValueError("Taxonomic sunburst ring widths must be positive numbers.")
+    for label in ("rank_color_lightness", "rank_color_saturation"):
+        rank_colors = sunburst[label]
+        if not isinstance(rank_colors, dict) or set(rank_colors) != {
+            "phylum",
+            "class",
+            "order",
+        }:
+            raise ValueError(
+                f"Taxonomic sunburst {label} must cover Phylum, Class, and Order."
+            )
+        if any(
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not 0 <= value <= 1
+            for value in rank_colors.values()
+        ):
+            raise ValueError(
+                f"Taxonomic sunburst {label} values must be numbers in [0, 1]."
+            )
+    color_rank_order = ("phylum", "class", "order")
+    lightness_values = [
+        sunburst["rank_color_lightness"][rank] for rank in color_rank_order
+    ]
+    saturation_values = [
+        sunburst["rank_color_saturation"][rank] for rank in color_rank_order
+    ]
+    if lightness_values != sorted(lightness_values):
+        raise ValueError(
+            "Taxonomic sunburst rank lightness must increase toward Order."
+        )
+    if saturation_values != sorted(saturation_values, reverse=True):
+        raise ValueError(
+            "Taxonomic sunburst rank saturation must decrease toward Order."
+        )
 
     geography_attention = config.get("geography_attention", {})
     for key in [

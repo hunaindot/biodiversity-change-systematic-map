@@ -89,6 +89,9 @@ Backbone Taxonomy snapshot dated 28 August 2023. Dataset metadata are retained
 in `data/gbif/extracted/eml.xml`; the DOI is
 [10.15468/39omei](https://doi.org/10.15468/39omei).
 
+The separately supplied `data/gbif/raw-2/eml.xml` reports the same snapshot date and
+DOI, so it is additional raw provenance rather than a newer classification release.
+
 A backbone row enters the benchmark only when `taxonRank`, case-insensitive,
 equals `species` and `taxonomicStatus`, case-insensitive, equals `accepted`.
 The same broad grouping rules are then applied to its lineage.
@@ -112,10 +115,50 @@ described diversity**, not a complete inventory of extant described species.
 The benchmark is treated as fixed: bootstrap intervals quantify publication
 sampling uncertainty, not uncertainty or incompleteness in the backbone.
 
+## Exploratory fixed-rank comparison
+
+Result 04 additionally constructs Kingdom → Phylum → Class → Order evidence from the prepared
+accepted item matches and the same accepted species-rank snapshot. Publication paths
+are de-duplicated within article and weighted `1/p` across the article's `p` complete
+paths independently at each rank. Partial resolution is audited and never imputed.
+
+Because the research matches use a newer GBIF API hierarchy, fixed-rank research
+geometry keeps exact shared paths only. The sole cross-release bridges are unambiguous
+upper containers: bacterial and archaeal domains map to the corresponding snapshot
+kingdoms, and viral realms map to `Viruses`. No lower-rank crosswalk is inferred.
+Research articles are rebalanced after the shared-path filter. Described-species shares
+are not restricted to research-observed paths: they use the complete 2,590,832-record
+benchmark and reconcile through auditable local `Remaining` complements. The detailed
+method and assignment exports are in the Result 04 specification.
+
+The retained bar-free sunburst uses exact Order-aligned publication paths for research
+geometry and the independent complete benchmarkable GBIF base for described diversity.
+Segment angle encodes article-balanced research attention only; described-species shares
+appear in the hierarchical colour legend. Named taxa retain the reviewed aligned-path
+selection, while every named node takes its full GBIF count. Under each expanded parent,
+all other complete taxa and species lacking the next rank are combined into one terminal
+parent-coloured `Remaining` complement, so the wheel and legend remain exhaustive on
+both measures. The unaggregated actual taxa and their visible destinations are exported
+for audit. Only the combined top-level `Other kingdoms` branch stays neutral grey. Fungi
+is a named terminal Kingdom because its lower-rank segments are too small for the
+compact figure.
+
+The wheel adds labels only where the sector can carry them comfortably: named wedges
+must span at least 18° and the complete silhouette/name pair must remain inside the
+rendered annular wedge with padding. Qualifying labels follow the arc character by
+character. The complete silhouette–gap–name unit is centered on both the angular and
+radial midpoint of its wedge and uses an automatically selected light or dark
+foreground. Icon gaps and label sizes adapt by hierarchy depth so broad inner wedges
+are used more effectively. The chart
+omits a pair instead of shrinking it when the final fit fails. These labels are
+navigational; the hierarchy legend remains the complete key for names and paired
+percentages.
+
 ## Figure assets and interpretation
 
-The mapping fixes colors and representative clipart for each scheme. Assets and
-license metadata live in the mapping and are cached under `data/taxa-clipart/`.
+The mapping fixes colors and representative clipart for each scheme and for the
+sunburst's roomy named wedges. Assets and license metadata live in the mapping and are
+cached under `data/taxa-clipart/`.
 Silhouettes are visual representatives, not group definitions; SVG is preferred
 for publication figures.
 

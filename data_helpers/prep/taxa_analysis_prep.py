@@ -197,6 +197,19 @@ def load_taxa_mapping(path: str | Path) -> dict[str, Any]:
         raise TaxaAnalysisPrepError(f"Could not load taxa mapping: {exc}") from exc
     if mapping.get("schema_version") != 3:
         raise TaxaAnalysisPrepError("Taxa mapping must use schema_version 3.")
+    assets = mapping.get("clipart_assets", {})
+    if not isinstance(assets, dict) or not assets:
+        raise TaxaAnalysisPrepError("Taxa mapping must declare clipart_assets.")
+    for field in ("sunburst_clipart", "sunburst_order_clipart"):
+        figure_clipart = mapping.get(field, {})
+        if not isinstance(figure_clipart, dict) or not figure_clipart:
+            raise TaxaAnalysisPrepError(f"Taxa mapping must declare {field}.")
+        missing_sunburst_assets = set(figure_clipart.values()).difference(assets)
+        if missing_sunburst_assets:
+            raise TaxaAnalysisPrepError(
+                f"Taxa {field} references unknown assets: "
+                f"{sorted(missing_sunburst_assets)}"
+            )
     schemes = mapping.get("schemes", {})
     for name in ("broad", "analysis", "detail"):
         scheme = schemes.get(name, {})
@@ -208,6 +221,14 @@ def load_taxa_mapping(path: str | Path) -> dict[str, Any]:
         if scheme.get("unresolved_group") not in order:
             raise TaxaAnalysisPrepError(
                 f"Taxa {name} group order must contain its unresolved state."
+            )
+        missing_group_assets = set(scheme.get("group_clipart", {}).values()).difference(
+            assets
+        )
+        if missing_group_assets:
+            raise TaxaAnalysisPrepError(
+                f"Taxa {name} clipart references unknown assets: "
+                f"{sorted(missing_group_assets)}"
             )
     return mapping
 

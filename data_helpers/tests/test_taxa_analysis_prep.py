@@ -191,6 +191,14 @@ def test_preparation_preserves_grain_and_states(prepared) -> None:
     assert articles["match_status_count__exact"].tolist() == [1, 0, 1, 0]
     assert sum(row["taxon_item_count"] for row in audits["match_status"]) == 4
     assert mapping["schema_version"] == 3
+    assert mapping["sunburst_clipart"]["Animalia"] == "animal_cat"
+    assert set(mapping["sunburst_clipart"].values()).issubset(
+        mapping["clipart_assets"]
+    )
+    assert mapping["sunburst_order_clipart"]["Rodentia"] == "mammal_mouse"
+    assert set(mapping["sunburst_order_clipart"].values()).issubset(
+        mapping["clipart_assets"]
+    )
 
 
 def test_store_round_trip_is_four_files_and_rejects_stale_rules(

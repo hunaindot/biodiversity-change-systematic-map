@@ -194,6 +194,45 @@ def _validate_clipart_metadata(
             )
         referenced_assets.update(group_clipart.values())
 
+    for field in ("sunburst_clipart", "sunburst_order_clipart"):
+        figure_clipart = config.get(field, {})
+        if not isinstance(figure_clipart, dict) or not figure_clipart:
+            raise TaxaGroupConfigError(f"{field} must be a non-empty object.")
+        if any(
+            not isinstance(taxon, str)
+            or not taxon.strip()
+            or not isinstance(asset_name, str)
+            or not asset_name.strip()
+            for taxon, asset_name in figure_clipart.items()
+        ):
+            raise TaxaGroupConfigError(
+                f"{field} keys and asset ids must be non-empty strings."
+            )
+        unknown = set(figure_clipart.values()) - set(assets)
+        if unknown:
+            raise TaxaGroupConfigError(
+                f"{field} references unknown assets: {sorted(unknown)}."
+            )
+        referenced_assets.update(figure_clipart.values())
+
+    retired_assets = config.get("retired_clipart_assets", [])
+    retired_assets = _require_unique_strings(
+        retired_assets,
+        "retired_clipart_assets",
+    )
+    unknown = set(retired_assets) - set(assets)
+    if unknown:
+        raise TaxaGroupConfigError(
+            f"retired_clipart_assets references unknown assets: {sorted(unknown)}."
+        )
+    overlap = set(retired_assets) & referenced_assets
+    if overlap:
+        raise TaxaGroupConfigError(
+            "retired_clipart_assets cannot include active assets: "
+            f"{sorted(overlap)}."
+        )
+    referenced_assets.update(retired_assets)
+
     unused = set(assets) - referenced_assets
     if unused:
         raise TaxaGroupConfigError(
@@ -206,6 +245,9 @@ def _grouping_config_sha256(config: dict[str, Any]) -> str:
     grouping = json.loads(json.dumps(config, ensure_ascii=False))
     grouping.pop("clipart_note", None)
     grouping.pop("clipart_assets", None)
+    grouping.pop("sunburst_clipart", None)
+    grouping.pop("sunburst_order_clipart", None)
+    grouping.pop("retired_clipart_assets", None)
     for scheme in grouping.get("schemes", {}).values():
         scheme.pop("group_clipart", None)
     canonical = (json.dumps(grouping, indent=2, ensure_ascii=False) + "\n").encode()

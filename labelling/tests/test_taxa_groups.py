@@ -77,6 +77,9 @@ def test_clipart_assets_cover_every_group_without_changing_grouping_hash(
         scheme = config["schemes"][scheme_id]
         assert set(scheme["group_clipart"]) == set(scheme["group_order"])
         referenced.update(scheme["group_clipart"].values())
+    referenced.update(config["sunburst_clipart"].values())
+    referenced.update(config["sunburst_order_clipart"].values())
+    referenced.update(config["retired_clipart_assets"])
 
     assert referenced == set(config["clipart_assets"])
     assert all(
@@ -87,6 +90,9 @@ def test_clipart_assets_cover_every_group_without_changing_grouping_hash(
 
     changed = json.loads(MAPPING_PATH.read_text(encoding="utf-8"))
     changed["clipart_assets"]["fish_carp"]["attribution"] = "Visual-only change"
+    changed["sunburst_clipart"]["Chordata"] = "animal_cat"
+    changed["sunburst_order_clipart"]["Rodentia"] = "primate_macaque"
+    changed["sunburst_order_clipart"]["Primates"] = "mammal_mouse"
     changed_path = tmp_path / "taxa_broad_groups.json"
     changed_path.write_text(
         json.dumps(changed, indent=2, ensure_ascii=False) + "\n",

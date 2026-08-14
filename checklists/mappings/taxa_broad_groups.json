@@ -10,7 +10,7 @@
     "Not Applicable",
     "Non Applicable"
   ],
-  "clipart_note": "Small monochrome silhouettes for scientific figures. Organism images are representative examples, not exhaustive definitions of heterogeneous or combined groups. PhyloPic assets were selected under CC0 1.0; retain the supplied source and attribution metadata when publishing.",
+  "clipart_note": "Small monochrome silhouettes for scientific figures. Organism images are representative examples, not exhaustive definitions of heterogeneous or combined groups. PhyloPic assets were selected under public-domain CC0 1.0 or PDM 1.0 terms; retain the supplied source and attribution metadata when publishing.",
   "clipart_assets": {
     "fish_carp": {
       "provider": "PhyloPic",
@@ -166,6 +166,204 @@
       "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
       "attribution": null
     },
+    "animal_cat": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Felis silvestris catus",
+      "asset_id": "81e1f778-d176-47ba-a0c4-01f54e1157a9",
+      "page_url": "https://www.phylopic.org/images/81e1f778-d176-47ba-a0c4-01f54e1157a9/felis-silvestris-catus",
+      "svg_url": "https://images.phylopic.org/images/81e1f778-d176-47ba-a0c4-01f54e1157a9/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/81e1f778-d176-47ba-a0c4-01f54e1157a9/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Mozillian"
+    },
+    "flower_hibiscus": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Hibiscus",
+      "asset_id": "21d61af7-a191-4561-9dff-d106ac4f53f7",
+      "page_url": "https://www.phylopic.org/images/21d61af7-a191-4561-9dff-d106ac4f53f7/hibiscus",
+      "svg_url": "https://images.phylopic.org/images/21d61af7-a191-4561-9dff-d106ac4f53f7/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/21d61af7-a191-4561-9dff-d106ac4f53f7/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Rachel Wooliver"
+    },
+    "monocot_tofieldia": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Tofieldia calyculata",
+      "asset_id": "04a6f357-2d4f-4aef-907a-d6dbacd59853",
+      "page_url": "https://www.phylopic.org/images/04a6f357-2d4f-4aef-907a-d6dbacd59853/tofieldia-calyculata",
+      "svg_url": "https://images.phylopic.org/images/04a6f357-2d4f-4aef-907a-d6dbacd59853/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/04a6f357-2d4f-4aef-907a-d6dbacd59853/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Guillaume Dera"
+    },
+    "grass_poa": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Poa pratensis",
+      "asset_id": "e6e580fb-56e4-4896-8b65-d11858ca7e90",
+      "page_url": "https://www.phylopic.org/images/e6e580fb-56e4-4896-8b65-d11858ca7e90/poa-pratensis",
+      "svg_url": "https://images.phylopic.org/images/e6e580fb-56e4-4896-8b65-d11858ca7e90/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/e6e580fb-56e4-4896-8b65-d11858ca7e90/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Guillaume Dera"
+    },
+    "tree_ginkgo": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Ginkgo biloba",
+      "asset_id": "798f147f-fe2a-4227-8805-228f5aea9bb6",
+      "page_url": "https://www.phylopic.org/images/798f147f-fe2a-4227-8805-228f5aea9bb6/ginkgo-biloba",
+      "svg_url": "https://images.phylopic.org/images/798f147f-fe2a-4227-8805-228f5aea9bb6/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/798f147f-fe2a-4227-8805-228f5aea9bb6/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Guillaume Dera"
+    },
+    "tree_oak": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Quercus robur",
+      "asset_id": "43afe2df-ab6c-47e6-a105-c0a82b8af1c5",
+      "page_url": "https://www.phylopic.org/images/43afe2df-ab6c-47e6-a105-c0a82b8af1c5/quercus-robur",
+      "svg_url": "https://images.phylopic.org/images/43afe2df-ab6c-47e6-a105-c0a82b8af1c5/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/43afe2df-ab6c-47e6-a105-c0a82b8af1c5/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Carlo De Rito"
+    },
+    "flower_sunflower": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Helianthus annuus",
+      "asset_id": "40b91c6c-4ef8-4a5a-9b90-85fb50d74c5b",
+      "page_url": "https://www.phylopic.org/images/40b91c6c-4ef8-4a5a-9b90-85fb50d74c5b/helianthus-annuus",
+      "svg_url": "https://images.phylopic.org/images/40b91c6c-4ef8-4a5a-9b90-85fb50d74c5b/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/40b91c6c-4ef8-4a5a-9b90-85fb50d74c5b/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Mason McNair"
+    },
+    "palm_sabal": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Sabal palmetto",
+      "asset_id": "ec3604c4-768d-4db3-b228-726db07ed1a2",
+      "page_url": "https://www.phylopic.org/images/ec3604c4-768d-4db3-b228-726db07ed1a2/sabal-palmetto",
+      "svg_url": "https://images.phylopic.org/images/ec3604c4-768d-4db3-b228-726db07ed1a2/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/ec3604c4-768d-4db3-b228-726db07ed1a2/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Caleb M. Gordon"
+    },
+    "rice_oryza": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Oryza sativa",
+      "asset_id": "bdae8ff7-6c00-4af9-8464-a44b3e6c65f9",
+      "page_url": "https://www.phylopic.org/images/bdae8ff7-6c00-4af9-8464-a44b3e6c65f9/oryza-sativa",
+      "svg_url": "https://images.phylopic.org/images/bdae8ff7-6c00-4af9-8464-a44b3e6c65f9/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/bdae8ff7-6c00-4af9-8464-a44b3e6c65f9/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Mason McNair"
+    },
+    "pea_garden": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Pisum sativum",
+      "asset_id": "e9f1ec77-7dea-45a8-9bdb-87f9c9444287",
+      "page_url": "https://www.phylopic.org/images/e9f1ec77-7dea-45a8-9bdb-87f9c9444287/pisum-sativum",
+      "svg_url": "https://images.phylopic.org/images/e9f1ec77-7dea-45a8-9bdb-87f9c9444287/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/e9f1ec77-7dea-45a8-9bdb-87f9c9444287/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Warren Siegrist"
+    },
+    "mammal_mouse": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Mus musculus",
+      "asset_id": "c8f71c27-71db-4b34-ac2d-e97fea8762cf",
+      "page_url": "https://www.phylopic.org/images/c8f71c27-71db-4b34-ac2d-e97fea8762cf/mus-musculus",
+      "svg_url": "https://images.phylopic.org/images/c8f71c27-71db-4b34-ac2d-e97fea8762cf/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/c8f71c27-71db-4b34-ac2d-e97fea8762cf/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Jiro Wada"
+    },
+    "primate_macaque": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Macaca mulatta",
+      "asset_id": "eedde61f-3402-4f7c-9350-49b74f5e1dba",
+      "page_url": "https://www.phylopic.org/images/eedde61f-3402-4f7c-9350-49b74f5e1dba/macaca-mulatta",
+      "svg_url": "https://images.phylopic.org/images/eedde61f-3402-4f7c-9350-49b74f5e1dba/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/eedde61f-3402-4f7c-9350-49b74f5e1dba/thumbnail/192x192.png",
+      "license": "PDM 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "attribution": "T. Michael Keesey"
+    },
+    "tree_stone_pine": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Pinus pinea",
+      "asset_id": "9872213f-fefd-4946-b80e-3dbb6cd1793d",
+      "page_url": "https://www.phylopic.org/images/9872213f-fefd-4946-b80e-3dbb6cd1793d/pinus-pinea",
+      "svg_url": "https://images.phylopic.org/images/9872213f-fefd-4946-b80e-3dbb6cd1793d/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/9872213f-fefd-4946-b80e-3dbb6cd1793d/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Guillaume Dera"
+    },
+    "mammal_reindeer": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Rangifer tarandus",
+      "asset_id": "a7e8f29e-a4e2-499a-b913-491f78f44f1d",
+      "page_url": "https://www.phylopic.org/images/a7e8f29e-a4e2-499a-b913-491f78f44f1d/rangifer-tarandus",
+      "svg_url": "https://images.phylopic.org/images/a7e8f29e-a4e2-499a-b913-491f78f44f1d/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/a7e8f29e-a4e2-499a-b913-491f78f44f1d/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Steven Traver"
+    },
+    "crab_green": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Carcinus maenas",
+      "asset_id": "96523a56-068b-436f-a44f-ebf05605e700",
+      "page_url": "https://www.phylopic.org/images/96523a56-068b-436f-a44f-ebf05605e700/carcinus-maenas",
+      "svg_url": "https://images.phylopic.org/images/96523a56-068b-436f-a44f-ebf05605e700/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/96523a56-068b-436f-a44f-ebf05605e700/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Alexandra Hahn"
+    },
+    "mammal_brown_bear": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Ursus arctos",
+      "asset_id": "c7fbe213-1eac-4f81-80d0-674c3bd2d6b0",
+      "page_url": "https://www.phylopic.org/images/c7fbe213-1eac-4f81-80d0-674c3bd2d6b0/ursus-arctos",
+      "svg_url": "https://images.phylopic.org/images/c7fbe213-1eac-4f81-80d0-674c3bd2d6b0/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/c7fbe213-1eac-4f81-80d0-674c3bd2d6b0/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Margot Michaud"
+    },
+    "bird_eastern_phoebe": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Sayornis phoebe",
+      "asset_id": "1844043e-f24a-4a9c-a45d-dafeb787316f",
+      "page_url": "https://www.phylopic.org/images/1844043e-f24a-4a9c-a45d-dafeb787316f/sayornis-phoebe",
+      "svg_url": "https://images.phylopic.org/images/1844043e-f24a-4a9c-a45d-dafeb787316f/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/1844043e-f24a-4a9c-a45d-dafeb787316f/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": "Andy Wilson"
+    },
+    "venus_flytrap": {
+      "provider": "PhyloPic",
+      "representative_taxon": "Dionaea muscipula",
+      "asset_id": "ee0fd502-22ca-4f38-ba8b-db8c06825680",
+      "page_url": "https://www.phylopic.org/images/ee0fd502-22ca-4f38-ba8b-db8c06825680/dionaea-muscipula",
+      "svg_url": "https://images.phylopic.org/images/ee0fd502-22ca-4f38-ba8b-db8c06825680/vector.svg",
+      "thumbnail_url": "https://images.phylopic.org/images/ee0fd502-22ca-4f38-ba8b-db8c06825680/thumbnail/192x192.png",
+      "license": "CC0 1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "attribution": null
+    },
     "unknown_question": {
       "provider": "Font Awesome Free 7.2.0",
       "representative_taxon": null,
@@ -178,6 +376,37 @@
       "attribution": "Fonticons, Inc."
     }
   },
+  "sunburst_clipart": {
+    "Animalia": "animal_cat",
+    "Plantae": "plant_arabidopsis",
+    "Chordata": "fish_carp",
+    "Arthropoda": "bee_honeybee",
+    "Tracheophyta": "tree_oak",
+    "Mammalia": "mammal_wolf",
+    "Aves": "bird_common_nighthawk",
+    "Insecta": "butterfly_monarch",
+    "Magnoliopsida": "flower_sunflower",
+    "Liliopsida": "palm_sabal",
+    "Poales": "rice_oryza"
+  },
+  "sunburst_order_clipart": {
+    "Fabales": "pea_garden",
+    "Rodentia": "mammal_mouse",
+    "Primates": "primate_macaque",
+    "Pinales": "tree_stone_pine",
+    "Artiodactyla": "mammal_reindeer",
+    "Decapoda": "crab_green",
+    "Carnivora": "mammal_brown_bear",
+    "Anura": "frog_common",
+    "Passeriformes": "bird_eastern_phoebe",
+    "Caryophyllales": "venus_flytrap"
+  },
+  "retired_clipart_assets": [
+    "flower_hibiscus",
+    "monocot_tofieldia",
+    "grass_poa",
+    "tree_ginkgo"
+  ],
   "scheme_order": [
     "broad",
     "analysis",

@@ -22,9 +22,9 @@ from matplotlib.transforms import blended_transform_factory
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_CACHE_DIR = REPO_ROOT / "data" / "taxa-clipart"
 
-# PhyloPic assets are CC0 1.0; retain this note wherever a figure using them
-# is published (per the ``clipart_note`` in taxa_broad_groups.json).
-CLIPART_CREDIT = "Taxon silhouettes: PhyloPic contributors (CC0 1.0)."
+# PhyloPic assets use public-domain CC0 or PDM 1.0 terms; retain this note
+# wherever a figure using them is published (per ``clipart_note`` in the map).
+CLIPART_CREDIT = "Taxon silhouettes: PhyloPic contributors (CC0/PDM 1.0)."
 
 
 def ensure_clipart_cached(
