@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 from collections import Counter
 from dataclasses import dataclass
@@ -28,7 +29,7 @@ from data_helpers.prep._provenance import source_signature
 
 
 SCREENING_SCHEMA_VERSION = 1
-EVIDENCE_SCHEMA_VERSION = 3
+EVIDENCE_SCHEMA_VERSION = 4
 REASON_COLUMNS = ("s1_r", "s2_r", "s3_r", "s4_r")
 STAGE_NAMES = {
     "s1_r": "Q1: biodiversity change",
@@ -66,6 +67,34 @@ EVIDENCE_LIST_COLUMNS = (
     "taxa_genus_labels",
     "taxa_species_labels",
 )
+GEOGRAPHY_LIST_COLUMNS = (
+    "pred_regions",
+    "pred_subregions",
+    "pred_countries",
+)
+_NOT_APPLICABLE_LABEL = "Not Applicable"
+_UNCLEAR_LABEL = "Unclear"
+_SPECIAL_COUNTRY_TOKENS = {
+    "",
+    "NA",
+    "NONE",
+    "NOTAPPLICABLE",
+    "UNCLEAR",
+    "UNC",
+    "UNCL",
+    "UNK",
+    "UNKN",
+    "UNKNOWN",
+    "UNS",
+    "UNR",
+    "UNL",
+    "UNP",
+    "ALLCOUNTRIES",
+    "ALLREGIONS",
+    "ALLSUBREGIONS",
+    "GLOBAL",
+    "WORLDWIDE",
+}
 EVIDENCE_CORE_COLUMNS = (
     "UT",
     "title",
@@ -131,6 +160,98 @@ TAXONOMY_SUMMARY_COLUMNS = (
 )
 class EvidenceCorpusPrepError(ValueError):
     """Raised when a prepared screening/corpus artifact violates its grain."""
+
+
+def _normalise_country_token(value: object) -> str:
+    """Normalize a coded country label for World Bank lookup."""
+    return re.sub(r"[^A-Za-z]", "", str(value)).upper()
+
+
+def standardize_geography_lists(
+    publications: pd.DataFrame,
+    *,
+    world_bank_mapping_path: str | Path,
+) -> pd.DataFrame:
+    """Standardize existing geography lists in place without changing corpus grain.
+
+    Empty region, subregion, and country lists become ``("Not Applicable",)``.
+    Any list containing an ``Unclear`` label becomes exactly ``("Unclear",)``.
+    Country lists also become ``("Unclear",)`` when any non-special token cannot
+    enter the World Bank economy lookup. Valid non-empty lists are preserved.
+
+    Returns a small audit of changed cells; no corpus rows or columns are added,
+    removed, or reordered.
+    """
+    missing = set(GEOGRAPHY_LIST_COLUMNS).difference(publications.columns)
+    if missing:
+        raise EvidenceCorpusPrepError(
+            f"Integrated corpus lacks geography columns: {sorted(missing)}"
+        )
+
+    mapping_path = Path(world_bank_mapping_path)
+    with mapping_path.open(encoding="utf-8") as handle:
+        payload = json.load(handle)
+    mapping_records = payload.get("records")
+    if not isinstance(mapping_records, list):
+        raise EvidenceCorpusPrepError(
+            f"World Bank mapping at {mapping_path} has no records list."
+        )
+    world_bank_codes = {
+        _normalise_country_token(record.get("ipbes_iso3", ""))
+        for record in mapping_records
+        if record.get("has_world_bank_economy") is True
+        and len(str(record.get("ipbes_iso3", ""))) == 3
+    }
+    if not world_bank_codes:
+        raise EvidenceCorpusPrepError(
+            f"World Bank mapping at {mapping_path} contains no eligible country codes."
+        )
+
+    original_columns = list(publications.columns)
+    original_uts = publications["UT"].reset_index(drop=True).copy()
+    audit_counts: Counter[tuple[str, str]] = Counter()
+
+    for column in GEOGRAPHY_LIST_COLUMNS:
+        standardized: list[tuple[str, ...]] = []
+        for value in publications[column]:
+            labels = tuple(parse_list_labels(value))
+            reason: str | None = None
+            if not labels:
+                replacement = (_NOT_APPLICABLE_LABEL,)
+                reason = "empty_to_not_applicable"
+            elif any(label.casefold() == "unclear" for label in labels):
+                replacement = (_UNCLEAR_LABEL,)
+                reason = "contains_unclear_to_unclear"
+            elif column == "pred_countries" and any(
+                (token := _normalise_country_token(label))
+                not in _SPECIAL_COUNTRY_TOKENS
+                and token not in world_bank_codes
+                for label in labels
+            ):
+                replacement = (_UNCLEAR_LABEL,)
+                reason = "non_world_bank_country_to_unclear"
+            else:
+                replacement = labels
+
+            standardized.append(replacement)
+            if reason is not None and replacement != labels:
+                audit_counts[(column, reason)] += 1
+        publications[column] = standardized
+
+    if len(publications) != len(original_uts):
+        raise EvidenceCorpusPrepError("Geography standardization changed row count.")
+    if list(publications.columns) != original_columns:
+        raise EvidenceCorpusPrepError("Geography standardization changed columns.")
+    if not publications["UT"].reset_index(drop=True).equals(original_uts):
+        raise EvidenceCorpusPrepError("Geography standardization changed UT order.")
+
+    return pd.DataFrame(
+        [
+            {"column": column, "rule": reason, "changed_values": count}
+            for (column, reason), count in sorted(audit_counts.items())
+        ],
+        columns=["column", "rule", "changed_values"],
+    )
 
 
 @dataclass(frozen=True)
@@ -851,6 +972,7 @@ __all__ = [
     "EVIDENCE_COLUMNS",
     "EVIDENCE_CORE_COLUMNS",
     "EVIDENCE_LIST_COLUMNS",
+    "GEOGRAPHY_LIST_COLUMNS",
     "EvidenceCorpusPrepError",
     "REASON_COLUMNS",
     "SCREENING_ANALYSIS_COLUMNS",
@@ -860,4 +982,5 @@ __all__ = [
     "build_biodiversity_evidence_corpus",
     "build_biodiversity_manifest",
     "build_screening_preparation",
+    "standardize_geography_lists",
 ]

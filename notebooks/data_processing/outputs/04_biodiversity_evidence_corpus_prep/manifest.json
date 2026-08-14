@@ -49,7 +49,7 @@
     "taxa_summary_json",
     "taxa_matches"
   ],
-  "created_at_utc": "2026-08-05T13:29:44.635231+00:00",
+  "created_at_utc": "2026-08-14T20:05:22.156168+00:00",
   "direction_counts": {
     "mixed": 141267,
     "negative": 253081,
@@ -86,7 +86,7 @@
     "publications": 605199,
     "unique_UT": 605199
   },
-  "schema_version": 3,
+  "schema_version": 4,
   "scope": "all screening-eligible publications; direction, year, threat, realm, geography, study, and taxa filters are not applied",
   "sources": {
     "coding_driver": {
@@ -120,24 +120,29 @@
       "size_bytes": 7137
     },
     "eligible_screening_artifact": {
-      "mtime_ns": 1785936531789077521,
+      "mtime_ns": 1786737858716448538,
       "path": "notebooks/data_processing/outputs/03_screening_analysis_prep/eligible_screening_publications.parquet",
       "size_bytes": 446919151
     },
     "prepared_taxa_artifact": {
-      "mtime_ns": 1785936446542523845,
+      "mtime_ns": 1785939474408902877,
       "path": "notebooks/data_processing/outputs/02_taxa_analysis_prep/taxa_publications.parquet",
       "size_bytes": 15908090
     },
     "prepared_taxa_manifest": {
-      "mtime_ns": 1785936446557961381,
+      "mtime_ns": 1785939474983976463,
       "path": "notebooks/data_processing/outputs/02_taxa_analysis_prep/manifest.json",
       "size_bytes": 27646
     },
     "prepared_taxa_matches": {
-      "mtime_ns": 1785936444408808943,
+      "mtime_ns": 1785939474394221797,
       "path": "notebooks/data_processing/outputs/02_taxa_analysis_prep/taxa_matches.parquet",
       "size_bytes": 57120342
+    },
+    "world_bank_country_mapping": {
+      "mtime_ns": 1784217352673380509,
+      "path": "checklists/mappings/ipbes_world_bank_mapping.json",
+      "size_bytes": 24485709
     }
   },
   "upstream": {

@@ -287,3 +287,89 @@ def test_integrated_corpus_normalizes_lists_and_preserves_ut(tmp_path: Path) -> 
     assert loaded.manifest["rows"]["publications"] == 2
     assert loaded.manifest["sources"]["fake"]["path"] == "source.txt"
     assert store.load_abstracts().loc[0, "abstract"] == "Abstract A"
+
+
+def test_standardize_geography_lists_preserves_grain_and_columns(
+    tmp_path: Path,
+) -> None:
+    mapping_path = tmp_path / "world_bank_mapping.json"
+    mapping_path.write_text(
+        json.dumps(
+            {
+                "records": [
+                    {"ipbes_iso3": "USA", "has_world_bank_economy": True},
+                    {"ipbes_iso3": "CHN", "has_world_bank_economy": True},
+                    {"ipbes_iso3": "TWN", "has_world_bank_economy": False},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    publications = pd.DataFrame(
+        {
+            "UT": ["A", "B", "C", "D", "E"],
+            "pred_regions": [
+                (),
+                ("Americas", "Unclear"),
+                ("Asia and the Pacific",),
+                ("Americas",),
+                ("All Regions",),
+            ],
+            "pred_subregions": [
+                (),
+                ("Unclear", "North America"),
+                ("North-East Asia",),
+                ("North America",),
+                ("All Subregions",),
+            ],
+            "pred_countries": [
+                (),
+                ("USA", "Unclear"),
+                ("USA", "CHN"),
+                ("USA", "TWN"),
+                ("Not Applicable",),
+            ],
+            "unchanged": [1, 2, 3, 4, 5],
+        }
+    )
+    original_columns = publications.columns.tolist()
+    original_uts = publications["UT"].copy()
+
+    audit = prep.standardize_geography_lists(
+        publications,
+        world_bank_mapping_path=mapping_path,
+    )
+
+    assert publications.columns.tolist() == original_columns
+    assert publications["UT"].equals(original_uts)
+    assert len(publications) == 5
+    assert publications["pred_regions"].tolist() == [
+        ("Not Applicable",),
+        ("Unclear",),
+        ("Asia and the Pacific",),
+        ("Americas",),
+        ("All Regions",),
+    ]
+    assert publications["pred_subregions"].tolist() == [
+        ("Not Applicable",),
+        ("Unclear",),
+        ("North-East Asia",),
+        ("North America",),
+        ("All Subregions",),
+    ]
+    assert publications["pred_countries"].tolist() == [
+        ("Not Applicable",),
+        ("Unclear",),
+        ("USA", "CHN"),
+        ("Unclear",),
+        ("Not Applicable",),
+    ]
+    assert audit.set_index(["column", "rule"])["changed_values"].to_dict() == {
+        ("pred_countries", "contains_unclear_to_unclear"): 1,
+        ("pred_countries", "empty_to_not_applicable"): 1,
+        ("pred_countries", "non_world_bank_country_to_unclear"): 1,
+        ("pred_regions", "contains_unclear_to_unclear"): 1,
+        ("pred_regions", "empty_to_not_applicable"): 1,
+        ("pred_subregions", "contains_unclear_to_unclear"): 1,
+        ("pred_subregions", "empty_to_not_applicable"): 1,
+    }
