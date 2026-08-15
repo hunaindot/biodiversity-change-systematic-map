@@ -22,40 +22,6 @@ COLORS = {
 }
 
 
-def test_taxonomic_skew_figure_has_two_directly_labelled_panels() -> None:
-    comparison = pd.DataFrame(
-        {
-            "broad_group": GROUPS,
-            "effective_publication_count": [280, 170, 420, 40, 90],
-            "fractional_attention_share_pct": [28, 17, 42, 4, 9],
-            "attention_ci_low_pct": [27.8, 16.8, 41.8, 3.8, 8.8],
-            "attention_ci_high_pct": [28.2, 17.2, 42.2, 4.2, 9.2],
-            "described_species_share_pct": [5, 65, 17, 7, 6],
-            "representation_ratio": [5.6, 17 / 65, 42 / 17, 4 / 7, 1.5],
-            "log2_representation_ratio": [
-                2.485,
-                -1.936,
-                1.305,
-                -0.807,
-                0.585,
-            ],
-        }
-    )
-
-    figure = plotting.plot_taxonomic_skew(
-        comparison,
-        group_order=GROUPS,
-        group_colors=COLORS,
-    )
-
-    assert len(figure.axes) == 2
-    assert len(figure.axes[0].get_yticklabels()) == len(GROUPS)
-    assert len(figure.axes[1].get_yticklabels()) == len(GROUPS)
-    assert figure.axes[0].get_xlim()[0] == 0
-    assert figure.axes[1].get_xlabel() == "Representation ratio (log2 scale)"
-    plt.close(figure)
-
-
 def _representation_comparison() -> pd.DataFrame:
     return pd.DataFrame(
         {

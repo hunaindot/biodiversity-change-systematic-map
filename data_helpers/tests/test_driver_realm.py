@@ -185,23 +185,3 @@ def test_pollution_nameability_uses_text_and_fractional_driver_weights() -> None
         ),
         "share",
     ] == pytest.approx(1)
-
-
-def test_pollution_nameability_trend_reports_direction_and_fdr() -> None:
-    annual = pd.DataFrame(
-        {
-            "realm": ["Terrestrial"] * 3,
-            "publication_year": [2000, 2001, 2002],
-            "outcome": ["Plastics within pollution"] * 3,
-            "n_denominator": [100, 100, 100],
-            "share": [0.1, 0.2, 0.3],
-        }
-    )
-    trend = dr.pollution_nameability_trend_tests(
-        annual,
-        start_year=2000,
-        end_year=2002,
-    ).iloc[0]
-    assert trend["change_pp"] > 0
-    assert trend["odds_ratio_per_decade"] > 1
-    assert trend["q_trend"] == pytest.approx(trend["p_trend"])

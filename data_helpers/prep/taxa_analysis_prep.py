@@ -29,7 +29,7 @@ from data_helpers.analysis.taxa.benchmark import DescribedDiversity
 from data_helpers.prep._provenance import source_signature
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 INCLUSION_ORDER = (
     "Included: at least one benchmarkable broad group",
     "Excluded: Not applicable only",
@@ -53,9 +53,7 @@ LIST_COLUMNS = (
     "analysis_groups",
     "detail_groups_all",
     "detail_groups",
-    "taxa_domain_labels",
     "taxa_kingdom_labels",
-    "taxa_subkingdom_labels",
     "taxa_phylum_labels",
     "taxa_class_labels",
     "taxa_order_labels",
@@ -64,9 +62,7 @@ LIST_COLUMNS = (
     "taxa_species_labels",
 )
 TAXONOMY_RANK_COLUMNS = (
-    ("domain", "taxa_domain_labels"),
     ("kingdom", "taxa_kingdom_labels"),
-    ("subkingdom", "taxa_subkingdom_labels"),
     ("phylum", "taxa_phylum_labels"),
     ("class", "taxa_class_labels"),
     ("order", "taxa_order_labels"),
@@ -1052,29 +1048,6 @@ class TaxaPreparedStore:
         )
 
 
-def match_status_audit_from_articles(articles: pd.DataFrame) -> pd.DataFrame:
-    """Aggregate compact per-publication match-status counters for any subset."""
-    rows: list[dict[str, Any]] = []
-    columns = [
-        column for column in articles if column.startswith("match_status_count__")
-    ]
-    total = int(articles[columns].sum().sum())
-    for column in columns:
-        count = int(articles[column].sum())
-        status = column.removeprefix("match_status_count__")
-        rows.append(
-            {
-                "match_status": status,
-                "n_taxon_items": count,
-                "share_of_taxon_items_pct": count / total * 100 if total else np.nan,
-                "eligible_for_grouping": status in {"exact", "fuzzy_accepted"},
-            }
-        )
-    return pd.DataFrame(rows).sort_values(
-        "n_taxon_items", ascending=False, ignore_index=True
-    )
-
-
 __all__ = [
     "INCLUSION_ORDER",
     "TaxaAnalysisPrepError",
@@ -1087,6 +1060,5 @@ __all__ = [
     "build_taxa_publications",
     "grouping_rules_fingerprint",
     "load_taxa_mapping",
-    "match_status_audit_from_articles",
     "write_taxa_matches",
 ]

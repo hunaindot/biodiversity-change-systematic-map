@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from typing import Any
 
 import numpy as np
@@ -83,10 +82,8 @@ def annual_publication_tables(
     loss_df: pd.DataFrame,
     start_year: int,
     end_year: int,
-    partial_year: int,
-    projection_window: tuple[int, int],
-) -> tuple[pd.Series, pd.DataFrame, pd.DataFrame]:
-    """Build complete-year counts plus the explicitly labelled partial-year projection."""
+) -> tuple[pd.Series, pd.DataFrame]:
+    """Build complete-year publication counts and their annual summary table."""
     in_window = loss_df["publication_year"].between(start_year, end_year)
     annual_counts = (
         loss_df.loc[in_window]
@@ -100,69 +97,13 @@ def annual_publication_tables(
     )
 
     annual_table = annual_counts.reset_index()
-    annual_table["year_status"] = "complete"
     annual_table["cumulative_publications"] = annual_table[
         "n_publications"
     ].cumsum()
     annual_table["yoy_growth_pct"] = (
         annual_table["n_publications"].pct_change() * 100
     ).round(2)
-    annual_table["share_of_total_pct"] = (
-        annual_table["n_publications"] / annual_table["n_publications"].sum() * 100
-    ).round(3)
-    annual_table["projected_full"] = annual_table["n_publications"]
-    annual_table["estimated_remainder"] = 0
-
-    window_start, window_end = projection_window
-    start_count = int(annual_counts.loc[window_start])
-    end_count = int(annual_counts.loc[window_end])
-    projection_cagr = (
-        (end_count / start_count) ** (1 / (window_end - window_start)) - 1
-    )
-    observed_partial = int(
-        loss_df.loc[loss_df["publication_year"].eq(partial_year), "UT"].nunique()
-    )
-    projected_full = int(round(end_count * (1 + projection_cagr)))
-    estimated_remainder = max(projected_full - observed_partial, 0)
-
-    partial_row = pd.DataFrame(
-        [
-            {
-                "publication_year": partial_year,
-                "n_publications": observed_partial,
-                "year_status": "partial",
-                "cumulative_publications": pd.NA,
-                "yoy_growth_pct": pd.NA,
-                "share_of_total_pct": pd.NA,
-                "projected_full": projected_full,
-                "estimated_remainder": estimated_remainder,
-            }
-        ]
-    )
-    # pandas 2.3 warns about future dtype inference for an all-NA partial-year cell.
-    # The current inference is intentional because it preserves the established CSV
-    # schema; scope the warning to this single compatibility append.
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", FutureWarning)
-        annual_table = pd.concat(
-            [annual_table, partial_row],
-            ignore_index=True,
-        )
-    projection_table = pd.DataFrame(
-        [
-            {
-                "partial_year": partial_year,
-                "observed_partial": observed_partial,
-                "cagr_window": f"{window_start}-{window_end}",
-                "cagr_pct": round(projection_cagr * 100, 3),
-                "base_year": window_end,
-                "base_count": end_count,
-                "projected_full": projected_full,
-                "estimated_remainder": estimated_remainder,
-            }
-        ]
-    )
-    return annual_counts, annual_table, projection_table
+    return annual_counts, annual_table
 
 
 def threat_composition_tables(
@@ -172,23 +113,33 @@ def threat_composition_tables(
     start_year: int,
     end_year: int,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Build yearly threat counts, 100% shares, long output, and an audit."""
+    """Build yearly fractional publication counts, 100% shares, and an audit.
+
+    A publication assigned to ``k`` distinct threats contributes ``1 / k`` to
+    each threat, so every publication contributes one unit in total per year.
+    """
     observed_order = [
         threat
         for threat in threat_order
         if threat in set(threat_long["pred_threat_l0"])
     ]
+    weighted = threat_long.copy()
+    weighted["labels_per_publication"] = weighted.groupby(
+        ["UT", "publication_year"], observed=True
+    )["pred_threat_l0"].transform("size")
+    weighted["fractional_weight"] = 1.0 / weighted["labels_per_publication"]
+
     counts = (
-        threat_long.groupby(
+        weighted.groupby(
             ["publication_year", "pred_threat_l0"], observed=True
-        )["UT"]
-        .nunique()
-        .rename("record_count")
+        )["fractional_weight"]
+        .sum()
+        .rename("fractional_publication_count")
         .reset_index()
         .pivot(
             index="publication_year",
             columns="pred_threat_l0",
-            values="record_count",
+            values="fractional_publication_count",
         )
         .reindex(
             index=range(start_year, end_year + 1),
@@ -196,10 +147,15 @@ def threat_composition_tables(
             fill_value=0,
         )
         .fillna(0)
-        .astype(int)
+        .astype(float)
     )
     counts.index.name = "publication_year"
-    shares = (counts.div(counts.sum(axis=1), axis=0) * 100).round(4)
+    annual_denominator = annual_counts.reindex(counts.index).astype(float)
+    if not np.allclose(counts.sum(axis=1), annual_denominator):
+        raise ValueError(
+            "Fractional threat weights must sum to one per publication and year."
+        )
+    shares = (counts.div(annual_denominator, axis=0) * 100).round(4)
     assert np.allclose(
         shares.sum(axis=1).loc[counts.sum(axis=1) > 0], 100.0
     )
@@ -209,7 +165,7 @@ def threat_composition_tables(
         .melt(
             id_vars="publication_year",
             var_name="pred_threat_l0",
-            value_name="record_count",
+            value_name="fractional_publication_count",
         )
         .merge(
             shares.reset_index().melt(
@@ -225,10 +181,12 @@ def threat_composition_tables(
     audit = pd.DataFrame(
         {
             "publication_year": counts.index,
-            "n_publications": annual_counts.reindex(counts.index)
+            "n_publications": annual_denominator.astype(int).to_numpy(),
+            "n_assignments": weighted.groupby("publication_year").size()
+            .reindex(counts.index, fill_value=0)
             .astype(int)
             .to_numpy(),
-            "n_assignments": counts.sum(axis=1).to_numpy(),
+            "fractional_publications": counts.sum(axis=1).to_numpy(),
         }
     )
     audit["labels_per_publication"] = (
@@ -237,7 +195,7 @@ def threat_composition_tables(
     return counts, shares, long, audit
 
 
-def cagr_pct(base: int, end: int, years: int) -> float:
+def cagr_pct(base: float, end: float, years: int) -> float:
     """Return compound annual growth in percent, or NaN for an invalid base."""
     if base <= 0 or years <= 0:
         return np.nan
@@ -261,8 +219,8 @@ def growth_tables(
         for period in periods:
             base_year = period["base_year"]
             end_period_year = period["end_year"]
-            base = int(series.get(base_year, 0))
-            end = int(series.get(end_period_year, 0))
+            base = float(series.get(base_year, 0))
+            end = float(series.get(end_period_year, 0))
             years = end_period_year - base_year
             value = cagr_pct(base, end, years)
             note = (
@@ -306,8 +264,8 @@ def growth_tables(
         base_year = rolling_end - rolling_years
         for threat in counts.columns:
             rolling.loc[rolling_end, threat] = cagr_pct(
-                int(counts.loc[base_year, threat]),
-                int(counts.loc[rolling_end, threat]),
+                float(counts.loc[base_year, threat]),
+                float(counts.loc[rolling_end, threat]),
                 rolling_years,
             )
     rolling.index.name = "window_end_year"

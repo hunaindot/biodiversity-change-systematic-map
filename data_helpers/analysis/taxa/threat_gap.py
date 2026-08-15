@@ -118,9 +118,6 @@ EXPORT_COLUMNS: Mapping[str, tuple[str, ...]] = {
         "evidence_to_threatened_vertebrates_land_ratio",
         # Kept as the fish-inclusive sensitivity, not as a second headline.
         "evidence_to_threatened_vertebrates_ratio",
-        # Capacity covariates: reported beside the comparison, never folded into it.
-        "gdp_per_capita_usd", "rd_expenditure_pct_gdp",
-        "researchers_per_million", "scientific_articles",
     ),
 }
 
@@ -141,20 +138,6 @@ def select_export_columns(frame: pd.DataFrame, stem: str) -> pd.DataFrame:
     if missing:
         raise TaxaThreatGapError(f"Frame is missing export columns for {stem!r}: {missing}")
     return frame[list(columns)].copy()
-
-
-#: Research-capacity covariates, all from the same WDI snapshot and ISO3 spine.
-#: They separate two very different readings of a deficit: a country that publishes
-#: little science of any kind, versus one that publishes plenty but little of it on
-#: biodiversity relative to its threat load. Only the second is an allocation failure.
-#: Coverage is thinner than the threat side (145-213 countries), so nulls are expected
-#: and are left as nulls.
-CAPACITY_INDICATORS: Mapping[str, str] = {
-    "NY.GDP.PCAP.CD": "gdp_per_capita_usd",
-    "GB.XPD.RSDV.GD.ZS": "rd_expenditure_pct_gdp",
-    "SP.POP.SCIE.RD.P6": "researchers_per_million",
-    "IP.JRN.ARTC.SC": "scientific_articles",
-}
 
 
 def _wdi_indicator_frame(
@@ -212,31 +195,6 @@ def _wdi_indicator_frame(
             "ipbes_subregion": "subregion",
         }
     )
-
-
-def research_capacity_by_country(
-    source: str | Path,
-    *,
-    indicators: Mapping[str, str] | None = None,
-    iso3_col: str = "ipbes_iso3",
-) -> pd.DataFrame:
-    """Research-capacity covariates per country, for conditioning the focus score.
-
-    Carried alongside the score rather than folded into it: a deficit that disappears
-    once national scientific output is accounted for is a capacity story, and a deficit
-    that survives is an allocation story. Keeping them as separate columns lets the
-    reader see which they are looking at instead of taking that judgement on trust.
-
-    Coverage is materially thinner than the threat side and varies by indicator, so
-    missing values stay null. ``n_capacity_indicators`` counts how many of the
-    requested indicators a country actually carries.
-    """
-    indicators = dict(indicators or CAPACITY_INDICATORS)
-    out = _wdi_indicator_frame(source, indicators, iso3_col=iso3_col)
-    columns = list(indicators.values())
-    out["n_capacity_indicators"] = out[columns].notna().sum(axis=1).astype(int)
-    ordered = ["iso3", "country", "region", "subregion", *columns, "n_capacity_indicators"]
-    return out[ordered].sort_values("iso3").reset_index(drop=True)
 
 
 def evidence_by_country(
@@ -353,7 +311,6 @@ def match_evidence_and_threat(
     *,
     threat_columns: Iterable[str] = ("threatened_vertebrates", "threatened_vertebrates_land"),
     how: str = "inner",
-    covariates: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Join the two sides and score each country's evidence against its threat load.
 
@@ -371,11 +328,6 @@ def match_evidence_and_threat(
     Each ``evidence_to_<column>_ratio`` is the country's share of group evidence
     divided by its share of that threat count: 1.0 means evidence tracks threat,
     below 1.0 means under-studied relative to threat.
-
-    ``covariates`` is an optional per-country frame (the research-capacity indicators)
-    left-joined on ``iso3``. It is merged *here* rather than by the caller because
-    ``DataFrame.merge`` discards ``.attrs``, and the skip-but-report counts this
-    function records there would be silently lost on the way out.
     """
     if how not in {"inner", "outer"}:
         raise TaxaThreatGapError(f"how must be 'inner' or 'outer', got {how!r}")
@@ -430,15 +382,6 @@ def match_evidence_and_threat(
             )
 
     merged["broad_group"] = merged["broad_group"].ffill().bfill()
-
-    if covariates is not None:
-        if "iso3" not in covariates.columns:
-            raise TaxaThreatGapError("Covariate frame needs an iso3 column.")
-        if covariates["iso3"].duplicated().any():
-            raise TaxaThreatGapError("Covariate frame must carry one row per iso3.")
-        # Labels already arrived on both sides; a third copy would only collide.
-        extra = covariates.drop(columns=LABELS, errors="ignore")
-        merged = merged.merge(extra, on="iso3", how="left", validate="one_to_one")
 
     # Skip-but-report: whatever the join drops is counted before it goes.
     evidence_only = merged[merged["match"].eq("evidence only")]
@@ -508,10 +451,8 @@ __all__ = [
     "TaxaThreatGapError",
     "VERTEBRATE_COLUMNS",
     "EXPORT_COLUMNS",
-    "CAPACITY_INDICATORS",
     "evidence_by_country",
     "match_evidence_and_threat",
-    "research_capacity_by_country",
     "select_export_columns",
     "summarise_gap_by_region",
     "threatened_species_by_country",
@@ -530,7 +471,6 @@ def regional_evidence_trend(
     country_col: str = "pred_countries",
     year_col: str = "publication_year",
     region_col: str = "region",
-    exclude_iso3: Iterable[str] = (),
 ) -> pd.DataFrame:
     """Each region's share of one group's evidence, by publication year.
 
@@ -546,13 +486,6 @@ def regional_evidence_trend(
 
     The threat benchmark is a single snapshot and cannot vary by year; it is carried
     through as a constant so each year's ratio is against a fixed target.
-
-    ``exclude_iso3`` drops named countries before counting — a publication naming an
-    excluded country alongside others still counts for the ones that remain, only the
-    excluded country's own attribution is removed. Built for the single-country
-    robustness check a large regional swing invites (a country whose corpus coverage
-    itself expanded over the window can drive most of an apparent correction), not for
-    routine use: the un-excluded call is the one that backs the reported trend.
     """
     for frame, columns, name in (
         (included, {id_col, group_col, year_col}, "Included"),
@@ -575,11 +508,6 @@ def regional_evidence_trend(
     )
     long = source.explode(country_col).dropna(subset=[country_col])
     long[country_col] = long[country_col].astype(str).str.strip()
-    excluded = {str(code).strip() for code in exclude_iso3}
-    if excluded:
-        long = long[~long[country_col].isin(excluded)]
-        if long.empty:
-            raise TaxaThreatGapError(f"Excluding {sorted(excluded)} left no publications.")
 
     places = crosswalk[["iso3", region_col]].drop_duplicates("iso3")
     long = long.merge(places, left_on=country_col, right_on="iso3", how="inner")

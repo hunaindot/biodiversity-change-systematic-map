@@ -102,40 +102,8 @@ def add_group_icons(
         axis.add_artist(annotation)
 
 
-def add_title_icon(
-    axis: Axes,
-    *,
-    group: str,
-    scheme: Mapping,
-    group_colors: Mapping[str, str],
-    icon_paths: Mapping[str, Path],
-    zoom: float = 0.11,
-    position: tuple[float, float] = (-0.03, 1.16),
-) -> None:
-    """Place a small tinted taxon silhouette beside a panel title.
-
-    ``position`` is in axes-fraction coordinates (both axes), anchored above
-    the panel so it sits next to a title set with ``loc="left"``.
-    """
-    asset_name = scheme["group_clipart"].get(group)
-    if asset_name is None or asset_name not in icon_paths:
-        return
-    rgba = _tinted_icon(icon_paths[asset_name], group_colors[group])
-    offset_image = OffsetImage(rgba, zoom=zoom)
-    annotation = AnnotationBbox(
-        offset_image,
-        position,
-        xycoords="axes fraction",
-        frameon=False,
-        box_alignment=(1, 0.5),
-        annotation_clip=False,
-    )
-    axis.add_artist(annotation)
-
-
 __all__ = [
     "CLIPART_CREDIT",
     "add_group_icons",
-    "add_title_icon",
     "ensure_clipart_cached",
 ]

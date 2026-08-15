@@ -9,7 +9,6 @@ one to the headline taxonomic composition.
 from __future__ import annotations
 
 import json
-from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping
@@ -17,25 +16,12 @@ from typing import Any, Iterable, Mapping
 import numpy as np
 import pandas as pd
 
-from data_helpers.labels import parse_list_labels
 from data_helpers.analysis.taxa.benchmark import DescribedDiversity
 from data_helpers.visualization import save_figure
 
 
 class TaxaSkewError(ValueError):
     """Raised when a source or calculation violates the analysis contract."""
-
-
-@dataclass(frozen=True)
-class TaxaSkewSources:
-    """Minimal source frames and their one-row-per-UT joined table."""
-
-    taxa: pd.DataFrame
-    driver: pd.DataFrame
-    threats_l0: pd.DataFrame
-    realm: pd.DataFrame
-    articles: pd.DataFrame
-    audit: pd.DataFrame
 
 
 @dataclass(frozen=True)
@@ -51,15 +37,6 @@ class TaxaSkewEvidence:
     group_reason_audit: pd.DataFrame
     special_value_audit: pd.DataFrame
     auxiliary_label_audit: pd.DataFrame
-
-
-@dataclass(frozen=True)
-class TaxaSkewFocus:
-    """A publication-balanced re-expression over a subset of broad groups."""
-
-    included: pd.DataFrame
-    attributions: pd.DataFrame
-    group_audit: pd.DataFrame
 
 
 @dataclass(frozen=True)
@@ -79,12 +56,10 @@ class TaxaSkewResultStore:
         root: str | Path,
         *,
         table_subdirectory: str = "csv",
-        data_subdirectory: str = "data",
         figure_subdirectory: str = "figures",
     ) -> None:
         self.root = Path(root)
         self.table_directory = self.root / table_subdirectory
-        self.data_directory = self.root / data_subdirectory
         self.figure_directory = self.root / figure_subdirectory
 
     def save_table(
@@ -93,13 +68,6 @@ class TaxaSkewResultStore:
         self.table_directory.mkdir(parents=True, exist_ok=True)
         path = self.table_directory / f"{filename}.csv"
         table.to_csv(path, index=index)
-        print(f"Saved: {path}")
-        return path
-
-    def save_data(self, table: pd.DataFrame, filename: str) -> Path:
-        self.data_directory.mkdir(parents=True, exist_ok=True)
-        path = self.data_directory / f"{filename}.parquet"
-        table.to_parquet(path, index=False)
         print(f"Saved: {path}")
         return path
 
@@ -124,34 +92,6 @@ class TaxaSkewResultStore:
         )
 
 
-SOURCE_COLUMNS: dict[str, tuple[str, ...]] = {
-    "taxa": (
-        "UT",
-        "publication_year",
-        "broad_taxa_groups",
-        "llm_taxa_json",
-        "taxa_match_status_json",
-        "taxa_record_status",
-        "n_llm_taxa",
-        "n_taxa_matched",
-        "n_taxa_unresolved",
-        "n_taxa_api_failed",
-    ),
-    "driver": ("UT", "driver"),
-    "threats_l0": ("UT", "pred_threat_l0"),
-    "realm": ("UT", "realm"),
-}
-
-AUXILIARY_LABEL_COLUMNS = {
-    "driver": "driver",
-    "threats_l0": "pred_threat_l0",
-    "realm": "realm",
-}
-
-NOT_APPLICABLE_VALUES = {"not applicable", "non applicable"}
-UNCLEAR_VALUES = {"unclear"}
-SPECIAL_EXCLUSION_VALUES = NOT_APPLICABLE_VALUES | UNCLEAR_VALUES
-
 INCLUSION_ORDER = (
     "Included: at least one benchmarkable broad group",
     "Excluded: Not applicable only",
@@ -161,355 +101,6 @@ INCLUSION_ORDER = (
     "Excluded: reported taxon but no accepted benchmarkable match",
     "Excluded: no taxon item returned",
 )
-
-
-def _read_source(path: str | Path, columns: Iterable[str]) -> pd.DataFrame:
-    path = Path(path)
-    if not path.exists():
-        raise TaxaSkewError(f"Required source does not exist: {path}")
-    try:
-        return pd.read_csv(
-            path,
-            usecols=list(columns),
-            low_memory=False,
-        )
-    except ValueError as exc:
-        raise TaxaSkewError(
-            f"Could not read required columns from {path}: {exc}"
-        ) from exc
-
-
-def _validate_ut(frame: pd.DataFrame, source: str) -> None:
-    if "UT" not in frame:
-        raise TaxaSkewError(f"{source} has no UT column.")
-    missing = int(frame["UT"].isna().sum())
-    duplicated = int(frame["UT"].duplicated().sum())
-    if missing or duplicated:
-        raise TaxaSkewError(
-            f"{source} violates the one-row-per-UT grain: "
-            f"missing={missing:,}, duplicated={duplicated:,}."
-        )
-
-
-def load_coding_sources(paths: Mapping[str, str | Path]) -> TaxaSkewSources:
-    """Load minimal columns from four coding outputs and join one-to-one."""
-    missing_sources = set(SOURCE_COLUMNS).difference(paths)
-    if missing_sources:
-        raise TaxaSkewError(
-            f"Missing configured coding sources: {sorted(missing_sources)}"
-        )
-
-    frames: dict[str, pd.DataFrame] = {}
-    for source, columns in SOURCE_COLUMNS.items():
-        frame = _read_source(paths[source], columns)
-        _validate_ut(frame, source)
-        frames[source] = frame
-
-    anchor = frames["taxa"]["UT"].reset_index(drop=True)
-    anchor_index = pd.Index(anchor)
-    audit_rows: list[dict[str, Any]] = []
-    for source, frame in frames.items():
-        source_index = pd.Index(frame["UT"])
-        audit_rows.append(
-            {
-                "source": source,
-                "path": str(Path(paths[source])),
-                "rows": len(frame),
-                "unique_UT": frame["UT"].nunique(),
-                "missing_UT": int(frame["UT"].isna().sum()),
-                "duplicated_UT": int(frame["UT"].duplicated().sum()),
-                "taxa_UT_missing_from_source": len(
-                    anchor_index.difference(source_index, sort=False)
-                ),
-                "source_UT_missing_from_taxa": len(
-                    source_index.difference(anchor_index, sort=False)
-                ),
-                "same_UT_order_as_taxa": source_index.equals(anchor_index),
-                "columns_loaded": len(frame.columns),
-                "grain": "one row per UT",
-            }
-        )
-        if not source_index.equals(anchor_index):
-            left_only = anchor_index.difference(source_index, sort=False)
-            right_only = source_index.difference(anchor_index, sort=False)
-            if len(left_only) or len(right_only):
-                raise TaxaSkewError(
-                    f"{source} does not have the same UT key set as taxa: "
-                    f"taxa_only={len(left_only):,}, source_only={len(right_only):,}."
-                )
-
-    articles = frames["taxa"].copy()
-    for source in ("driver", "threats_l0", "realm"):
-        before = articles["UT"].reset_index(drop=True)
-        articles = articles.merge(
-            frames[source],
-            on="UT",
-            how="left",
-            sort=False,
-            validate="one_to_one",
-        )
-        if len(articles) != len(anchor) or not articles["UT"].reset_index(
-            drop=True
-        ).equals(before):
-            raise TaxaSkewError(f"Joining {source} changed the UT grain or order.")
-
-    return TaxaSkewSources(
-        taxa=frames["taxa"],
-        driver=frames["driver"],
-        threats_l0=frames["threats_l0"],
-        realm=frames["realm"],
-        articles=articles,
-        audit=pd.DataFrame(audit_rows),
-    )
-
-
-def _parse_json_items(value: Any) -> list[dict[str, Any]]:
-    if not isinstance(value, str) or not value.strip():
-        return []
-    try:
-        parsed = json.loads(value)
-    except json.JSONDecodeError:
-        return []
-    if not isinstance(parsed, list):
-        return []
-    return [item for item in parsed if isinstance(item, dict)]
-
-
-def _ordered_labels(value: Any, order: Iterable[str]) -> tuple[str, ...]:
-    if isinstance(value, np.ndarray):
-        labels = parse_list_labels(value.tolist())
-    else:
-        labels = parse_list_labels(value)
-    observed = set(labels)
-    return tuple(label for label in order if label in observed)
-
-
-def _taxa_inclusion_state(
-    broad_groups: tuple[str, ...],
-    llm_items: list[dict[str, Any]],
-    benchmark_groups: set[str],
-    unresolved_group: str,
-) -> str:
-    if benchmark_groups.intersection(broad_groups):
-        return INCLUSION_ORDER[0]
-    if unresolved_group in broad_groups:
-        return INCLUSION_ORDER[4]
-
-    names = {
-        str(item.get("canonical_name", "")).strip().casefold()
-        for item in llm_items
-        if str(item.get("canonical_name", "")).strip()
-    }
-    if not llm_items:
-        return INCLUSION_ORDER[6]
-    if names and names.issubset(NOT_APPLICABLE_VALUES):
-        return INCLUSION_ORDER[1]
-    if names and names.issubset(UNCLEAR_VALUES):
-        return INCLUSION_ORDER[2]
-    if names and names.issubset(SPECIAL_EXCLUSION_VALUES):
-        return INCLUSION_ORDER[3]
-    return INCLUSION_ORDER[5]
-
-
-def _match_audits(
-    taxa: pd.DataFrame,
-    *,
-    eligible_match_statuses: Iterable[str],
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    status_counts: Counter[str] = Counter()
-    reason_counts: Counter[str] = Counter()
-    special_counts: Counter[str] = Counter()
-    for value in taxa["taxa_match_status_json"]:
-        for item in _parse_json_items(value):
-            status = str(item.get("status", "")).strip() or "<missing>"
-            status_counts[status] += 1
-            broad = (
-                ((item.get("group_assignments") or {}).get("broad") or {})
-                if isinstance(item.get("group_assignments"), dict)
-                else {}
-            )
-            reason = str(broad.get("reason", "")).strip() or "<missing>"
-            reason_counts[reason] += 1
-            if status == "special_value":
-                special = str(item.get("canonical_name", "")).strip() or "<missing>"
-                special_counts[special] += 1
-
-    eligible = set(eligible_match_statuses)
-    total_items = sum(status_counts.values())
-    status_audit = pd.DataFrame(
-        [
-            {
-                "match_status": status,
-                "taxon_item_count": count,
-                "share_of_taxon_items_pct": count / total_items * 100,
-                "eligible_for_grouping": status in eligible,
-            }
-            for status, count in status_counts.most_common()
-        ]
-    )
-    reason_audit = pd.DataFrame(
-        [
-            {
-                "broad_group_reason": reason,
-                "taxon_item_count": count,
-                "share_of_taxon_items_pct": count / total_items * 100,
-            }
-            for reason, count in reason_counts.most_common()
-        ]
-    )
-    special_total = sum(special_counts.values())
-    special_audit = pd.DataFrame(
-        [
-            {
-                "special_value": value,
-                "taxon_item_count": count,
-                "share_of_special_values_pct": (
-                    count / special_total * 100 if special_total else np.nan
-                ),
-                "article_exclusion_value": value.casefold()
-                in SPECIAL_EXCLUSION_VALUES,
-            }
-            for value, count in special_counts.most_common()
-        ]
-    )
-    return status_audit, reason_audit, special_audit
-
-
-def auxiliary_label_inventory(sources: TaxaSkewSources) -> pd.DataFrame:
-    """Count distinct article-level labels in the three future cross-cut fields."""
-    rows: list[dict[str, Any]] = []
-    for source, column in AUXILIARY_LABEL_COLUMNS.items():
-        frame = getattr(sources, source)
-        counter: Counter[str] = Counter()
-        for value in frame[column]:
-            counter.update(parse_list_labels(value))
-        for label, count in counter.most_common():
-            rows.append(
-                {
-                    "source": source,
-                    "column": column,
-                    "label": label,
-                    "n_publications": count,
-                    "special_for_later_crosscuts": label.casefold()
-                    in SPECIAL_EXCLUSION_VALUES,
-                }
-            )
-    return pd.DataFrame(rows)
-
-
-def prepare_taxa_skew_evidence(
-    sources: TaxaSkewSources,
-    *,
-    broad_group_order: Iterable[str],
-    benchmark_groups: Iterable[str],
-    unresolved_group: str,
-    eligible_match_statuses: Iterable[str],
-) -> TaxaSkewEvidence:
-    """Build audited publication evidence without changing the article grain."""
-    broad_group_order = tuple(broad_group_order)
-    benchmark_groups = tuple(benchmark_groups)
-    benchmark_group_set = set(benchmark_groups)
-    if not benchmark_group_set.issubset(broad_group_order):
-        raise TaxaSkewError("benchmark_groups must be part of broad_group_order.")
-    if unresolved_group in benchmark_group_set:
-        raise TaxaSkewError("The non-taxonomic unresolved group is not benchmarkable.")
-
-    articles = sources.articles.copy()
-    articles["broad_groups_all"] = articles["broad_taxa_groups"].map(
-        lambda value: _ordered_labels(value, broad_group_order)
-    )
-    articles["benchmark_groups"] = articles["broad_groups_all"].map(
-        lambda labels: tuple(group for group in benchmark_groups if group in labels)
-    )
-    articles["n_benchmark_groups"] = articles["benchmark_groups"].map(len)
-    articles["llm_taxa_items"] = articles["llm_taxa_json"].map(_parse_json_items)
-    articles["taxa_analysis_state"] = articles.apply(
-        lambda row: _taxa_inclusion_state(
-            row["broad_groups_all"],
-            row["llm_taxa_items"],
-            benchmark_group_set,
-            unresolved_group,
-        ),
-        axis=1,
-    )
-    articles["taxa_included"] = articles["taxa_analysis_state"].eq(
-        INCLUSION_ORDER[0]
-    )
-    if not articles["UT"].is_unique or len(articles) != len(sources.articles):
-        raise TaxaSkewError("Preparing taxa evidence changed the one-row-per-UT grain.")
-
-    state_counts = articles["taxa_analysis_state"].value_counts()
-    inclusion_audit = pd.DataFrame(
-        {
-            "taxa_analysis_state": INCLUSION_ORDER,
-            "included_in_primary": [
-                state == INCLUSION_ORDER[0] for state in INCLUSION_ORDER
-            ],
-            "n_publications": [
-                int(state_counts.get(state, 0)) for state in INCLUSION_ORDER
-            ],
-        }
-    )
-    inclusion_audit["share_of_all_publications_pct"] = (
-        inclusion_audit["n_publications"] / len(articles) * 100
-    )
-    if inclusion_audit["n_publications"].sum() != len(articles):
-        raise TaxaSkewError("Article inclusion categories do not sum to the source.")
-
-    included = articles.loc[articles["taxa_included"]].copy()
-    attributions = (
-        included[
-            ["UT", "publication_year", "benchmark_groups", "n_benchmark_groups"]
-        ]
-        .explode("benchmark_groups", ignore_index=True)
-        .rename(columns={"benchmark_groups": "broad_group"})
-    )
-    attributions["fractional_publication_weight"] = (
-        1.0 / attributions["n_benchmark_groups"]
-    )
-    article_weights = attributions.groupby("UT")[
-        "fractional_publication_weight"
-    ].sum()
-    if len(article_weights) != len(included) or not np.allclose(
-        article_weights.to_numpy(), 1.0
-    ):
-        raise TaxaSkewError(
-            "Fractional broad-group weights do not sum to one per publication."
-        )
-
-    group_audit = pd.DataFrame({"broad_group": benchmark_groups})
-    unique_counts = attributions.groupby("broad_group")["UT"].nunique()
-    effective_counts = attributions.groupby("broad_group")[
-        "fractional_publication_weight"
-    ].sum()
-    group_audit["n_unique_publications"] = (
-        group_audit["broad_group"].map(unique_counts).fillna(0).astype(int)
-    )
-    group_audit["publication_coverage_pct"] = (
-        group_audit["n_unique_publications"] / len(included) * 100
-    )
-    group_audit["effective_publication_count"] = (
-        group_audit["broad_group"].map(effective_counts).fillna(0.0)
-    )
-    group_audit["fractional_attention_share_pct"] = (
-        group_audit["effective_publication_count"] / len(included) * 100
-    )
-
-    status_audit, reason_audit, special_audit = _match_audits(
-        sources.taxa,
-        eligible_match_statuses=eligible_match_statuses,
-    )
-    return TaxaSkewEvidence(
-        articles=articles.drop(columns="llm_taxa_items"),
-        included=included.drop(columns="llm_taxa_items"),
-        attributions=attributions,
-        inclusion_audit=inclusion_audit,
-        group_audit=group_audit,
-        match_status_audit=status_audit,
-        group_reason_audit=reason_audit,
-        special_value_audit=special_audit,
-        auxiliary_label_audit=auxiliary_label_inventory(sources),
-    )
 
 
 def prepare_taxa_skew_from_prepared(
@@ -669,81 +260,6 @@ def prepare_taxa_skew_from_prepared(
     )
 
 
-def focus_taxa_skew_evidence(
-    evidence: TaxaSkewEvidence,
-    *,
-    benchmark_groups: Iterable[str],
-) -> TaxaSkewFocus:
-    """Rebalance the primary evidence within a specified subset of groups.
-
-    Publications without any focal group leave the focused denominator. Each
-    remaining publication contributes total weight one across only its focal
-    groups. The function therefore supports literature-aligned comparisons,
-    such as an animal-only Vertebrates-versus-Invertebrates sensitivity,
-    without re-reading or re-matching the source taxa.
-    """
-    group_order = tuple(benchmark_groups)
-    if not group_order or len(group_order) != len(set(group_order)):
-        raise TaxaSkewError("Focused benchmark_groups must be unique and non-empty.")
-    available_groups = set(evidence.group_audit["broad_group"])
-    if not set(group_order).issubset(available_groups):
-        raise TaxaSkewError(
-            "Focused benchmark_groups must be part of the prepared evidence."
-        )
-
-    focused = evidence.included.copy()
-    focused["benchmark_groups"] = focused["benchmark_groups"].map(
-        lambda labels: tuple(group for group in group_order if group in labels)
-    )
-    focused = focused.loc[focused["benchmark_groups"].map(len).gt(0)].copy()
-    if focused.empty:
-        raise TaxaSkewError("No publication contains a requested focal group.")
-    focused["n_benchmark_groups"] = focused["benchmark_groups"].map(len)
-
-    attributions = (
-        focused[
-            ["UT", "publication_year", "benchmark_groups", "n_benchmark_groups"]
-        ]
-        .explode("benchmark_groups", ignore_index=True)
-        .rename(columns={"benchmark_groups": "broad_group"})
-    )
-    attributions["fractional_publication_weight"] = (
-        1.0 / attributions["n_benchmark_groups"]
-    )
-    article_weights = attributions.groupby("UT")[
-        "fractional_publication_weight"
-    ].sum()
-    if len(article_weights) != len(focused) or not np.allclose(
-        article_weights.to_numpy(), 1.0
-    ):
-        raise TaxaSkewError(
-            "Focused broad-group weights do not sum to one per publication."
-        )
-
-    group_audit = pd.DataFrame({"broad_group": group_order})
-    unique_counts = attributions.groupby("broad_group")["UT"].nunique()
-    effective_counts = attributions.groupby("broad_group")[
-        "fractional_publication_weight"
-    ].sum()
-    group_audit["n_unique_publications"] = (
-        group_audit["broad_group"].map(unique_counts).fillna(0).astype(int)
-    )
-    group_audit["publication_coverage_pct"] = (
-        group_audit["n_unique_publications"] / len(focused) * 100
-    )
-    group_audit["effective_publication_count"] = (
-        group_audit["broad_group"].map(effective_counts).fillna(0.0)
-    )
-    group_audit["fractional_attention_share_pct"] = (
-        group_audit["effective_publication_count"] / len(focused) * 100
-    )
-    return TaxaSkewFocus(
-        included=focused,
-        attributions=attributions,
-        group_audit=group_audit,
-    )
-
-
 def _bootstrap_attention(
     included: pd.DataFrame,
     *,
@@ -778,7 +294,7 @@ def _bootstrap_attention(
 
 
 def analyze_taxonomic_skew(
-    evidence: TaxaSkewEvidence | TaxaSkewFocus,
+    evidence: TaxaSkewEvidence,
     benchmark: DescribedDiversity,
     *,
     benchmark_groups: Iterable[str],
@@ -1018,14 +534,8 @@ __all__ = [
     "TaxaSkewAnalysis",
     "TaxaSkewError",
     "TaxaSkewEvidence",
-    "TaxaSkewFocus",
     "TaxaSkewResultStore",
-    "TaxaSkewSources",
     "analyze_taxonomic_skew",
-    "auxiliary_label_inventory",
-    "focus_taxa_skew_evidence",
-    "load_coding_sources",
-    "prepare_taxa_skew_evidence",
     "summarise_attention_trend",
     "taxonomic_attention_trend",
 ]

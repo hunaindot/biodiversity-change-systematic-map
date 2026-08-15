@@ -70,26 +70,6 @@ def _wdi_parquet(tmp_path: Path, *, drop: tuple[str, ...] = ()) -> Path:
                     "is_aggregate": False,
                 }
             )
-    capacity = {
-        "USA": {"NY.GDP.PCAP.CD": 82769.0, "GB.XPD.RSDV.GD.ZS": 3.6,
-                "SP.POP.SCIE.RD.P6": 4821.0, "IP.JRN.ARTC.SC": 455856.0},
-        "MMR": {"NY.GDP.PCAP.CD": 1233.0, "IP.JRN.ARTC.SC": 391.0},
-    }
-    for iso3, values in capacity.items():
-        country, region, subregion = labels[iso3]
-        for code, value in values.items():
-            rows.append(
-                {
-                    "ipbes_iso3": iso3,
-                    "ipbes_country": country,
-                    "ipbes_region": region,
-                    "ipbes_subregion": subregion,
-                    "indicator_code": code,
-                    "value": float(value),
-                    "year": 2023,
-                    "is_aggregate": False,
-                }
-            )
     # An aggregate entity that must never reach the output.
     rows.append(
         {
@@ -301,25 +281,11 @@ def test_export_selection_raises_rather_than_silently_dropping(tmp_path: Path) -
         tg.select_export_columns(evidence, "not-a-table")
 
 
-def test_capacity_covariates_load_with_partial_coverage(tmp_path: Path) -> None:
-    """Thin coverage is expected; a missing indicator stays null, never zero."""
-    capacity = tg.research_capacity_by_country(_wdi_parquet(tmp_path)).set_index("iso3")
-
-    assert capacity.loc["USA", "researchers_per_million"] == pytest.approx(4821.0)
-    assert capacity.loc["USA", "n_capacity_indicators"] == 4
-    # Myanmar carries only two of the four; the rest must be null, not zero.
-    assert pd.isna(capacity.loc["MMR", "researchers_per_million"])
-    assert pd.isna(capacity.loc["MMR", "rd_expenditure_pct_gdp"])
-    assert capacity.loc["MMR", "n_capacity_indicators"] == 2
-    assert "WLD" not in capacity.index
-
-
 def test_every_export_set_is_satisfiable_by_its_builder(tmp_path: Path) -> None:
     """Each column set must actually be selectable from the frame it describes."""
     evidence = tg.evidence_by_country(_lq_frame(), _crosswalk(), group="Vertebrates")
     threatened = tg.threatened_species_by_country(_wdi_parquet(tmp_path))
-    capacity = tg.research_capacity_by_country(_wdi_parquet(tmp_path))
-    matched = tg.match_evidence_and_threat(evidence, threatened, covariates=capacity)
+    matched = tg.match_evidence_and_threat(evidence, threatened)
 
     for stem, frame in (
         ("evidence-by-country", evidence),
@@ -341,110 +307,3 @@ def test_region_summary_scores_aggregated_totals(tmp_path: Path) -> None:
     assert summary["evidence_share_pct"].sum() == pytest.approx(100.0)
     # Sorted most- to least-studied relative to threat.
     assert summary.index[0] == "Americas"
-
-
-def _regional_trend_inputs() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Two years, two regions, with CHN carrying most of one region's apparent rise.
-
-    APAC goes from 1 to 4 publications across the years; three of those four extra come
-    from CHN alone, so excluding CHN should flatten most, not all, of the apparent slope.
-    """
-    included = pd.DataFrame(
-        {
-            "UT": [f"P{i}" for i in range(1, 8)],
-            "publication_year": [2000, 2000, 2025, 2025, 2025, 2025, 2025],
-            "benchmark_groups": [("Vertebrates",)] * 7,
-        }
-    )
-    countries = pd.DataFrame(
-        {
-            "UT": [f"P{i}" for i in range(1, 8)],
-            "pred_countries": [
-                ["USA"], ["MMR"],
-                ["USA"], ["USA"], ["MMR"], ["CHN"], ["CHN"],
-            ],
-        }
-    )
-    regional = pd.DataFrame(
-        {
-            "region": ["Americas", "Asia and the Pacific"],
-            "threat_share_pct": [50.0, 50.0],
-        }
-    )
-    crosswalk = pd.DataFrame(
-        {
-            "iso3": ["USA", "MMR", "CHN"],
-            "region": ["Americas", "Asia and the Pacific", "Asia and the Pacific"],
-        }
-    )
-    return included, countries, regional, crosswalk
-
-
-def test_regional_trend_excludes_a_named_country() -> None:
-    included, countries, regional, crosswalk = _regional_trend_inputs()
-
-    full = tg.regional_evidence_trend(
-        included, countries, regional, crosswalk, group="Vertebrates"
-    )
-    without_china = tg.regional_evidence_trend(
-        included, countries, regional, crosswalk, group="Vertebrates", exclude_iso3=["CHN"],
-    )
-
-    apac_2025_full = full[
-        (full["region"] == "Asia and the Pacific") & (full["publication_year"] == 2025)
-    ]["n_publications"].iloc[0]
-    apac_2025_excl = without_china[
-        (without_china["region"] == "Asia and the Pacific")
-        & (without_china["publication_year"] == 2025)
-    ]["n_publications"].iloc[0]
-
-    assert apac_2025_full == 3  # MMR + 2x CHN
-    assert apac_2025_excl == 1  # MMR only
-    # The Americas side is untouched by excluding an Asia-Pacific country.
-    americas_full = full[
-        (full["region"] == "Americas") & (full["publication_year"] == 2025)
-    ]["n_publications"].iloc[0]
-    americas_excl = without_china[
-        (without_china["region"] == "Americas") & (without_china["publication_year"] == 2025)
-    ]["n_publications"].iloc[0]
-    assert americas_full == americas_excl == 2
-
-
-def test_regional_trend_exclusion_flattens_the_slope() -> None:
-    included, countries, regional, crosswalk = _regional_trend_inputs()
-
-    full = tg.summarise_regional_trend(
-        tg.regional_evidence_trend(included, countries, regional, crosswalk, group="Vertebrates")
-    ).set_index("region")
-    without_china = tg.summarise_regional_trend(
-        tg.regional_evidence_trend(
-            included, countries, regional, crosswalk, group="Vertebrates", exclude_iso3=["CHN"],
-        )
-    ).set_index("region")
-
-    apac_row = "Asia and the Pacific"
-    assert full.loc[apac_row, "slope_pp_per_decade"] > without_china.loc[
-        apac_row, "slope_pp_per_decade"
-    ]
-
-
-def test_regional_trend_exclusion_rejects_emptying_the_frame() -> None:
-    included, countries, regional, crosswalk = _regional_trend_inputs()
-
-    with pytest.raises(tg.TaxaThreatGapError, match="left no publications"):
-        tg.regional_evidence_trend(
-            included, countries, regional, crosswalk,
-            group="Vertebrates", exclude_iso3=["USA", "MMR", "CHN"],
-        )
-
-
-def test_regional_trend_exclusion_default_is_a_no_op() -> None:
-    included, countries, regional, crosswalk = _regional_trend_inputs()
-
-    default = tg.regional_evidence_trend(
-        included, countries, regional, crosswalk, group="Vertebrates"
-    )
-    explicit_empty = tg.regional_evidence_trend(
-        included, countries, regional, crosswalk, group="Vertebrates", exclude_iso3=[]
-    )
-    pd.testing.assert_frame_equal(default, explicit_empty)

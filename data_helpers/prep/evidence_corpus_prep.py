@@ -2,16 +2,14 @@
 
 The full screening grain and the eligible evidence grain are deliberately
 separate. Screening results use compact aggregates over every screened record;
-substantive results use a one-row-per-UT corpus containing screening metadata
-and configured coding dimensions, plus a separate text sidecar.
+substantive results use a one-row-per-publication corpus with a stable numeric
+primary key, the external UT, configured coding dimensions, and a text sidecar.
 """
 
 from __future__ import annotations
 
 import json
-import os
 import re
-import tempfile
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -20,16 +18,25 @@ from typing import Any, Iterable, Mapping
 
 import numpy as np
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
-from pandas.api.types import is_bool_dtype
+from openpyxl import Workbook, load_workbook
+from openpyxl.cell import WriteOnlyCell
+from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+from openpyxl.styles import Font, PatternFill
+from openpyxl.utils import get_column_letter
+from pandas.api.types import is_bool_dtype, is_integer_dtype
 
 from data_helpers.labels import parse_list_labels
-from data_helpers.prep._provenance import source_signature
+from data_helpers.prep._provenance import repository_relative_path, source_signature
 
 
-SCREENING_SCHEMA_VERSION = 1
-EVIDENCE_SCHEMA_VERSION = 4
+SCREENING_SCHEMA_VERSION = 2
+EVIDENCE_SCHEMA_VERSION = 17
+DEFAULT_PLASTICS_PATTERN = (
+    r"\b(?:micro[\s-]?plastics?|nano[\s-]?plastics?|plastics?|"
+    r"plastic[\s-](?:debris|waste|litter|particles?|fibres?|fibers?|"
+    r"pellets?|fragments?|pollution)|marine[\s-](?:debris|litter)|"
+    r"anthropogenic[\s-]litter)\b"
+)
 REASON_COLUMNS = ("s1_r", "s2_r", "s3_r", "s4_r")
 STAGE_NAMES = {
     "s1_r": "Q1: biodiversity change",
@@ -46,20 +53,25 @@ SCREENING_ANALYSIS_COLUMNS = (
     *REASON_COLUMNS,
     "s2_dir",
 )
+GEOGRAPHY_AUDIT_LABEL_COLUMNS = (
+    "pred_regions_audit",
+    "pred_subregions_audit",
+    "pred_countries_audit",
+)
 EVIDENCE_LIST_COLUMNS = (
     "driver",
     "pred_threat_l0",
     "pred_regions",
     "pred_subregions",
     "pred_countries",
+    *GEOGRAPHY_AUDIT_LABEL_COLUMNS,
     "locales",
     "realm",
+    "pred_study_design",
     "pred_methods_data_collection",
     "pred_methods_analysis",
     "pred_comparison_types",
-    "taxa_domain_labels",
     "taxa_kingdom_labels",
-    "taxa_subkingdom_labels",
     "taxa_phylum_labels",
     "taxa_class_labels",
     "taxa_order_labels",
@@ -71,15 +83,24 @@ GEOGRAPHY_LIST_COLUMNS = (
     "pred_regions",
     "pred_subregions",
     "pred_countries",
+    "locales",
 )
+GEOGRAPHY_VALUE_COLUMNS = (*GEOGRAPHY_LIST_COLUMNS, "locale_coordinates")
+_UNCLEAR_PRECEDENCE_COLUMNS = {
+    "pred_regions",
+    "pred_subregions",
+    "pred_countries",
+}
 _NOT_APPLICABLE_LABEL = "Not Applicable"
 _UNCLEAR_LABEL = "Unclear"
-_SPECIAL_COUNTRY_TOKENS = {
-    "",
+_NOT_APPLICABLE_TOKENS = {
     "NA",
     "NONE",
     "NOTAPPLICABLE",
+}
+_UNCLEAR_TOKENS = {
     "UNCLEAR",
+    "UNCLEARREVIEWNEEDED",
     "UNC",
     "UNCL",
     "UNK",
@@ -89,20 +110,19 @@ _SPECIAL_COUNTRY_TOKENS = {
     "UNR",
     "UNL",
     "UNP",
+}
+_GLOBAL_COUNTRY_TOKENS = {
     "ALLCOUNTRIES",
-    "ALLREGIONS",
-    "ALLSUBREGIONS",
     "GLOBAL",
     "WORLDWIDE",
 }
-EVIDENCE_CORE_COLUMNS = (
+_WOS_UT_PATTERN = re.compile(r"^WOS:\d{15}$")
+_EXCEL_MAX_EXACT_INTEGER = 9_007_199_254_740_991
+_EVIDENCE_METADATA_BEFORE_AUDIT = (
     "UT",
     "title",
-    "authors",
-    "source",
     "publication_year",
     "doi",
-    "eligibility",
     "s1_r",
     "s2_r",
     "s3_r",
@@ -112,11 +132,12 @@ EVIDENCE_CORE_COLUMNS = (
     "s3_drivers",
     "s4_link",
     "driver",
-    "n_drivers",
     "pred_threat_l0",
     "pred_regions",
     "pred_subregions",
     "pred_countries",
+)
+_EVIDENCE_METADATA_AFTER_AUDIT = (
     "locales",
     "locale_coordinates",
     "realm",
@@ -125,86 +146,69 @@ EVIDENCE_CORE_COLUMNS = (
     "pred_methods_analysis",
     "pred_has_comparison",
     "pred_comparison_types",
-    "taxa_domain_labels",
+)
+EVIDENCE_METADATA_COLUMNS = (
+    *_EVIDENCE_METADATA_BEFORE_AUDIT,
+    *_EVIDENCE_METADATA_AFTER_AUDIT,
+)
+TAXONOMY_RANK_COLUMNS = (
     "taxa_kingdom_labels",
-    "taxa_subkingdom_labels",
     "taxa_phylum_labels",
     "taxa_class_labels",
     "taxa_order_labels",
     "taxa_family_labels",
     "taxa_genus_labels",
     "taxa_species_labels",
-    "taxa_summary_json",
 )
-EVIDENCE_COLUMNS = (*EVIDENCE_CORE_COLUMNS, "taxa_matches")
-TAXONOMY_RANK_COLUMNS = EVIDENCE_CORE_COLUMNS[29:38]
-TAXONOMY_SUMMARY_COLUMNS = (
+EVIDENCE_COLUMNS = (
+    "id",
+    *_EVIDENCE_METADATA_BEFORE_AUDIT,
+    *GEOGRAPHY_AUDIT_LABEL_COLUMNS,
+    *_EVIDENCE_METADATA_AFTER_AUDIT,
+    *TAXONOMY_RANK_COLUMNS,
     "taxa_record_status",
-    "n_llm_taxa",
-    "n_taxa_matched",
-    "n_taxa_unresolved",
-    "n_taxa_api_failed",
-    "broad_groups_all",
-    "broad_groups",
-    "n_broad_groups",
-    "taxa_broad_state",
-    "analysis_groups_all",
-    "analysis_groups",
-    "n_analysis_groups",
-    "taxa_analysis_state",
-    "detail_groups_all",
-    "detail_groups",
-    "n_detail_groups",
-    "taxa_detail_state",
-    "taxa_broad_inclusion_state",
+    "text_available",
+    "plastics_mention",
+)
+GEOGRAPHY_HIERARCHY_AUDIT_COLUMNS = (
+    "UT",
+    "status",
+    "primary_reason",
+    "reasons",
+    "warnings",
+    "pred_regions",
+    "pred_subregions",
+    "pred_countries",
 )
 class EvidenceCorpusPrepError(ValueError):
     """Raised when a prepared screening/corpus artifact violates its grain."""
 
 
-def _normalise_country_token(value: object) -> str:
-    """Normalize a coded country label for World Bank lookup."""
+def _normalise_geography_token(value: object) -> str:
+    """Normalize a special label or coded country value for comparison."""
     return re.sub(r"[^A-Za-z]", "", str(value)).upper()
 
 
 def standardize_geography_lists(
     publications: pd.DataFrame,
-    *,
-    world_bank_mapping_path: str | Path,
 ) -> pd.DataFrame:
     """Standardize existing geography lists in place without changing corpus grain.
 
-    Empty region, subregion, and country lists become ``("Not Applicable",)``.
-    Any list containing an ``Unclear`` label becomes exactly ``("Unclear",)``.
-    Country lists also become ``("Unclear",)`` when any non-special token cannot
-    enter the World Bank economy lookup. Valid non-empty lists are preserved.
+    Empty region, subregion, country, and locale lists become
+    ``("Not Applicable",)``. Empty locale-coordinate JSON lists become the
+    type-preserving JSON text ``["Not Applicable"]``. Any region, subregion, or
+    country list containing an ``Unclear`` label becomes exactly ``("Unclear",)``.
+    Exact ``All Regions`` records whose descendants are already non-concrete are
+    canonicalized to ``Not Applicable`` descendants. Other non-empty values are
+    preserved for the separate IPBES hierarchy audit.
 
     Returns a small audit of changed cells; no corpus rows or columns are added,
     removed, or reordered.
     """
-    missing = set(GEOGRAPHY_LIST_COLUMNS).difference(publications.columns)
+    missing = set(GEOGRAPHY_VALUE_COLUMNS).difference(publications.columns)
     if missing:
         raise EvidenceCorpusPrepError(
             f"Integrated corpus lacks geography columns: {sorted(missing)}"
-        )
-
-    mapping_path = Path(world_bank_mapping_path)
-    with mapping_path.open(encoding="utf-8") as handle:
-        payload = json.load(handle)
-    mapping_records = payload.get("records")
-    if not isinstance(mapping_records, list):
-        raise EvidenceCorpusPrepError(
-            f"World Bank mapping at {mapping_path} has no records list."
-        )
-    world_bank_codes = {
-        _normalise_country_token(record.get("ipbes_iso3", ""))
-        for record in mapping_records
-        if record.get("has_world_bank_economy") is True
-        and len(str(record.get("ipbes_iso3", ""))) == 3
-    }
-    if not world_bank_codes:
-        raise EvidenceCorpusPrepError(
-            f"World Bank mapping at {mapping_path} contains no eligible country codes."
         )
 
     original_columns = list(publications.columns)
@@ -219,17 +223,11 @@ def standardize_geography_lists(
             if not labels:
                 replacement = (_NOT_APPLICABLE_LABEL,)
                 reason = "empty_to_not_applicable"
-            elif any(label.casefold() == "unclear" for label in labels):
-                replacement = (_UNCLEAR_LABEL,)
-                reason = "contains_unclear_to_unclear"
-            elif column == "pred_countries" and any(
-                (token := _normalise_country_token(label))
-                not in _SPECIAL_COUNTRY_TOKENS
-                and token not in world_bank_codes
-                for label in labels
+            elif column in _UNCLEAR_PRECEDENCE_COLUMNS and any(
+                label.casefold() == "unclear" for label in labels
             ):
                 replacement = (_UNCLEAR_LABEL,)
-                reason = "non_world_bank_country_to_unclear"
+                reason = "contains_unclear_to_unclear"
             else:
                 replacement = labels
 
@@ -237,6 +235,47 @@ def standardize_geography_lists(
             if reason is not None and replacement != labels:
                 audit_counts[(column, reason)] += 1
         publications[column] = standardized
+
+    coordinate_column = "locale_coordinates"
+    standardized_coordinates: list[object] = []
+    for value in publications[coordinate_column]:
+        replacement = value
+        changed = False
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                parsed = None
+            if isinstance(parsed, list) and not parsed:
+                replacement = json.dumps([_NOT_APPLICABLE_LABEL])
+                changed = True
+        elif isinstance(value, (list, tuple)) and not value:
+            replacement = (_NOT_APPLICABLE_LABEL,)
+            changed = True
+        standardized_coordinates.append(replacement)
+        if changed:
+            audit_counts[(coordinate_column, "empty_to_not_applicable")] += 1
+    publications[coordinate_column] = standardized_coordinates
+
+    regions = publications["pred_regions"]
+    subregions = publications["pred_subregions"]
+    countries = publications["pred_countries"]
+    for index in publications.index[
+        regions.map(lambda labels: labels == ("All Regions",))
+    ]:
+        subregion_state, _ = _hierarchy_level_state(
+            subregions.at[index], "subregion"
+        )
+        country_state, _ = _hierarchy_level_state(countries.at[index], "country")
+        non_concrete = {"empty", "not_applicable", "unclear", "global"}
+        if subregion_state not in non_concrete or country_state not in non_concrete:
+            continue
+        for column in ("pred_subregions", "pred_countries"):
+            if publications.at[index, column] != (_NOT_APPLICABLE_LABEL,):
+                publications.at[index, column] = (_NOT_APPLICABLE_LABEL,)
+                audit_counts[
+                    (column, "all_regions_descendant_to_not_applicable")
+                ] += 1
 
     if len(publications) != len(original_uts):
         raise EvidenceCorpusPrepError("Geography standardization changed row count.")
@@ -252,6 +291,388 @@ def standardize_geography_lists(
         ],
         columns=["column", "rule", "changed_values"],
     )
+
+
+def _hierarchy_level_state(
+    values: object,
+    level: str,
+) -> tuple[str, set[str]]:
+    """Classify one hierarchy level and return its concrete values."""
+    labels = tuple(parse_list_labels(values))
+    if not labels:
+        return "empty", set()
+
+    kinds: set[str] = set()
+    concrete: set[str] = set()
+    for label in labels:
+        token = _normalise_geography_token(label)
+        if token in _NOT_APPLICABLE_TOKENS:
+            kinds.add("not_applicable")
+        elif token in _UNCLEAR_TOKENS:
+            kinds.add("unclear")
+        elif level == "region" and token == "ALLREGIONS":
+            kinds.add("global")
+        elif level == "subregion" and token == "ALLSUBREGIONS":
+            kinds.add("global")
+        elif level == "country" and token in _GLOBAL_COUNTRY_TOKENS:
+            kinds.add("global")
+        else:
+            kinds.add("concrete")
+            concrete.add(token if level == "country" else label)
+    if len(kinds) > 1:
+        return "mixed", concrete
+    return next(iter(kinds)), concrete
+
+
+def _load_ipbes_hierarchy(
+    mapping_path: str | Path,
+) -> tuple[set[str], dict[str, str], dict[str, tuple[str, str]]]:
+    """Load and validate the unique IPBES region/subregion/country paths."""
+    path = Path(mapping_path)
+    with path.open(encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict) or not payload:
+        raise EvidenceCorpusPrepError(
+            f"IPBES hierarchy at {path} must be a non-empty object."
+        )
+
+    regions: set[str] = set()
+    subregion_parent: dict[str, str] = {}
+    country_path: dict[str, tuple[str, str]] = {}
+    for region, subregions in payload.items():
+        if not isinstance(region, str) or not isinstance(subregions, dict):
+            raise EvidenceCorpusPrepError(
+                f"IPBES hierarchy at {path} has an invalid region entry."
+            )
+        regions.add(region)
+        for subregion, records in subregions.items():
+            previous_region = subregion_parent.setdefault(subregion, region)
+            if previous_region != region:
+                raise EvidenceCorpusPrepError(
+                    f"IPBES subregion {subregion!r} has multiple parent regions."
+                )
+            if not isinstance(records, list):
+                raise EvidenceCorpusPrepError(
+                    f"IPBES subregion {subregion!r} must contain a records list."
+                )
+            for record in records:
+                if not isinstance(record, dict):
+                    raise EvidenceCorpusPrepError(
+                        f"IPBES subregion {subregion!r} contains a non-object record."
+                    )
+                code = _normalise_geography_token(
+                    record.get("ISO_3166_alpha_3", "")
+                )
+                if not code:
+                    continue
+                previous_path = country_path.setdefault(code, (region, subregion))
+                if previous_path != (region, subregion):
+                    raise EvidenceCorpusPrepError(
+                        f"IPBES country {code!r} has multiple hierarchy paths."
+                    )
+    if not regions or not subregion_parent or not country_path:
+        raise EvidenceCorpusPrepError(
+            f"IPBES hierarchy at {path} has no complete country paths."
+        )
+    return regions, subregion_parent, country_path
+
+
+def audit_ipbes_geography_hierarchy(
+    publications: pd.DataFrame,
+    *,
+    mapping_path: str | Path,
+) -> pd.DataFrame:
+    """Audit hierarchy paths without altering publication geography labels."""
+    required = {"UT", "pred_regions", "pred_subregions", "pred_countries"}
+    missing = required.difference(publications.columns)
+    if missing:
+        raise EvidenceCorpusPrepError(
+            f"Integrated corpus lacks hierarchy columns: {sorted(missing)}"
+        )
+    _validate_key(publications, "Integrated biodiversity evidence corpus")
+    regions, subregion_parent, country_path = _load_ipbes_hierarchy(mapping_path)
+    subregions = set(subregion_parent)
+    countries = set(country_path)
+
+    statuses: list[str] = []
+    primary_reasons: list[str] = []
+    all_reasons: list[tuple[str, ...]] = []
+    all_warnings: list[tuple[str, ...]] = []
+
+    for row in publications[
+        ["pred_regions", "pred_subregions", "pred_countries"]
+    ].itertuples(index=False, name=None):
+        region_values, subregion_values, country_values = row
+        region_state, concrete_regions = _hierarchy_level_state(
+            region_values, "region"
+        )
+        subregion_state, concrete_subregions = _hierarchy_level_state(
+            subregion_values, "subregion"
+        )
+        country_state, concrete_countries = _hierarchy_level_state(
+            country_values, "country"
+        )
+        reasons: list[str] = []
+        warnings: list[str] = []
+
+        def add_reason(reason: str) -> None:
+            if reason not in reasons:
+                reasons.append(reason)
+
+        if "mixed" in {region_state, subregion_state, country_state}:
+            add_reason("mixed_special_and_concrete_or_global")
+
+        intended_status = "review"
+        pass_reason = ""
+        if region_state == "global":
+            if subregion_state in {"concrete", "mixed"} or country_state in {
+                "concrete",
+                "mixed",
+            }:
+                add_reason("all_regions_with_concrete_descendant")
+            elif not reasons:
+                intended_status = "global"
+                pass_reason = "all_regions_descendants_not_applicable"
+        elif region_state == "concrete":
+            if concrete_regions.difference(regions):
+                add_reason("unknown_region_label")
+            if subregion_state == "concrete":
+                known_subregions = concrete_subregions.intersection(subregions)
+                if concrete_subregions.difference(subregions):
+                    add_reason("unknown_subregion_label")
+                if any(
+                    subregion_parent[subregion] not in concrete_regions
+                    for subregion in known_subregions
+                ):
+                    add_reason("subregion_parent_missing")
+
+                if country_state == "concrete":
+                    known_countries = concrete_countries.intersection(countries)
+                    if concrete_countries.difference(countries):
+                        add_reason("unknown_country_label")
+                    if any(
+                        country_path[country][0] not in concrete_regions
+                        or country_path[country][1] not in concrete_subregions
+                        for country in known_countries
+                    ):
+                        add_reason("country_path_missing")
+                    if not reasons:
+                        intended_status = "pass_complete"
+                        pass_reason = "complete_paths_valid"
+                        if any(
+                            not any(
+                                subregion_parent[subregion] == region
+                                for subregion in concrete_subregions
+                            )
+                            for region in concrete_regions
+                        ):
+                            warnings.append("region_without_listed_subregion")
+                        if any(
+                            not any(
+                                country_path[country][1] == subregion
+                                for country in concrete_countries
+                            )
+                            for subregion in concrete_subregions
+                        ):
+                            warnings.append("subregion_without_listed_country")
+                elif country_state != "mixed" and not reasons:
+                    intended_status = "pass_partial"
+                    pass_reason = "region_subregion_valid_country_non_concrete"
+            elif country_state == "concrete":
+                add_reason("country_present_subregion_non_concrete")
+            elif subregion_state != "mixed" and not reasons:
+                intended_status = "pass_region_only"
+                pass_reason = "region_valid_descendants_non_concrete"
+        elif subregion_state in {"concrete", "mixed"} or country_state in {
+            "concrete",
+            "mixed",
+        }:
+            add_reason("concrete_descendant_without_concrete_region")
+        elif (
+            region_state == "not_applicable"
+            and subregion_state == "not_applicable"
+            and country_state == "not_applicable"
+        ):
+            intended_status = "no_geography"
+            pass_reason = "all_levels_not_applicable"
+        else:
+            add_reason("no_resolvable_geography")
+
+        status = "review" if reasons else intended_status
+        primary_reason = reasons[0] if reasons else pass_reason
+        statuses.append(status)
+        primary_reasons.append(primary_reason)
+        all_reasons.append(tuple(reasons))
+        all_warnings.append(tuple(warnings))
+
+    result = pd.DataFrame(
+        {
+            "UT": publications["UT"].to_numpy(copy=True),
+            "status": statuses,
+            "primary_reason": primary_reasons,
+            "reasons": all_reasons,
+            "warnings": all_warnings,
+            "pred_regions": publications["pred_regions"].map(tuple),
+            "pred_subregions": publications["pred_subregions"].map(tuple),
+            "pred_countries": publications["pred_countries"].map(tuple),
+        }
+    )
+    result = result[list(GEOGRAPHY_HIERARCHY_AUDIT_COLUMNS)]
+    _validate_key(result, "IPBES geography hierarchy audit")
+    if not result["UT"].reset_index(drop=True).equals(
+        publications["UT"].reset_index(drop=True)
+    ):
+        raise EvidenceCorpusPrepError(
+            "IPBES geography hierarchy audit changed UT order."
+        )
+    return result
+
+
+def summarize_geography_hierarchy_audit(audit: pd.DataFrame) -> pd.DataFrame:
+    """Count mutually exclusive hierarchy outcomes for notebook review."""
+    if list(audit.columns) != list(GEOGRAPHY_HIERARCHY_AUDIT_COLUMNS):
+        raise EvidenceCorpusPrepError(
+            "IPBES geography hierarchy audit columns do not match the contract."
+        )
+    return (
+        audit.groupby(["status", "primary_reason"], observed=True, dropna=False)
+        .size()
+        .rename("n_publications")
+        .reset_index()
+        .sort_values(
+            ["status", "n_publications", "primary_reason"],
+            ascending=[True, False, True],
+            kind="stable",
+        )
+        .reset_index(drop=True)
+    )
+
+
+def apply_geography_hierarchy_audit_labels(
+    publications: pd.DataFrame,
+    audit: pd.DataFrame,
+) -> pd.DataFrame:
+    """Materialize reviewed geography labels without changing source labels.
+
+    Passing, global, and no-geography records retain their prepared geography
+    labels in the three ``*_audit`` columns. Records with ``status == 'review'``
+    receive ``('Unclear - Review needed',)`` in all three audit-label columns.
+    The original ``pred_regions``, ``pred_subregions``, and ``pred_countries``
+    columns are never changed.
+    """
+    required = {
+        "UT",
+        "pred_regions",
+        "pred_subregions",
+        "pred_countries",
+        *GEOGRAPHY_AUDIT_LABEL_COLUMNS,
+    }
+    missing = required.difference(publications.columns)
+    if missing:
+        raise EvidenceCorpusPrepError(
+            f"Integrated corpus lacks geography audit-label columns: {sorted(missing)}"
+        )
+    if list(audit.columns) != list(GEOGRAPHY_HIERARCHY_AUDIT_COLUMNS):
+        raise EvidenceCorpusPrepError(
+            "IPBES geography hierarchy audit columns do not match the contract."
+        )
+    _validate_key(publications, "Integrated biodiversity evidence corpus")
+    _validate_key(audit, "IPBES geography hierarchy audit")
+    if not audit["UT"].reset_index(drop=True).equals(
+        publications["UT"].reset_index(drop=True)
+    ):
+        raise EvidenceCorpusPrepError(
+            "IPBES geography hierarchy audit does not preserve publication UT order."
+        )
+
+    allowed_statuses = {
+        "pass_complete",
+        "pass_partial",
+        "pass_region_only",
+        "global",
+        "no_geography",
+        "review",
+    }
+    unknown_statuses = set(audit["status"].dropna()).difference(allowed_statuses)
+    if audit["status"].isna().any() or unknown_statuses:
+        raise EvidenceCorpusPrepError(
+            "IPBES geography hierarchy audit contains unsupported statuses: "
+            f"{sorted(unknown_statuses)}."
+        )
+
+    original_columns = list(publications.columns)
+    original_uts = publications["UT"].reset_index(drop=True).copy()
+    source_columns = ("pred_regions", "pred_subregions", "pred_countries")
+    original_labels = publications[list(source_columns)].copy(deep=True)
+    review_mask = audit["status"].eq("review").to_numpy()
+    review_label = ("Unclear - Review needed",)
+    for source, target in zip(
+        source_columns,
+        GEOGRAPHY_AUDIT_LABEL_COLUMNS,
+        strict=True,
+    ):
+        prepared = publications[source].map(
+            lambda value: tuple(parse_list_labels(value))
+        )
+        publications[target] = [
+            review_label if review else labels
+            for labels, review in zip(prepared, review_mask, strict=True)
+        ]
+
+    if len(publications) != len(original_uts):
+        raise EvidenceCorpusPrepError("Applying geography audit labels changed row count.")
+    if list(publications.columns) != original_columns:
+        raise EvidenceCorpusPrepError("Applying geography audit labels changed columns.")
+    if not publications["UT"].reset_index(drop=True).equals(original_uts):
+        raise EvidenceCorpusPrepError("Applying geography audit labels changed UT order.")
+    if not publications[list(source_columns)].equals(original_labels):
+        raise EvidenceCorpusPrepError(
+            "Applying geography audit labels changed source geography labels."
+        )
+
+    return pd.DataFrame(
+        {
+            "audit_label_action": ["preserved", "review_needed"],
+            "n_publications": [int((~review_mask).sum()), int(review_mask.sum())],
+        }
+    )
+
+
+def _validate_geography_hierarchy_audit_labels(
+    publications: pd.DataFrame,
+    audit: pd.DataFrame,
+) -> None:
+    """Require materialized audit labels to agree with hierarchy statuses."""
+    review_mask = audit["status"].eq("review").to_numpy()
+    review_label = ("Unclear - Review needed",)
+    for source, target in zip(
+        ("pred_regions", "pred_subregions", "pred_countries"),
+        GEOGRAPHY_AUDIT_LABEL_COLUMNS,
+        strict=True,
+    ):
+        prepared_source = publications[source].map(
+            lambda value: tuple(parse_list_labels(value))
+        ).tolist()
+        audited_source = audit[source].map(
+            lambda value: tuple(parse_list_labels(value))
+        ).tolist()
+        if audited_source != prepared_source:
+            raise EvidenceCorpusPrepError(
+                f"The hierarchy audit copy of {source} does not match the corpus."
+            )
+        expected = [
+            review_label if review else tuple(parse_list_labels(value))
+            for value, review in zip(
+                publications[source], review_mask, strict=True
+            )
+        ]
+        observed = publications[target].map(
+            lambda value: tuple(parse_list_labels(value))
+        ).tolist()
+        if observed != expected:
+            raise EvidenceCorpusPrepError(
+                f"{target} does not agree with the geography hierarchy audit."
+            )
 
 
 @dataclass(frozen=True)
@@ -274,11 +695,10 @@ class BiodiversityEvidenceBundle:
 
 @dataclass(frozen=True)
 class BiodiversityEvidenceBuild:
-    """Frames and streamed taxonomy artifact needed to write the corpus."""
+    """Frames needed to write the integrated evidence artifacts."""
 
     publications: pd.DataFrame
     abstracts: pd.DataFrame
-    taxa_matches_path: Path
     manifest: dict[str, Any]
 
 
@@ -298,6 +718,61 @@ def _validate_key(frame: pd.DataFrame, source: str) -> None:
             f"{source} violates one row per UT: "
             f"missing={missing:,}, duplicated={duplicated:,}."
         )
+
+
+def derive_publication_ids(uts: pd.Series) -> pd.Series:
+    """Derive stable numeric publication IDs from canonical WOS identifiers."""
+    values = uts.astype("string")
+    valid = values.map(
+        lambda value: bool(_WOS_UT_PATTERN.fullmatch(value))
+        if value is not pd.NA
+        else False
+    )
+    if not valid.all():
+        examples = values.loc[~valid].head(10).tolist()
+        raise EvidenceCorpusPrepError(
+            "Publication IDs require UT values in the form WOS plus a colon "
+            f"and exactly 15 digits; invalid examples: {examples}."
+        )
+
+    identifiers = pd.to_numeric(values.str.slice(4), errors="raise").astype("int64")
+    identifiers.name = "id"
+    if identifiers.duplicated().any():
+        examples = identifiers.loc[identifiers.duplicated(keep=False)].head(10).tolist()
+        raise EvidenceCorpusPrepError(
+            f"Derived publication IDs are not unique; examples: {examples}."
+        )
+    if int(identifiers.max()) > _EXCEL_MAX_EXACT_INTEGER:
+        raise EvidenceCorpusPrepError(
+            "A derived publication ID exceeds Excel's exact-integer limit."
+        )
+    reconstructed = "WOS:" + identifiers.map(lambda value: f"{value:015d}")
+    if not reconstructed.eq(values).all():
+        raise EvidenceCorpusPrepError(
+            "Derived publication IDs cannot be reversed to the source UT values."
+        )
+    return identifiers
+
+
+def _validate_publication_id(frame: pd.DataFrame, source: str) -> None:
+    if "id" not in frame:
+        raise EvidenceCorpusPrepError(f"{source} has no id column.")
+    if not is_integer_dtype(frame["id"].dtype):
+        raise EvidenceCorpusPrepError(f"{source} id values must use an integer dtype.")
+    missing = int(frame["id"].isna().sum())
+    duplicated = int(frame["id"].duplicated().sum())
+    if missing or duplicated:
+        raise EvidenceCorpusPrepError(
+            f"{source} violates one row per id: "
+            f"missing={missing:,}, duplicated={duplicated:,}."
+        )
+    if "UT" in frame:
+        expected = derive_publication_ids(frame["UT"])
+        actual = frame["id"].astype("int64").reset_index(drop=True)
+        if not actual.equals(expected.reset_index(drop=True)):
+            raise EvidenceCorpusPrepError(
+                f"{source} id values do not match their source UT values."
+            )
 
 
 def _json_default(value: Any) -> Any:
@@ -575,66 +1050,45 @@ class ScreeningPreparedStore:
         return ScreeningPreparedBundle(screening, eligible, overlap, manifest)
 
 
-def _taxa_summary_json(taxa_articles: pd.DataFrame) -> pd.Series:
-    """Pack publication-level taxonomy audits into deterministic JSON values."""
-    match_columns = sorted(
-        column
-        for column in taxa_articles
-        if column.startswith("match_status_count__")
-    )
-    required = set(TAXONOMY_SUMMARY_COLUMNS).union(match_columns)
-    missing = required.difference(taxa_articles.columns)
-    if missing:
-        raise EvidenceCorpusPrepError(
-            f"Prepared taxa artifact lacks summary columns: {sorted(missing)}"
-        )
+def _compute_plastics_text_features(
+    title: pd.Series,
+    abstract: pd.Series,
+    *,
+    plastics_pattern: str = DEFAULT_PLASTICS_PATTERN,
+) -> pd.DataFrame:
+    """Derive text-availability and plastics-mention flags from title + abstract.
 
-    def integer(value: Any) -> int:
-        return 0 if pd.isna(value) else int(value)
-
-    summaries: list[str] = []
-    columns = [*TAXONOMY_SUMMARY_COLUMNS, *match_columns]
-    for values in taxa_articles[list(columns)].itertuples(index=False, name=None):
-        record = dict(zip(columns, values))
-        payload = {
-            "broad_inclusion_state": record["taxa_broad_inclusion_state"],
-            "counts": {
-                "api_failed": integer(record["n_taxa_api_failed"]),
-                "llm_taxa": integer(record["n_llm_taxa"]),
-                "matched": integer(record["n_taxa_matched"]),
-                "unresolved": integer(record["n_taxa_unresolved"]),
-            },
-            "groups": {
-                name: {
-                    "all": list(record[f"{name}_groups_all"]),
-                    "count": integer(record[f"n_{name}_groups"]),
-                    "included": list(record[f"{name}_groups"]),
-                    "state": record[f"taxa_{name}_state"],
-                }
-                for name in ("broad", "analysis", "detail")
-            },
-            "match_status_counts": {
-                column.removeprefix("match_status_count__"): integer(record[column])
-                for column in match_columns
-            },
-            "record_status": record["taxa_record_status"],
-        }
-        summaries.append(
-            json.dumps(
-                payload,
-                sort_keys=True,
-                separators=(",", ":"),
-                allow_nan=False,
+    Runs once here, at prep time, so downstream analyses never need abstract
+    text themselves - only these two booleans.
+    """
+    title_text = title.fillna("").astype("string").str.strip()
+    abstract_text = abstract.fillna("").astype("string").str.strip()
+    text_available = title_text.ne("") | abstract_text.ne("")
+    combined_text = title_text.str.cat(abstract_text, sep=" ")
+    try:
+        plastics_mention = (
+            combined_text.str.contains(
+                plastics_pattern,
+                case=False,
+                regex=True,
+                na=False,
             )
+            & text_available
         )
-    return pd.Series(summaries, index=taxa_articles.index, dtype="string")
+    except Exception as exc:
+        raise EvidenceCorpusPrepError(
+            f"plastics_pattern is not a usable regex: {exc}"
+        ) from exc
+    return pd.DataFrame(
+        {"text_available": text_available, "plastics_mention": plastics_mention}
+    )
 
 
 def build_biodiversity_evidence_corpus(
     merged_corpus: pd.DataFrame,
     taxa_articles: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Build the 39 scalar/list columns and separate abstract sidecar."""
+    """Build the publication corpus and separate abstract sidecar."""
     _validate_key(merged_corpus, "Merged eligible corpus")
     _validate_key(taxa_articles, "Prepared taxa publications")
     left_keys = pd.Index(merged_corpus["UT"])
@@ -644,30 +1098,38 @@ def build_biodiversity_evidence_corpus(
             "Merged corpus and prepared taxa artifacts have different UT sets."
         )
 
-    required_metadata = set(EVIDENCE_CORE_COLUMNS[:29]).difference({"n_drivers"})
+    required_metadata = set(EVIDENCE_METADATA_COLUMNS)
     missing_metadata = required_metadata.difference(merged_corpus.columns)
     if missing_metadata:
         raise EvidenceCorpusPrepError(
             f"Merged corpus lacks required evidence columns: {sorted(missing_metadata)}"
         )
-    if "abstract" not in merged_corpus or "wos_categories" not in merged_corpus:
+    if "abstract" not in merged_corpus:
         raise EvidenceCorpusPrepError(
-            "Merged corpus must contain abstract and wos_categories so their "
-            "intentional sidecar/drop treatment can be verified."
+            "Merged corpus must contain abstract for the text sidecar."
         )
     missing_taxa = set(TAXONOMY_RANK_COLUMNS).union(
-        TAXONOMY_SUMMARY_COLUMNS, {"n_drivers"}
+        {"taxa_record_status", "drivers", "threat_l0", "realms"}
     ).difference(taxa_articles.columns)
     if missing_taxa:
         raise EvidenceCorpusPrepError(
             f"Prepared taxa artifact lacks required fields: {sorted(missing_taxa)}"
         )
 
+    publication_ids = derive_publication_ids(merged_corpus["UT"])
     abstracts = merged_corpus[["UT", "abstract"]].copy()
+    abstracts.insert(0, "id", publication_ids.to_numpy(copy=True))
     _validate_key(abstracts, "Biodiversity evidence abstracts")
+    _validate_publication_id(abstracts, "Biodiversity evidence abstracts")
     publications = merged_corpus.drop(
-        columns=["abstract", "wos_categories"]
+        columns=["abstract", "wos_categories"], errors="ignore"
     ).copy()
+    publications.insert(0, "id", publication_ids.to_numpy(copy=True))
+    text_features = _compute_plastics_text_features(
+        merged_corpus["title"], merged_corpus["abstract"]
+    )
+    publications["text_available"] = text_features["text_available"].to_numpy()
+    publications["plastics_mention"] = text_features["plastics_mention"].to_numpy()
     present_list_columns = [
         column for column in EVIDENCE_LIST_COLUMNS if column in publications
     ]
@@ -675,6 +1137,9 @@ def build_biodiversity_evidence_corpus(
         publications[column] = publications[column].map(
             lambda value: tuple(parse_list_labels(value))
         )
+    publications["pred_study_design"] = publications[
+        "pred_study_design"
+    ].map(lambda labels: labels or (_UNCLEAR_LABEL,))
 
     cross_checks = {
         "driver": "drivers",
@@ -710,47 +1175,61 @@ def build_biodiversity_evidence_corpus(
 
     before = publications["UT"].reset_index(drop=True)
     aligned_taxa = aligned_taxa.reset_index(drop=True)
-    publications["n_drivers"] = aligned_taxa["n_drivers"].to_numpy()
     for column in TAXONOMY_RANK_COLUMNS:
         publications[column] = aligned_taxa[column].map(
             lambda value: tuple(value) if value is not None else ()
         )
-    publications["taxa_summary_json"] = _taxa_summary_json(aligned_taxa).to_numpy()
-    missing_final = set(EVIDENCE_CORE_COLUMNS).difference(publications.columns)
+    publications["taxa_record_status"] = aligned_taxa[
+        "taxa_record_status"
+    ].to_numpy()
+    for source, target in zip(
+        ("pred_regions", "pred_subregions", "pred_countries"),
+        GEOGRAPHY_AUDIT_LABEL_COLUMNS,
+        strict=True,
+    ):
+        publications[target] = publications[source].map(tuple)
+    missing_final = set(EVIDENCE_COLUMNS).difference(publications.columns)
     if missing_final:
         raise EvidenceCorpusPrepError(
             f"Integrated corpus lacks final columns: {sorted(missing_final)}"
         )
-    publications = publications[list(EVIDENCE_CORE_COLUMNS)].copy()
+    publications = publications[list(EVIDENCE_COLUMNS)].copy()
     if len(publications) != len(merged_corpus) or not publications["UT"].reset_index(
         drop=True
     ).equals(before):
         raise EvidenceCorpusPrepError("Attaching taxa changed the UT grain or order.")
     _validate_key(publications, "Integrated biodiversity evidence corpus")
+    _validate_publication_id(publications, "Integrated biodiversity evidence corpus")
     if not abstracts["UT"].reset_index(drop=True).equals(before):
         raise EvidenceCorpusPrepError("Abstract sidecar changed the UT grain or order.")
+    if not abstracts["id"].reset_index(drop=True).equals(
+        publications["id"].reset_index(drop=True)
+    ):
+        raise EvidenceCorpusPrepError("Abstract sidecar changed the id grain or order.")
     return publications, abstracts
 
 
 def build_biodiversity_manifest(
     publications: pd.DataFrame,
     abstracts: pd.DataFrame,
+    geography_hierarchy_audit: pd.DataFrame,
     *,
     sources: Mapping[str, str | Path],
-    screening_manifest: Mapping[str, Any],
-    taxa_manifest: Mapping[str, Any],
     repository_root: str | Path,
 ) -> dict[str, Any]:
-    """Record the complete integrated-corpus contract and its upstream lineage."""
+    """Record the integrated-corpus contract and portable source paths."""
     _validate_key(publications, "Integrated biodiversity evidence corpus")
+    _validate_publication_id(publications, "Integrated biodiversity evidence corpus")
     _validate_key(abstracts, "Biodiversity evidence abstracts")
-    if list(publications.columns) != list(EVIDENCE_CORE_COLUMNS):
+    _validate_publication_id(abstracts, "Biodiversity evidence abstracts")
+    _validate_key(geography_hierarchy_audit, "IPBES geography hierarchy audit")
+    if list(publications.columns) != list(EVIDENCE_COLUMNS):
         raise EvidenceCorpusPrepError(
-            "Integrated corpus core columns do not match the schema contract."
+            "Integrated corpus columns do not match the schema contract."
         )
-    if list(abstracts.columns) != ["UT", "abstract"]:
+    if list(abstracts.columns) != ["id", "UT", "abstract"]:
         raise EvidenceCorpusPrepError(
-            "Abstract sidecar must contain exactly UT and abstract."
+            "Abstract sidecar must contain exactly id, UT, and abstract."
         )
     if not abstracts["UT"].reset_index(drop=True).equals(
         publications["UT"].reset_index(drop=True)
@@ -758,44 +1237,61 @@ def build_biodiversity_manifest(
         raise EvidenceCorpusPrepError(
             "Abstract sidecar does not preserve publication UT order."
         )
+    if not abstracts["id"].reset_index(drop=True).equals(
+        publications["id"].reset_index(drop=True)
+    ):
+        raise EvidenceCorpusPrepError(
+            "Abstract sidecar does not preserve publication id order."
+        )
+    if list(geography_hierarchy_audit.columns) != list(
+        GEOGRAPHY_HIERARCHY_AUDIT_COLUMNS
+    ):
+        raise EvidenceCorpusPrepError(
+            "IPBES geography hierarchy audit columns do not match the contract."
+        )
+    if not geography_hierarchy_audit["UT"].reset_index(drop=True).equals(
+        publications["UT"].reset_index(drop=True)
+    ):
+        raise EvidenceCorpusPrepError(
+            "IPBES geography hierarchy audit does not preserve publication UT order."
+        )
+    _validate_geography_hierarchy_audit_labels(
+        publications,
+        geography_hierarchy_audit,
+    )
     return {
         "schema_version": EVIDENCE_SCHEMA_VERSION,
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
-        "grain": "one row per eligible screening publication (UT)",
+        "grain": "one row per eligible screening publication (id; UT source key)",
+        "primary_key": "id",
+        "source_key": "UT",
+        "id_derivation": "integer value of the 15-digit WOS UT suffix",
         "scope": (
             "all screening-eligible publications; direction, year, threat, realm, "
             "geography, study, and taxa filters are not applied"
         ),
         "artifacts": {
-            "biodiversity_evidence_corpus": "biodiversity_evidence_corpus.parquet",
-            "biodiversity_evidence_abstracts": "biodiversity_evidence_abstracts.parquet",
-        },
-        "rows": {
-            "publications": len(publications),
-            "unique_UT": publications["UT"].nunique(),
-            "abstracts": len(abstracts),
+            "dataset": "dataset.parquet",
+            "dataset_xlsx": "dataset.xlsx",
+            "dataset_abstracts": "dataset_abstracts.parquet",
         },
         "columns": list(EVIDENCE_COLUMNS),
-        "abstract_columns": ["UT", "abstract"],
+        "abstract_columns": ["id", "UT", "abstract"],
+        "xlsx_sheet": "dataset",
+        "xlsx_list_encoding": "JSON text",
+        "geography_audit_label_columns": list(GEOGRAPHY_AUDIT_LABEL_COLUMNS),
+        "geography_audit_review_label": "Unclear - Review needed",
         "list_columns": [
             column for column in EVIDENCE_LIST_COLUMNS if column in publications
         ],
-        "nested_columns": {"taxa_matches": "list<struct>"},
         "sources": {
-            name: source_signature(path, repository_root=repository_root)
+            name: {
+                "path": repository_relative_path(
+                    path,
+                    repository_root=repository_root,
+                )
+            }
             for name, path in sources.items()
-        },
-        "upstream": {
-            "screening_schema_version": screening_manifest["schema_version"],
-            "screening_eligible_rows": screening_manifest["rows"][
-                "eligible_screening_publications"
-            ],
-            "taxa_schema_version": taxa_manifest["schema_version"],
-            "taxa_grouping_rules_sha256": taxa_manifest[
-                "grouping_rules_sha256"
-            ],
-            "taxa_match_rows": taxa_manifest["rows"]["taxa_matches"],
-            "taxon_items": taxa_manifest["rows"]["taxon_items"],
         },
         "direction_counts": {
             str(key): int(value)
@@ -803,103 +1299,175 @@ def build_biodiversity_manifest(
                 dropna=False
             ).items()
         },
+        "geography_hierarchy_status_counts": {
+            str(key): int(value)
+            for key, value in geography_hierarchy_audit["status"]
+            .value_counts(dropna=False)
+            .items()
+        },
+        "geography_hierarchy_primary_reason_counts": {
+            str(key): int(value)
+            for key, value in geography_hierarchy_audit["primary_reason"]
+            .value_counts(dropna=False)
+            .items()
+        },
     }
 
 
+def _xlsx_cell_value(worksheet: Any, value: object, *, list_value: bool) -> object:
+    """Convert one Parquet-compatible value to a lossless Excel cell value."""
+    if list_value:
+        if value is None:
+            text = "[]"
+        else:
+            text = json.dumps(list(value), ensure_ascii=False)
+        if len(text) > 32_767 or ILLEGAL_CHARACTERS_RE.search(text):
+            raise EvidenceCorpusPrepError(
+                "A list-valued dataset cell cannot be represented losslessly in Excel."
+            )
+        return text
+
+    if value is None or value is pd.NA:
+        return None
+    if isinstance(value, np.generic):
+        value = value.item()
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    if isinstance(value, (pd.Timestamp, datetime)):
+        value = value.to_pydatetime() if isinstance(value, pd.Timestamp) else value
+    if isinstance(value, str):
+        if len(value) > 32_767 or ILLEGAL_CHARACTERS_RE.search(value):
+            raise EvidenceCorpusPrepError(
+                "A text-valued dataset cell cannot be represented losslessly in Excel."
+            )
+        if value.startswith("="):
+            cell = WriteOnlyCell(worksheet, value=value)
+            cell.data_type = "s"
+            return cell
+    return value
+
+
+def write_dataset_xlsx(publications: pd.DataFrame, path: str | Path) -> Path:
+    """Stream the complete publication dataset to a single Excel worksheet."""
+    _validate_key(publications, "Integrated biodiversity evidence dataset")
+    _validate_publication_id(publications, "Integrated biodiversity evidence dataset")
+    if list(publications.columns) != list(EVIDENCE_COLUMNS):
+        raise EvidenceCorpusPrepError(
+            "Cannot write dataset.xlsx with incompatible columns."
+        )
+    if len(publications) + 1 > 1_048_576:
+        raise EvidenceCorpusPrepError(
+            "dataset.xlsx would exceed Excel's 1,048,576-row worksheet limit."
+        )
+    if len(publications.columns) > 16_384:
+        raise EvidenceCorpusPrepError(
+            "dataset.xlsx would exceed Excel's 16,384-column worksheet limit."
+        )
+
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(f".{destination.name}.tmp.xlsx")
+    workbook = Workbook(write_only=True)
+    worksheet = workbook.create_sheet("dataset")
+    worksheet.freeze_panes = "A2"
+    worksheet.auto_filter.ref = (
+        f"A1:{get_column_letter(len(publications.columns))}{len(publications) + 1}"
+    )
+    worksheet.sheet_view.showGridLines = False
+
+    list_columns = set(EVIDENCE_LIST_COLUMNS)
+    for index, column in enumerate(publications.columns, start=1):
+        if column == "title":
+            width = 50
+        elif column in list_columns or column == "locale_coordinates":
+            width = 34
+        elif column == "id":
+            width = 18
+        elif column in {"UT", "doi"}:
+            width = 26
+        else:
+            width = min(max(len(column) + 2, 12), 24)
+        worksheet.column_dimensions[get_column_letter(index)].width = width
+
+    header_fill = PatternFill("solid", fgColor="1F4E78")
+    header_font = Font(bold=True, color="FFFFFF")
+    header: list[WriteOnlyCell] = []
+    for column in publications.columns:
+        cell = WriteOnlyCell(worksheet, value=column)
+        cell.fill = header_fill
+        cell.font = header_font
+        header.append(cell)
+    worksheet.append(header)
+
+    list_positions = {
+        position
+        for position, column in enumerate(publications.columns)
+        if column in list_columns
+    }
+    try:
+        for row in publications.itertuples(index=False, name=None):
+            worksheet.append(
+                [
+                    _xlsx_cell_value(
+                        worksheet,
+                        value,
+                        list_value=position in list_positions,
+                    )
+                    for position, value in enumerate(row)
+                ]
+            )
+        workbook.save(temporary)
+        temporary.replace(destination)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+    return destination
+
+
 class BiodiversityEvidenceStore:
-    """Write and validate the integrated corpus and abstract sidecar."""
+    """Write and validate the id-keyed integrated corpus and abstract sidecar."""
 
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root)
-        self.publication_path = self.root / "biodiversity_evidence_corpus.parquet"
-        self.abstract_path = self.root / "biodiversity_evidence_abstracts.parquet"
+        self.dataset_path = self.root / "dataset.parquet"
+        self.dataset_xlsx_path = self.root / "dataset.xlsx"
+        self.abstracts_path = self.root / "dataset_abstracts.parquet"
         self.manifest_path = self.root / "manifest.json"
 
     def write(self, bundle: BiodiversityEvidenceBuild) -> list[Path]:
-        """Stream nested taxa matches beside core columns without changing UT grain."""
+        """Write the one-row-per-publication evidence artifacts."""
         self.root.mkdir(parents=True, exist_ok=True)
-        if list(bundle.publications.columns) != list(EVIDENCE_CORE_COLUMNS):
+        if list(bundle.publications.columns) != list(EVIDENCE_COLUMNS):
             raise EvidenceCorpusPrepError(
-                "Cannot write biodiversity evidence with incompatible core columns."
+                "Cannot write biodiversity evidence with incompatible columns."
             )
-        match_file = pq.ParquetFile(bundle.taxa_matches_path)
-        if match_file.schema_arrow.names != ["UT", "taxa_matches"]:
-            raise EvidenceCorpusPrepError(
-                "Taxa-match artifact must contain exactly UT and taxa_matches."
-            )
-        if match_file.metadata.num_rows != len(bundle.publications):
-            raise EvidenceCorpusPrepError(
-                "Taxa matches and evidence publications have different row counts."
-            )
-
-        temporary = tempfile.NamedTemporaryFile(
-            prefix=f".{self.publication_path.stem}.",
-            suffix=".parquet",
-            dir=self.root,
-            delete=False,
+        bundle.publications.to_parquet(
+            self.dataset_path,
+            index=False,
+            compression="zstd",
         )
-        temporary_path = Path(temporary.name)
-        temporary.close()
-        writer: pq.ParquetWriter | None = None
-        offset = 0
-        try:
-            for batch in match_file.iter_batches(batch_size=8_192):
-                count = batch.num_rows
-                core = bundle.publications.iloc[offset : offset + count]
-                expected_uts = core["UT"].astype(str).tolist()
-                observed_uts = batch.column(
-                    batch.schema.get_field_index("UT")
-                ).to_pylist()
-                if observed_uts != expected_uts:
-                    raise EvidenceCorpusPrepError(
-                        "Taxa matches do not preserve evidence publication UT order."
-                    )
-                table = pa.Table.from_pandas(core, preserve_index=False)
-                table = table.append_column(
-                    "taxa_matches",
-                    batch.column(batch.schema.get_field_index("taxa_matches")),
-                )
-                if table.schema.names != list(EVIDENCE_COLUMNS):
-                    raise EvidenceCorpusPrepError(
-                        "Streamed evidence columns do not match the schema contract."
-                    )
-                if writer is None:
-                    writer = pq.ParquetWriter(
-                        temporary_path,
-                        table.schema,
-                        compression="zstd",
-                    )
-                elif not table.schema.equals(writer.schema, check_metadata=False):
-                    raise EvidenceCorpusPrepError(
-                        "Evidence Arrow schema changed between streamed batches."
-                    )
-                writer.write_table(table)
-                offset += count
-            if writer is None or offset != len(bundle.publications):
-                raise EvidenceCorpusPrepError(
-                    "Taxa-match streaming did not cover every publication."
-                )
-            writer.close()
-            writer = None
-            os.replace(temporary_path, self.publication_path)
-        except Exception:
-            if writer is not None:
-                writer.close()
-            temporary_path.unlink(missing_ok=True)
-            raise
-
+        write_dataset_xlsx(bundle.publications, self.dataset_xlsx_path)
         bundle.abstracts.to_parquet(
-            self.abstract_path, index=False, compression="zstd"
+            self.abstracts_path, index=False, compression="zstd"
         )
         _write_json(self.manifest_path, bundle.manifest)
-        return [self.publication_path, self.abstract_path, self.manifest_path]
+        return [
+            self.dataset_path,
+            self.dataset_xlsx_path,
+            self.abstracts_path,
+            self.manifest_path,
+        ]
 
     def _load_manifest(self) -> dict[str, Any]:
         missing = [
             path
             for path in (
-                self.publication_path,
-                self.abstract_path,
+                self.dataset_path,
+                self.dataset_xlsx_path,
+                self.abstracts_path,
                 self.manifest_path,
             )
             if not path.exists()
@@ -932,16 +1500,17 @@ class BiodiversityEvidenceStore:
             raise EvidenceCorpusPrepError(
                 f"Requested evidence columns are unavailable: {sorted(unknown)}"
             )
-        publications = pd.read_parquet(self.publication_path, columns=selected)
+        publications = pd.read_parquet(self.dataset_path, columns=selected)
         for column in set(manifest.get("list_columns", ())).intersection(selected):
             publications[column] = publications[column].map(
                 lambda value: tuple(value) if value is not None else ()
             )
         if "UT" in publications:
             _validate_key(publications, "Prepared biodiversity evidence corpus")
-        if len(publications) != manifest["rows"]["publications"]:
-            raise EvidenceCorpusPrepError(
-                "Prepared biodiversity-evidence row count does not match manifest."
+        if "id" in publications:
+            _validate_publication_id(
+                publications,
+                "Prepared biodiversity evidence corpus",
             )
         if list(publications.columns) != selected:
             raise EvidenceCorpusPrepError(
@@ -949,38 +1518,74 @@ class BiodiversityEvidenceStore:
             )
         return BiodiversityEvidenceBundle(publications, manifest)
 
+    def validate_xlsx(self) -> dict[str, Any]:
+        """Open dataset.xlsx and validate its sheet and header contract."""
+        manifest = self._load_manifest()
+        workbook = load_workbook(
+            self.dataset_xlsx_path,
+            read_only=True,
+            data_only=True,
+        )
+        try:
+            if workbook.sheetnames != [manifest["xlsx_sheet"]]:
+                raise EvidenceCorpusPrepError(
+                    "Prepared dataset.xlsx worksheet does not match the manifest."
+                )
+            worksheet = workbook[manifest["xlsx_sheet"]]
+            header = [
+                cell.value
+                for cell in next(worksheet.iter_rows(min_row=1, max_row=1))
+            ]
+            if header != manifest["columns"]:
+                raise EvidenceCorpusPrepError(
+                    "Prepared dataset.xlsx columns do not match the manifest."
+                )
+            return {
+                "sheet": manifest["xlsx_sheet"],
+                "columns": len(header),
+            }
+        finally:
+            workbook.close()
+
     def load_abstracts(self) -> pd.DataFrame:
         """Load publication text only for analyses that explicitly require it."""
         manifest = self._load_manifest()
-        abstracts = pd.read_parquet(self.abstract_path)
+        abstracts = pd.read_parquet(self.abstracts_path)
         if list(abstracts.columns) != manifest["abstract_columns"]:
             raise EvidenceCorpusPrepError(
                 "Prepared abstract columns do not match the manifest."
             )
         _validate_key(abstracts, "Prepared biodiversity evidence abstracts")
-        if len(abstracts) != manifest["rows"]["abstracts"]:
-            raise EvidenceCorpusPrepError(
-                "Prepared abstract row count does not match the manifest."
-            )
+        _validate_publication_id(
+            abstracts,
+            "Prepared biodiversity evidence abstracts",
+        )
         return abstracts
-
 
 __all__ = [
     "BiodiversityEvidenceBundle",
     "BiodiversityEvidenceBuild",
     "BiodiversityEvidenceStore",
+    "DEFAULT_PLASTICS_PATTERN",
     "EVIDENCE_COLUMNS",
-    "EVIDENCE_CORE_COLUMNS",
     "EVIDENCE_LIST_COLUMNS",
+    "GEOGRAPHY_AUDIT_LABEL_COLUMNS",
+    "GEOGRAPHY_HIERARCHY_AUDIT_COLUMNS",
     "GEOGRAPHY_LIST_COLUMNS",
+    "GEOGRAPHY_VALUE_COLUMNS",
     "EvidenceCorpusPrepError",
     "REASON_COLUMNS",
     "SCREENING_ANALYSIS_COLUMNS",
     "STAGE_NAMES",
     "ScreeningPreparedBundle",
     "ScreeningPreparedStore",
+    "apply_geography_hierarchy_audit_labels",
+    "audit_ipbes_geography_hierarchy",
     "build_biodiversity_evidence_corpus",
     "build_biodiversity_manifest",
     "build_screening_preparation",
+    "derive_publication_ids",
     "standardize_geography_lists",
+    "summarize_geography_hierarchy_audit",
+    "write_dataset_xlsx",
 ]

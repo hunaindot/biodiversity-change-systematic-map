@@ -548,84 +548,6 @@ def annual_pollution_nameability_summary(
     return pd.DataFrame(rows)
 
 
-def pollution_nameability_trend_tests(
-    annual_summary: pd.DataFrame,
-    *,
-    start_year: int,
-    end_year: int,
-) -> pd.DataFrame:
-    """Fit fractional-binomial time trends and report endpoint effect sizes."""
-    required = {
-        "realm",
-        "publication_year",
-        "outcome",
-        "n_denominator",
-        "share",
-    }
-    missing = sorted(required.difference(annual_summary.columns))
-    if missing:
-        raise DriverRealmError(
-            f"Annual summary is missing column(s): {missing}"
-        )
-    if start_year >= end_year:
-        raise DriverRealmError("start_year must precede end_year.")
-    import statsmodels.api as sm
-
-    rows: list[dict[str, Any]] = []
-    midpoint = (start_year + end_year) / 2
-    for (realm, outcome), frame in annual_summary.groupby(
-        ["realm", "outcome"], observed=True, sort=False
-    ):
-        selected = frame.loc[
-            frame["publication_year"].between(start_year, end_year)
-            & frame["n_denominator"].gt(0)
-        ].sort_values("publication_year")
-        if len(selected) < 3:
-            raise DriverRealmError(
-                f"At least three annual observations are required for {realm}: "
-                f"{outcome}."
-            )
-        decade = (selected["publication_year"].to_numpy(float) - midpoint) / 10
-        design = sm.add_constant(decade)
-        model = sm.GLM(
-            selected["share"].to_numpy(float),
-            design,
-            family=sm.families.Binomial(),
-            freq_weights=selected["n_denominator"].to_numpy(float),
-        ).fit()
-        intercept, slope = (float(value) for value in model.params)
-        lower, upper = (float(value) for value in model.conf_int()[1])
-        start_decade = (start_year - midpoint) / 10
-        end_decade = (end_year - midpoint) / 10
-        start_share = 1 / (1 + np.exp(-(intercept + slope * start_decade)))
-        end_share = 1 / (1 + np.exp(-(intercept + slope * end_decade)))
-        rows.append(
-            {
-                "realm": str(realm),
-                "outcome": str(outcome),
-                "n_denominator_total": int(selected["n_denominator"].sum()),
-                "start_year": start_year,
-                "end_year": end_year,
-                "fitted_start_pct": 100 * start_share,
-                "fitted_end_pct": 100 * end_share,
-                "change_pp": 100 * (end_share - start_share),
-                "odds_ratio_per_decade": float(np.exp(slope)),
-                "odds_ratio_ci_low": float(np.exp(lower)),
-                "odds_ratio_ci_high": float(np.exp(upper)),
-                "p_trend": float(model.pvalues[1]),
-            }
-        )
-    result = pd.DataFrame(rows)
-    p_values = result["p_trend"].to_numpy(float)
-    order = np.argsort(p_values)
-    ranked = p_values[order] * len(p_values) / np.arange(1, len(p_values) + 1)
-    adjusted_ranked = np.minimum.accumulate(ranked[::-1])[::-1]
-    adjusted = np.empty_like(adjusted_ranked)
-    adjusted[order] = np.minimum(adjusted_ranked, 1.0)
-    result["q_trend"] = adjusted
-    return result
-
-
 __all__ = [
     "ANALYSIS_REALMS",
     "CODED_REALMS",
@@ -637,7 +559,6 @@ __all__ = [
     "SPECIAL_REALMS",
     "driver_realm_summary",
     "annual_pollution_nameability_summary",
-    "pollution_nameability_trend_tests",
     "prepare_pollution_nameability_evidence",
     "prepare_driver_realm_evidence",
     "prepare_realm_evidence",

@@ -181,6 +181,8 @@ def test_preparation_preserves_grain_and_states(prepared) -> None:
     assert articles.loc[0, "class_labels"] == ("Mammalia", "Insecta")
     assert articles.loc[0, "taxa_class_labels"] == ("Mammalia", "Insecta")
     assert articles.loc[0, "taxa_phylum_labels"] == ("Chordata", "Arthropoda")
+    assert "taxa_domain_labels" not in articles
+    assert "taxa_subkingdom_labels" not in articles
     assert articles.loc[2, "taxa_analysis_state"] == "unresolved_only"
     assert articles["taxa_broad_inclusion_state"].tolist() == [
         taxa_analysis_prep.INCLUSION_ORDER[0],
