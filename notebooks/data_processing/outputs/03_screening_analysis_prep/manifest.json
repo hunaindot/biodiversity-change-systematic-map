@@ -6,9 +6,9 @@
   "consumed_build_cache": {
     "filename": "eligible_screening_publications.parquet",
     "recoverability": "rerun notebooks/data_processing/03_screening_analysis_prep.ipynb",
-    "removed_at_utc": "2026-08-15T00:10:47.457792+00:00"
+    "removed_at_utc": "2026-08-15T12:05:14.769283+00:00"
   },
-  "created_at_utc": "2026-08-15T00:07:25.101408+00:00",
+  "created_at_utc": "2026-08-15T12:00:05.642407+00:00",
   "eligible_columns": [
     "UT",
     "title",
