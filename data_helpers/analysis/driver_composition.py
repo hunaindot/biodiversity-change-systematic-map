@@ -1,14 +1,16 @@
 """Reusable calculations for the income-group threat-composition analysis.
 
-The functions preserve the publication as the evidentiary unit. Country expansion is
-used only to assign geography and income group; multiple countries in the same group
-do not multiply a publication's contribution to that group.
+The functions preserve the publication as the evidentiary unit: every publication
+contributes exactly one unit of evidence in total, fractionally split 1/(countries x
+threats) across the distinct countries and threats it carries. Multiple countries in
+the same income group/tier sum their shares within that group rather than multiplying
+the publication's contribution to it; countries in different groups/tiers split the
+publication's single unit of weight between them rather than each claiming a full unit.
 """
 
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,13 +18,13 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
 from data_helpers.analysis.geo.count_plotting import (
     add_class_colorbar,
     build_count_scale,
 )
+from data_helpers.analysis.geo.geography import _AGGREGATE, _NOT_APPLICABLE, _UNCLEAR, _normalise
 from data_helpers.labels import parse_list_labels
 from data_helpers.visualization import BIODIVERSITY
 
@@ -92,36 +94,30 @@ class StandardizationAnalysis:
     metadata: dict[str, int]
 
 
-_SPECIAL_COUNTRY_TOKENS = {
-    "",
-    "NA",
-    "NONE",
-    "NOTAPPLICABLE",
-    "UNCLEAR",
-    "UNC",
-    "UNCL",
-    "UNK",
-    "UNKN",
-    "UNKNOWN",
-    "UNS",
-    "UNR",
-    "UNL",
-    "UNP",
-    "ALLCOUNTRIES",
-    "ALLREGIONS",
-    "ALLSUBREGIONS",
-    "GLOBAL",
-    "WORLDWIDE",
-}
+_SPECIAL_COUNTRY_TOKENS = _NOT_APPLICABLE | _AGGREGATE | _UNCLEAR
 
 
-def _normalise_country_token(value: object) -> str:
-    """Normalize a coded country label for matching and audit."""
-    return re.sub(r"[^A-Za-z]", "", str(value)).upper()
+def expand_publication_country_tokens(records_df: pd.DataFrame) -> pd.DataFrame:
+    """Expand country labels once for complete-case checks and World Bank linking."""
+    required_columns = {"UT", "publication_year", "pred_countries"}
+    missing_columns = required_columns.difference(records_df.columns)
+    if missing_columns:
+        missing = ", ".join(sorted(missing_columns))
+        raise ValueError(f"records_df is missing required columns: {missing}")
+
+    columns = ["UT", "publication_year", "pred_countries"]
+    if "pred_threat_l0" in records_df:
+        columns.append("pred_threat_l0")
+    work = records_df.loc[:, columns].copy()
+    work["token"] = work["pred_countries"].map(parse_list_labels)
+    work = work.explode("token", ignore_index=True).dropna(subset=["token"])
+    work["token"] = work["token"].astype("string").str.strip()
+    work["normalized_token"] = work["token"].map(_normalise)
+    return work.drop(columns="pred_countries")
 
 
 def country_complete_case_exclusions(
-    records_df: pd.DataFrame,
+    country_tokens_df: pd.DataFrame,
     world_bank_lookup_df: pd.DataFrame,
     valid_ipbes_iso3: set[str],
 ) -> pd.DataFrame:
@@ -131,11 +127,7 @@ def country_complete_case_exclusions(
     the analysis-specific World Bank lookup. A valid IPBES ISO3 without a
     separate World Bank economy is distinguished from an unrecognized token.
     """
-    work = records_df[["UT", "publication_year", "pred_countries"]].copy()
-    work["token"] = work["pred_countries"].map(parse_list_labels)
-    work = work.explode("token", ignore_index=True).dropna(subset=["token"])
-    work["token"] = work["token"].astype("string").str.strip()
-    work["normalized_token"] = work["token"].map(_normalise_country_token)
+    work = country_tokens_df
     lookup_codes = set(world_bank_lookup_df["country_code"])
     ineligible = (
         ~work["normalized_token"].isin(_SPECIAL_COUNTRY_TOKENS)
@@ -156,18 +148,13 @@ def country_complete_case_exclusions(
 
 
 def link_publications_to_world_bank(
-    records_df: pd.DataFrame,
+    country_tokens_df: pd.DataFrame,
     world_bank_lookup_df: pd.DataFrame,
 ) -> pd.DataFrame:
     """Create one row per unique publication–World Bank country assignment."""
-    work = records_df[
-        ["UT", "publication_year", "pred_countries", "pred_threat_l0"]
-    ].copy()
-    work["country_code"] = work["pred_countries"].map(parse_list_labels)
-    work = work.explode("country_code", ignore_index=True).dropna(
-        subset=["country_code"]
-    )
-    work["country_code"] = work["country_code"].map(_normalise_country_token)
+    work = country_tokens_df[
+        ["UT", "publication_year", "pred_threat_l0", "normalized_token"]
+    ].rename(columns={"normalized_token": "country_code"})
     work = work.loc[work["country_code"].ne("")].drop_duplicates(
         ["UT", "country_code"]
     )
@@ -288,29 +275,51 @@ def attach_historical_income(
     return result
 
 
+def _country_fractional_weight(
+    work: pd.DataFrame, *, country_column: str = "country_code"
+) -> pd.DataFrame:
+    """Weight each row 1/(countries x threats), both counted per publication.
+
+    Both counts are computed globally per ``UT`` -- across every group/tier a
+    publication is linked to, not just the group/tier of the current row -- so a
+    publication's weight always sums to exactly one in total, however many
+    distinct groups it touches. Multiple countries landing in the same
+    group/tier are not deduplicated here: their shares are meant to be summed
+    by the caller's later groupby, not collapsed before weighting.
+    """
+    work = work.copy()
+    work["attribution_weight"] = 1 / (
+        work.groupby("UT")[country_column].transform("nunique")
+        * work.groupby("UT")["threat"].transform("nunique")
+    )
+    weight_audit = work.groupby("UT", observed=True)["attribution_weight"].sum()
+    assert np.allclose(weight_audit, 1.0)
+    return work
+
+
 def build_income_threat_attributions(
     linked_df: pd.DataFrame,
     group_column: str = "historical_income_group",
 ) -> pd.DataFrame:
-    """Fractionally allocate each publication's unit weight across its threats."""
+    """Fractionally allocate each publication's unit weight 1/(countries x threats).
+
+    A publication's weight is split evenly across the distinct countries and
+    threats it carries. Countries that share an income group sum their shares
+    within that group; countries in different income groups split the
+    publication's single unit of weight between the groups, rather than each
+    contributing a full unit.
+    """
     work = linked_df[
-        ["UT", "publication_year", group_column, "pred_threat_l0"]
-    ].drop_duplicates(["UT", group_column]).copy()
+        ["UT", "publication_year", "country_code", group_column, "pred_threat_l0"]
+    ].copy()
     work = work.rename(columns={group_column: "income_group"})
     work["threat"] = work["pred_threat_l0"].map(parse_list_labels)
     work = work.explode("threat", ignore_index=True).dropna(subset=["threat"])
     work["threat"] = work["threat"].astype("string").str.strip()
     work = work.loc[work["threat"].ne("")].drop_duplicates(
-        ["UT", "income_group", "threat"]
+        ["UT", "country_code", "threat"]
     )
-    work["threats_per_publication_group"] = work.groupby(
-        ["UT", "income_group"], observed=True
-    )["threat"].transform("nunique")
-    work["attribution_weight"] = 1 / work["threats_per_publication_group"]
-    weight_audit = work.groupby(
-        ["UT", "income_group"], observed=True
-    )["attribution_weight"].sum()
-    assert np.allclose(weight_audit, 1.0)
+    work = _country_fractional_weight(work)
     return work.reset_index(drop=True)
 
 
@@ -363,7 +372,18 @@ def bootstrap_extreme_contrast(
     n_bootstrap: int,
     seed: int,
 ) -> pd.DataFrame:
-    """Bootstrap the high-minus-low composition contrast by publication."""
+    """Bootstrap the high-minus-low composition contrast by publication.
+
+    Each income group's share vector is the group's total attribution weight
+    per threat divided by its total attribution weight overall -- not a plain
+    row-mean -- because a publication that is fractionally split across
+    multiple groups contributes a row that sums to less than one within any
+    single group. Dividing by the row count instead of the total weight would
+    silently understate that group's shares. This matches
+    ``composition_from_attributions``'s own normalization, so the point
+    estimate here is always identical to ``composition_matrix``'s implied
+    difference.
+    """
 
     def publication_matrix(income_group: str) -> np.ndarray:
         matrix = (
@@ -379,17 +399,19 @@ def bootstrap_extreme_contrast(
             )
             .reindex(columns=threat_order, fill_value=0)
         )
-        assert np.allclose(matrix.sum(axis=1), 1.0)
         return matrix.to_numpy(float)
+
+    def weighted_share(matrix: np.ndarray) -> np.ndarray:
+        return matrix.sum(axis=0) / matrix.sum()
 
     low = publication_matrix(low_group)
     high = publication_matrix(high_group)
-    observed = 100 * (high.mean(axis=0) - low.mean(axis=0))
+    observed = 100 * (weighted_share(high) - weighted_share(low))
     rng = np.random.default_rng(seed)
     bootstrapped = np.empty((n_bootstrap, len(threat_order)))
     for index in range(n_bootstrap):
-        low_sample = low[rng.integers(0, len(low), len(low))].mean(axis=0)
-        high_sample = high[rng.integers(0, len(high), len(high))].mean(axis=0)
+        low_sample = weighted_share(low[rng.integers(0, len(low), len(low))])
+        high_sample = weighted_share(high[rng.integers(0, len(high), len(high))])
         bootstrapped[index] = 100 * (high_sample - low_sample)
 
     result = pd.DataFrame(
@@ -415,11 +437,17 @@ def prepare_standardization_attributions(
     period_bins: Sequence[int],
     period_labels: Sequence[str],
 ) -> pd.DataFrame:
-    """Build publication-tier-region-period-threat rows for standardization."""
+    """Build publication-country-tier-region-period-threat rows, fractionally
+    weighted 1/(countries x threats) per publication -- see
+    ``_country_fractional_weight``. Multiple countries landing in the same
+    tier/region/period bucket are not deduplicated here; their shares are
+    summed by ``_direct_standardize``/``standardize_tier_contrasts`` instead.
+    """
     work = linked_df[
         [
             "UT",
             "publication_year",
+            "country_code",
             "historical_income_group",
             "wb_region",
             "pred_threat_l0",
@@ -440,7 +468,10 @@ def prepare_standardization_attributions(
     work["threat"] = work["pred_threat_l0"].map(parse_list_labels)
     work = work.explode("threat", ignore_index=True).dropna(subset=["threat"])
     work["threat"] = work["threat"].astype("string").str.strip()
-    return work.loc[work["threat"].ne("")].copy()
+    work = work.loc[work["threat"].ne("")].drop_duplicates(
+        ["UT", "country_code", "threat"]
+    )
+    return _country_fractional_weight(work).reset_index(drop=True)
 
 
 def _direct_standardize(
@@ -450,11 +481,7 @@ def _direct_standardize(
     tier_order: Sequence[str],
 ) -> tuple[pd.DataFrame, pd.Series, pd.Index]:
     id_columns = ["UT", "development_tier", *strata_columns]
-    work = attribution_df.drop_duplicates([*id_columns, "threat"]).copy()
-    work["n_threats"] = work.groupby(id_columns, observed=True)[
-        "threat"
-    ].transform("nunique")
-    work["attribution_weight"] = 1 / work["n_threats"]
+    work = attribution_df
 
     counts = (
         work.drop_duplicates(id_columns)
@@ -564,25 +591,15 @@ def standardize_tier_contrasts(
     )
 
     # Cluster bootstrap of the joint estimate, holding target weights fixed.
-    bootstrap = attribution_df.drop_duplicates(
-        [
-            "UT",
-            "development_tier",
-            "wb_region",
-            "publication_period",
-            "threat",
-        ]
-    ).copy()
-    bootstrap = bootstrap.loc[
+    # attribution_weight is already 1/(countries x threats) per publication,
+    # computed once in prepare_standardization_attributions; countries landing
+    # in the same (tier, region, period, threat) bucket are summed via
+    # np.bincount below, not deduplicated away here.
+    bootstrap = attribution_df.loc[
         pd.MultiIndex.from_frame(
-            bootstrap[["wb_region", "publication_period"]]
+            attribution_df[["wb_region", "publication_period"]]
         ).isin(common_joint_strata)
     ].copy()
-    bootstrap["n_threats"] = bootstrap.groupby(
-        ["UT", "development_tier", "wb_region", "publication_period"],
-        observed=True,
-    )["threat"].transform("nunique")
-    bootstrap["attribution_weight"] = 1 / bootstrap["n_threats"]
 
     strata = common_joint_strata.to_frame(index=False)
     strata["stratum_code"] = np.arange(len(strata))
@@ -767,8 +784,11 @@ def prepare_historical_income_evidence(
             "ipbes_iso3",
         ].str.upper()
     )
+    country_tokens = expand_publication_country_tokens(
+        negative_before_country_validation
+    )
     country_exclusions = country_complete_case_exclusions(
-        negative_before_country_validation,
+        country_tokens,
         world_bank_lookup,
         valid_ipbes_iso3,
     )
@@ -776,9 +796,11 @@ def prepare_historical_income_evidence(
     negative = negative_before_country_validation.loc[
         ~negative_before_country_validation["UT"].isin(excluded_ids)
     ].copy()
-    observational = negative.loc[
-        negative["pred_study_design"].eq(sensitivity_study_design)
-    ].copy()
+    observational_design = negative["pred_study_design"].map(
+        lambda value: tuple(parse_list_labels(value))
+        == (sensitivity_study_design,)
+    )
+    observational = negative.loc[observational_design].copy()
 
     historical = pd.read_parquet(
         historical_path,
@@ -798,8 +820,11 @@ def prepare_historical_income_evidence(
         ["wb_entity_code", "classification_fy"]
     ).any()
 
+    retained_country_tokens = country_tokens.loc[
+        ~country_tokens["UT"].isin(excluded_ids)
+    ]
     world_bank_linked = link_publications_to_world_bank(
-        negative, world_bank_lookup
+        retained_country_tokens, world_bank_lookup
     )
     classified = attach_historical_income(world_bank_linked, historical)
     historical_standard = classified["historical_income_group"].isin(
@@ -819,20 +844,38 @@ def prepare_historical_income_evidence(
     reclassified = comparable & classified["historical_income_group"].ne(
         classified["current_income_group"]
     )
+
+    token_is_special = retained_country_tokens["normalized_token"].isin(
+        _SPECIAL_COUNTRY_TOKENS
+    )
+    dropped_before_primary = classified.loc[~(historical_standard & primary_years)]
+    dropped_year_out_of_range = int((~primary_years).sum())
+    dropped_unclassified_in_range = int((primary_years & ~historical_standard).sum())
+    assert (
+        dropped_year_out_of_range + dropped_unclassified_in_range
+        == len(dropped_before_primary)
+    )
+
     audit = pd.DataFrame(
         {
             "metric": [
-                "Negative publications before country complete-case exclusion",
-                "Country-complete-case excluded publications",
-                "Excluded publications: unresolved country token",
-                "Excluded publications: valid ISO3 without World Bank economy",
-                "Negative publications (all study designs)",
-                f"Negative {sensitivity_study_design.lower()} publications",
-                "All-design World Bank-linked publication–country assignments",
-                "All-design World Bank-linked unique publications",
-                f"All-design primary assignments: historical group, {start_year}–{end_year}",
-                "All-design primary unique publications",
-                "Countries in all-design primary analysis",
+                "Negative publications before country exclusions",
+                "Excluded publications (either reason below)",
+                "  Unresolved country token",
+                "  Valid ISO3 without World Bank economy",
+                "Negative publications after country exclusions",
+                "Publication–country token rows",
+                "  Resolvable to a World Bank country code",
+                "  Special label (Unclear / Not Applicable / aggregate)",
+                "World Bank-linked publication–country assignments",
+                "World Bank-linked unique publications",
+                f"Dropped before {start_year}–{end_year} income classification "
+                "(either reason below)",
+                f"  Publication year outside {start_year}–{end_year}",
+                "  No standard World Bank income classification that year",
+                f"Primary assignments: historical group, {start_year}–{end_year}",
+                "Primary unique publications",
+                "Countries in primary analysis",
                 "Assignments reclassified vs current group",
             ],
             "value": [
@@ -851,9 +894,14 @@ def prepare_historical_income_evidence(
                     "UT",
                 ].nunique(),
                 len(negative),
-                len(observational),
+                len(retained_country_tokens),
+                int((~token_is_special).sum()),
+                int(token_is_special.sum()),
                 len(world_bank_linked),
                 world_bank_linked["UT"].nunique(),
+                len(dropped_before_primary),
+                dropped_year_out_of_range,
+                dropped_unclassified_in_range,
                 len(primary),
                 primary["UT"].nunique(),
                 primary["wb_entity_code"].nunique(),
@@ -957,30 +1005,38 @@ def analyze_standardized_tiers(
     return StandardizationAnalysis(attributions, contrasts, metadata)
 
 
-def income_threat_diversity(
-    attribution_df: pd.DataFrame,
-    income_group_order: Sequence[str],
+def _full_weight_per_group_attributions(
+    linked_df: pd.DataFrame,
+    group_column: str = "historical_income_group",
 ) -> pd.DataFrame:
-    """Shannon entropy and effective threat count of each group's composition.
+    """Pre-2026-08-15 primary formula: full weight per group, 1/n_threats split.
 
-    A diagnostic only: the manuscript reports composition contrasts, not spread.
+    Retained only as the "previous primary" row in ``build_sensitivity_summary``,
+    to keep a permanent, re-runnable check that switching to
+    ``build_income_threat_attributions``'s country-fractional weighting does not
+    change the reported pattern. Not used anywhere else -- see the 2026-08-15
+    decisions-log entry and ``archive/14082026/`` for the full prior
+    implementation this was extracted from.
     """
-    composition = composition_from_attributions(attribution_df)
-    rows = []
-    for group in income_group_order:
-        shares = composition.loc[
-            composition["income_group"].eq(group), "share"
-        ]
-        shares = shares[shares > 0]
-        entropy = float(-(shares * np.log(shares)).sum())
-        rows.append(
-            {
-                "income_group": group,
-                "shannon_entropy": entropy,
-                "effective_number_of_threats": float(np.exp(entropy)),
-            }
-        )
-    return pd.DataFrame(rows)
+    work = linked_df[
+        ["UT", "publication_year", group_column, "pred_threat_l0"]
+    ].drop_duplicates(["UT", group_column]).copy()
+    work = work.rename(columns={group_column: "income_group"})
+    work["threat"] = work["pred_threat_l0"].map(parse_list_labels)
+    work = work.explode("threat", ignore_index=True).dropna(subset=["threat"])
+    work["threat"] = work["threat"].astype("string").str.strip()
+    work = work.loc[work["threat"].ne("")].drop_duplicates(
+        ["UT", "income_group", "threat"]
+    )
+    work["threats_per_publication_group"] = work.groupby(
+        ["UT", "income_group"], observed=True
+    )["threat"].transform("nunique")
+    work["attribution_weight"] = 1 / work["threats_per_publication_group"]
+    weight_audit = work.groupby(
+        ["UT", "income_group"], observed=True
+    )["attribution_weight"].sum()
+    assert np.allclose(weight_audit, 1.0)
+    return work.reset_index(drop=True)
 
 
 def build_sensitivity_summary(
@@ -1015,13 +1071,10 @@ def build_sensitivity_summary(
     current_standard = preparation.classified["current_income_group"].isin(
         income_groups
     )
-    observational = attach_historical_income(
-        link_publications_to_world_bank(
-            preparation.observational,
-            preparation.world_bank_lookup,
-        ),
-        preparation.historical_classifications,
-    )
+    observational_ids = set(preparation.observational["UT"])
+    observational = preparation.classified.loc[
+        preparation.classified["UT"].isin(observational_ids)
+    ]
     observational = observational.loc[
         observational["historical_income_group"].isin(income_groups)
         & observational["publication_year"].between(start_year, end_year)
@@ -1063,28 +1116,11 @@ def build_sensitivity_summary(
         ),
     }
 
-    country_fractional = preparation.primary[
-        [
-            "UT",
-            "country_code",
-            "historical_income_group",
-            "pred_threat_l0",
-        ]
-    ].rename(columns={"historical_income_group": "income_group"}).copy()
-    country_fractional["threat"] = country_fractional[
-        "pred_threat_l0"
-    ].map(parse_list_labels)
-    country_fractional = (
-        country_fractional.explode("threat", ignore_index=True)
-        .dropna(subset=["threat"])
-        .drop_duplicates(["UT", "country_code", "threat"])
+    full_weight_per_group = _full_weight_per_group_attributions(
+        preparation.primary, "historical_income_group"
     )
-    country_fractional["attribution_weight"] = 1 / (
-        country_fractional.groupby("UT")["country_code"].transform("nunique")
-        * country_fractional.groupby("UT")["threat"].transform("nunique")
-    )
-    sensitivity_matrices["Country-fractional weighting"] = (
-        composition_from_attributions(country_fractional)
+    sensitivity_matrices["Full weight per income group (previous primary)"] = (
+        composition_from_attributions(full_weight_per_group)
         .pivot(index="threat", columns="income_group", values="share")
         .fillna(0)
         .reindex(
@@ -1121,50 +1157,33 @@ def export_manuscript_tables(
     composition: CompositionAnalysis,
     standardization: StandardizationAnalysis,
     sensitivity_df: pd.DataFrame,
-    country_counts: pd.DataFrame | None = None,
     *,
     data_directory: str | Path,
     table_directory: str | Path,
     classified_assignments_file: str,
-    threat_attributions_file: str,
 ) -> list[Path]:
-    """Write exactly the tables and derived data behind manuscript Result 2."""
+    """Write Result 2's shared assignments and four core analytical tables."""
     data_directory = Path(data_directory)
     table_directory = Path(table_directory)
     data_directory.mkdir(parents=True, exist_ok=True)
     table_directory.mkdir(parents=True, exist_ok=True)
-    classified_export = preparation.classified.copy()
-    attribution_export = composition.attributions.copy()
-    for frame in (classified_export, attribution_export):
-        for column in ("pred_countries", "pred_threat_l0"):
-            if column not in frame:
-                continue
-            frame[column] = frame[column].map(
-                lambda value: value
-                if isinstance(value, str)
-                or value is None
-                or (isinstance(value, float) and pd.isna(value))
-                else json.dumps(list(value), ensure_ascii=False)
-            )
     assignments_path = data_directory / classified_assignments_file
-    attributions_path = data_directory / threat_attributions_file
+    classified_export = preparation.classified.copy()
+    if "pred_countries" in classified_export:
+        classified_export["pred_countries"] = classified_export[
+            "pred_countries"
+        ].map(
+            lambda value: value
+            if isinstance(value, str)
+            or value is None
+            or (isinstance(value, float) and pd.isna(value))
+            else json.dumps(list(value), ensure_ascii=False)
+        )
     classified_export.to_parquet(
         assignments_path, index=False, compression="zstd"
     )
-    attribution_export.to_parquet(
-        attributions_path, index=False, compression="zstd"
-    )
-    written = [assignments_path, attributions_path]
+    written = [assignments_path]
     table_exports = [
-        (preparation.audit, "historical_income_classification_audit.csv"),
-        (
-            preparation.country_exclusions,
-            "country_complete_case_exclusions.csv",
-        ),
-        (
-            composition.group_counts.reset_index(),
-            "income_group_article_counts.csv",
-        ),
         (composition.long_composition, "income_group_threat_composition.csv"),
         (composition.extreme_contrast, "high_minus_low_income_bootstrap.csv"),
         (
@@ -1173,14 +1192,6 @@ def export_manuscript_tables(
         ),
         (sensitivity_df, "sensitivity_summary.csv"),
     ]
-    if country_counts is not None:
-        expected_columns = ["iso3", "country", "region", "record_count"]
-        if list(country_counts.columns) != expected_columns:
-            raise ValueError(
-                "country_counts columns must be exactly "
-                f"{expected_columns}; got {list(country_counts.columns)}"
-            )
-        table_exports.append((country_counts, "country_article_counts.csv"))
     for frame, filename in table_exports:
         path = table_directory / filename
         frame.to_csv(path, index=False)
@@ -1665,146 +1676,5 @@ def _plot_income_composition_composite(
         fontsize=9,
         fontweight="bold",
         va="bottom",
-    )
-    return figure
-
-
-def plot_standardized_contrasts(
-    standardization: StandardizationAnalysis,
-    *,
-    threat_names: dict[str, str],
-    excluded_threats: Sequence[str] = (),
-) -> plt.Figure:
-    """Plot raw, region-adjusted, and region-period-adjusted contrasts."""
-    plot_df = (
-        standardization.contrasts.loc[
-            lambda df: ~df["threat"].isin(excluded_threats)
-        ]
-        .sort_values("region_period_standardized_higher_minus_lower_pp")
-        .reset_index(drop=True)
-    )
-    y = np.arange(len(plot_df))
-    figure, axis = plt.subplots(figsize=(7.0, 4.2))
-    for position, row in plot_df.iterrows():
-        estimates = [
-            row["raw_higher_minus_lower_pp"],
-            row["region_standardized_higher_minus_lower_pp"],
-            row["region_period_standardized_higher_minus_lower_pp"],
-        ]
-        axis.plot(
-            [min(estimates), max(estimates)],
-            [position, position],
-            color=BIODIVERSITY["neutral"],
-            linewidth=0.8,
-            zorder=1,
-        )
-        axis.plot(
-            [row["joint_bootstrap_ci_low"], row["joint_bootstrap_ci_high"]],
-            [position, position],
-            color=BIODIVERSITY["ink"],
-            linewidth=0.65,
-            zorder=2,
-        )
-    axis.scatter(
-        plot_df["raw_higher_minus_lower_pp"],
-        y,
-        marker="o",
-        s=23,
-        color="#7A7A7A",
-        label="Raw",
-        zorder=3,
-    )
-    axis.scatter(
-        plot_df["region_standardized_higher_minus_lower_pp"],
-        y,
-        marker="^",
-        s=27,
-        color="#0072B2",
-        label="Same region mix",
-        zorder=4,
-    )
-    axis.scatter(
-        plot_df["region_period_standardized_higher_minus_lower_pp"],
-        y,
-        marker="s",
-        s=27,
-        color=BIODIVERSITY["primary"],
-        label="Same region × period mix",
-        zorder=5,
-    )
-    axis.axvline(0, color=BIODIVERSITY["ink"], linewidth=0.7)
-    axis.set(
-        yticks=y,
-        yticklabels=[threat_names[threat] for threat in plot_df["threat"]],
-    )
-    axis.set_xlabel(
-        "Difference in Threat Share (percentage points)\n"
-        "Higher-Income Tier minus Lower-Income Tier",
-        fontsize=7.8,
-    )
-    axis.legend(
-        handles=[
-            Line2D(
-                [0],
-                [0],
-                marker="o",
-                linestyle="none",
-                markersize=4.5,
-                markerfacecolor="#7A7A7A",
-                markeredgecolor="#7A7A7A",
-                label="Raw",
-            ),
-            Line2D(
-                [0],
-                [0],
-                marker="^",
-                linestyle="none",
-                markersize=5,
-                markerfacecolor="#0072B2",
-                markeredgecolor="#0072B2",
-                label="Same region mix",
-            ),
-            Line2D(
-                [0],
-                [0],
-                marker="s",
-                linestyle="none",
-                markersize=5,
-                markerfacecolor=BIODIVERSITY["primary"],
-                markeredgecolor=BIODIVERSITY["primary"],
-                label="Same region × period mix",
-            ),
-            Line2D(
-                [0],
-                [0],
-                color=BIODIVERSITY["ink"],
-                linewidth=0.65,
-                label="95% bootstrap interval",
-            ),
-        ],
-        frameon=False,
-        loc="lower center",
-        bbox_to_anchor=(0.5, -0.27),
-        ncol=2,
-        fontsize=6.5,
-        columnspacing=1.8,
-        handletextpad=0.6,
-        labelspacing=0.5,
-        borderaxespad=0,
-    )
-    axis.grid(False)
-    axis.spines[["top", "right"]].set_visible(False)
-    axis.spines[["left", "bottom"]].set_color(BIODIVERSITY["neutral"])
-    axis.spines[["left", "bottom"]].set_linewidth(0.6)
-    axis.tick_params(
-        length=0,
-        colors=BIODIVERSITY["ink"],
-        labelsize=6.8,
-    )
-    figure.subplots_adjust(
-        left=0.33,
-        right=0.985,
-        top=0.98,
-        bottom=0.23,
     )
     return figure

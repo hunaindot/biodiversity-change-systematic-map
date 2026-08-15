@@ -1,0 +1,18 @@
+metric,value
+Negative publications before country exclusions,253081
+Excluded publications (either reason below),1821
+  Unresolved country token,892
+  Valid ISO3 without World Bank economy,933
+Negative publications after country exclusions,251260
+Publication–country token rows,270679
+  Resolvable to a World Bank country code,170425
+  Special label (Unclear / Not Applicable / aggregate),100254
+World Bank-linked publication–country assignments,170424
+World Bank-linked unique publications,151268
+Dropped before 2000–2025 income classification (either reason below),5250
+  Publication year outside 2000–2025,5166
+  No standard World Bank income classification that year,84
+"Primary assignments: historical group, 2000–2025",165174
+Primary unique publications,146630
+Countries in primary analysis,213
+Assignments reclassified vs current group,17505

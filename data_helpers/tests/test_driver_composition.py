@@ -1,6 +1,6 @@
 """Tests for the income-composition diagnostics.
 
-These cover the transition, missing-assignment and threat-diversity helpers that
+These cover the transition and missing-assignment helpers that
 `02-unchecked-income-composition.ipynb` reports.
 """
 
@@ -35,12 +35,6 @@ def _classified(records: list[tuple[str, int, str, str]]) -> pd.DataFrame:
             "current_income_group",
             "historical_income_group",
         ],
-    )
-
-
-def _attributions(rows: list[tuple[str, str, float]]) -> pd.DataFrame:
-    return pd.DataFrame(
-        rows, columns=["income_group", "threat", "attribution_weight"]
     )
 
 
@@ -85,28 +79,139 @@ def test_missing_by_year_counts_assignments_and_unique_publications() -> None:
     assert missing.loc[2001, "unique_publications"] == 1
 
 
-def test_diversity_of_an_even_split_is_the_number_of_threats() -> None:
-    attributions = _attributions(
-        [("Low income", threat, 1.0) for threat in ("a", "b", "c", "d")]
+def test_build_income_threat_attributions_splits_weight_by_country_and_threat() -> None:
+    linked = pd.DataFrame(
+        [
+            # Same income group, two countries, one threat: shares sum, no inflation.
+            ("same-group", 2010, "CAN", "High income", ["T1"]),
+            ("same-group", 2010, "USA", "High income", ["T1"]),
+            # Different income groups, two threats: publication's unit weight
+            # is split between the groups, not duplicated into each.
+            ("diff-group", 2010, "SWE", "High income", ["T1", "T2"]),
+            ("diff-group", 2010, "LTU", "Lower middle income", ["T1", "T2"]),
+            # Single country, single threat: gets the whole unit.
+            ("single", 2010, "AAA", "Low income", ["T1"]),
+        ],
+        columns=[
+            "UT",
+            "publication_year",
+            "country_code",
+            "historical_income_group",
+            "pred_threat_l0",
+        ],
     )
 
-    diversity = dc.income_threat_diversity(attributions, ["Low income"]).iloc[0]
+    attributions = dc.build_income_threat_attributions(linked)
 
-    assert diversity["effective_number_of_threats"] == pytest.approx(4.0)
-    assert diversity["shannon_entropy"] == pytest.approx(np.log(4))
+    same_group = attributions.loc[attributions["UT"].eq("same-group")]
+    assert same_group["income_group"].unique().tolist() == ["High income"]
+    assert same_group["attribution_weight"].sum() == pytest.approx(1.0)
 
-
-def test_diversity_falls_when_one_threat_dominates() -> None:
-    even = _attributions([("Low income", "a", 1.0), ("Low income", "b", 1.0)])
-    skewed = _attributions([("Low income", "a", 9.0), ("Low income", "b", 1.0)])
-
-    even_value = dc.income_threat_diversity(even, ["Low income"]).iloc[0]
-    skewed_value = dc.income_threat_diversity(skewed, ["Low income"]).iloc[0]
-
-    assert (
-        skewed_value["effective_number_of_threats"]
-        < even_value["effective_number_of_threats"]
+    diff_group = attributions.loc[attributions["UT"].eq("diff-group")]
+    per_group_total = diff_group.groupby("income_group")[
+        "attribution_weight"
+    ].sum()
+    assert per_group_total.to_dict() == pytest.approx(
+        {"High income": 0.5, "Lower middle income": 0.5}
     )
+
+    # Every publication's weight sums to exactly one, globally -- not per group.
+    totals = attributions.groupby("UT")["attribution_weight"].sum()
+    assert totals.to_numpy() == pytest.approx(np.ones(len(totals)))
+
+
+def test_bootstrap_extreme_contrast_matches_composition_matrix_difference() -> None:
+    linked = pd.DataFrame(
+        [
+            ("a", 2010, "SWE", "High income", ["T1", "T2"]),
+            ("a", 2010, "LTU", "Lower middle income", ["T1", "T2"]),
+            ("b", 2010, "USA", "High income", ["T1"]),
+            ("c", 2010, "IND", "Low income", ["T2"]),
+            ("d", 2010, "NGA", "Low income", ["T1"]),
+        ],
+        columns=[
+            "UT",
+            "publication_year",
+            "country_code",
+            "historical_income_group",
+            "pred_threat_l0",
+        ],
+    )
+    attributions = dc.build_income_threat_attributions(linked)
+    threat_order = ["T1", "T2"]
+    groups_present = ["Low income", "Lower middle income", "High income"]
+    _, matrix = dc.composition_matrix(attributions, threat_order, groups_present)
+
+    contrast = dc.bootstrap_extreme_contrast(
+        attributions,
+        threat_order,
+        low_group="Low income",
+        high_group="High income",
+        n_bootstrap=5,
+        seed=0,
+    ).set_index("threat")
+
+    implied = 100 * (
+        matrix.loc[threat_order, "High income"]
+        - matrix.loc[threat_order, "Low income"]
+    )
+    for threat in threat_order:
+        assert contrast.loc[threat, "high_minus_low_pp"] == pytest.approx(
+            implied.loc[threat]
+        )
+
+
+def test_direct_standardize_sums_fractional_weight_across_countries() -> None:
+    linked = pd.DataFrame(
+        [
+            ("a", 2010, "SWE", "High income", "Region1", ["T1"]),
+            ("a", 2010, "LTU", "Lower middle income", "Region1", ["T1"]),
+            ("b", 2010, "USA", "High income", "Region1", ["T1", "T2"]),
+            ("c", 2010, "IND", "Lower middle income", "Region1", ["T2"]),
+        ],
+        columns=[
+            "UT",
+            "publication_year",
+            "country_code",
+            "historical_income_group",
+            "wb_region",
+            "pred_threat_l0",
+        ],
+    )
+    lower_tier = {"Low income", "Lower middle income"}
+    tier_order = ["Lower-income tier", "Higher-income tier"]
+    period_bins, period_labels = dc.publication_period_bins(
+        [{"start_year": 2000, "end_year": 2025, "label": "2000-2025"}]
+    )
+
+    attributions = dc.prepare_standardization_attributions(
+        linked, lower_tier, period_bins, period_labels
+    )
+    totals = attributions.groupby("UT")["attribution_weight"].sum()
+    assert totals.to_numpy() == pytest.approx(np.ones(len(totals)))
+
+    result, _, common_strata = dc._direct_standardize(
+        attributions, ["wb_region"], ["T1", "T2"], tier_order
+    )
+    result = result.set_index("threat")
+
+    # Higher tier: T1 weight = 0.5 (a/SWE) + 0.5 (b/USA) = 1.0, T2 = 0.5 (b/USA);
+    # share T1 = 1.0 / 1.5, T2 = 0.5 / 1.5.
+    # Lower tier: T1 weight = 0.5 (a/LTU), T2 = 1.0 (c/IND); share T1 = 0.5 / 1.5,
+    # T2 = 1.0 / 1.5. A single shared region makes the region-standardized value
+    # equal the raw value exactly.
+    expected_t1 = 100 * (2 / 3 - 1 / 3)
+    expected_t2 = 100 * (1 / 3 - 2 / 3)
+    assert result.loc["T1", "raw_higher_minus_lower_pp"] == pytest.approx(
+        expected_t1
+    )
+    assert result.loc["T2", "raw_higher_minus_lower_pp"] == pytest.approx(
+        expected_t2
+    )
+    assert result.loc[
+        "T1", "standardized_higher_minus_lower_pp"
+    ] == pytest.approx(expected_t1)
+    assert len(common_strata) == 1
 
 
 def test_primary_uses_all_designs_and_sensitivity_uses_observational(
@@ -154,13 +259,13 @@ def test_primary_uses_all_designs_and_sensitivity_uses_observational(
     ).to_parquet(historical_path, index=False)
     corpus = pd.DataFrame(
         [
-            ("obs-low", "negative", "Observational", "AAA", "T1"),
-            ("obs-lmic", "negative", "Observational", "BBB", "T2"),
-            ("obs-umic", "negative", "Observational", "CCC", "T2"),
-            ("obs-high", "negative", "Observational", "DDD", "T2"),
-            ("exp-low", "negative", "Experimental", "AAA", "T1"),
-            ("exp-high", "negative", "Experimental", "DDD", "T3"),
-            ("positive", "positive", "Experimental", "AAA", "T3"),
+            ("obs-low", "negative", ["Observational"], "AAA", "T1"),
+            ("obs-lmic", "negative", ["Observational"], "BBB", "T2"),
+            ("obs-umic", "negative", ["Observational"], "CCC", "T2"),
+            ("obs-high", "negative", ["Observational"], "DDD", "T2"),
+            ("exp-low", "negative", ["Experimental"], "AAA", "T1"),
+            ("exp-high", "negative", ["Experimental"], "DDD", "T3"),
+            ("positive", "positive", ["Experimental"], "AAA", "T3"),
         ],
         columns=[
             "UT",
@@ -200,8 +305,8 @@ def test_primary_uses_all_designs_and_sensitivity_uses_observational(
         "exp-high",
     }
     audit = preparation.audit.set_index("metric")["value"]
-    assert audit["Negative publications (all study designs)"] == 6
-    assert audit["Negative observational publications"] == 4
+    assert audit["Negative publications after country exclusions"] == 6
+    assert "Negative observational publications" not in audit
 
     composition = dc.analyze_income_composition(
         preparation.primary,
@@ -223,6 +328,8 @@ def test_primary_uses_all_designs_and_sensitivity_uses_observational(
     assert sensitivity.loc[
         "Observational study design only", "largest_change_pp"
     ] > 0
+    assert "Full weight per income group (previous primary)" in sensitivity.index
+    assert "Country-fractional weighting" not in sensitivity.index
 
 
 def test_build_country_article_counts_preserves_metadata_and_unique_articles() -> None:
@@ -314,34 +421,25 @@ def _minimal_export_inputs():
     return preparation, composition, standardization
 
 
-def test_export_manuscript_tables_writes_country_article_counts(
-    tmp_path,
-) -> None:
+def test_export_manuscript_tables_writes_core_tables(tmp_path) -> None:
     preparation, composition, standardization = _minimal_export_inputs()
-    country_counts = pd.DataFrame(
-        {
-            "iso3": ["AAA"],
-            "country": ["Alpha"],
-            "region": ["North"],
-            "record_count": [2],
-        }
-    )
-
     written = dc.export_manuscript_tables(
         preparation,
         composition,
         standardization,
         pd.DataFrame({"comparison": ["example"]}),
-        country_counts=country_counts,
         data_directory=tmp_path / "data",
         table_directory=tmp_path / "tables",
         classified_assignments_file="assignments.parquet",
-        threat_attributions_file="attributions.parquet",
     )
 
-    country_path = tmp_path / "tables" / "country_article_counts.csv"
-    assert country_path in written
-    pd.testing.assert_frame_equal(pd.read_csv(country_path), country_counts)
+    assert {path.name for path in written} == {
+        "assignments.parquet",
+        "income_group_threat_composition.csv",
+        "high_minus_low_income_bootstrap.csv",
+        "region_period_standardized_tier_contrast.csv",
+        "sensitivity_summary.csv",
+    }
 
 
 def test_country_complete_case_exclusion_drops_all_mixed_assignments(
@@ -391,7 +489,7 @@ def test_country_complete_case_exclusion_drops_all_mixed_assignments(
             "UT": ["valid", "invalid-mixed", "ineligible-mixed"],
             "publication_year": [2001, 2001, 2001],
             "s2_dir": ["negative", "negative", "negative"],
-            "pred_study_design": ["Observational"] * 3,
+            "pred_study_design": [["Observational"]] * 3,
             "pred_countries": [
                 ["aaa"],
                 ["AAA", "XXX"],
@@ -430,7 +528,7 @@ def test_country_complete_case_exclusion_drops_all_mixed_assignments(
         },
     ]
     audit = preparation.audit.set_index("metric")["value"]
-    assert audit["Country-complete-case excluded publications"] == 2
+    assert audit["Excluded publications (either reason below)"] == 2
 
 
 def _plotting_composition() -> tuple[

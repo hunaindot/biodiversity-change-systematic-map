@@ -198,6 +198,18 @@
     "retain_eligible_build_cache": false,
     "output_directory": "notebooks/data_processing/outputs/04_dataset"
   },
+  "embeddings_prep": {
+    "description": "One embedding vector per publication (title + abstract) via a local Ollama nomic-embed-text endpoint.",
+    "endpoint": "http://localhost:11434/api/embed",
+    "model": "nomic-embed-text",
+    "text_prefix": "search_document: ",
+    "batch_size": 64,
+    "shard_size": 5000,
+    "request_timeout_seconds": 120,
+    "max_retries": 5,
+    "cache_subdirectory": "_embeddings_cache",
+    "output_directory": "notebooks/data_processing/outputs/04_dataset"
+  },
   "screening_results": {
     "description": "Screening-stage summary and exclusion-overlap figure.",
     "output_directory": "notebooks/results/outputs/00_screening",
@@ -242,7 +254,6 @@
     "figure_subdirectory": "figures",
     "composition_figure_filename": "income_composition",
     "classified_assignments_file": "historical_income_publication_country_assignments.parquet",
-    "threat_attributions_file": "historical_income_threat_attributions.parquet",
     "bootstrap_replicates": 1000,
     "random_seed": 20260719,
     "publication_periods": [

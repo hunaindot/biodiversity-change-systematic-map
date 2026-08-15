@@ -1,0 +1,44 @@
+{
+  "result": "02_income_composition",
+  "method_details": {
+    "analysis_scope": {
+      "direction": "negative",
+      "years": "2000-2025 complete publication years",
+      "n_publications": 146630,
+      "n_countries": 213,
+      "income_groups": [
+        "Low income",
+        "Lower middle income",
+        "Upper middle income",
+        "High income"
+      ],
+      "n_threat_classes": 12
+    },
+    "composition": {
+      "grain": "UT x country x distinct threat",
+      "income_assignment": "World Bank income group matched to the publication year",
+      "fractional_weight_formula": "w_i,c,t = 1 / (number of countries_i x number of threats_i); weights sum to one per publication across all country-threat pairs",
+      "group_publication_counts": {
+        "Low income": 6956,
+        "Lower middle income": 23549,
+        "Upper middle income": 48122,
+        "High income": 73234
+      }
+    },
+    "contrasts": {
+      "extreme_group_comparison": "High income minus Low income, percentage points",
+      "bootstrap_replicates": 1000,
+      "bootstrap_seed": 20260719,
+      "standardized_comparison": "Higher-income tier minus Lower-income tier, standardized over shared World Bank region x publication-period strata",
+      "sensitivity_table": "Recalculates the extreme-group contrast under the configured weighting, time-window, and study-design choices"
+    }
+  },
+  "artifacts": {
+    "data/historical_income_publication_country_assignments.parquet": "Publication-country assignments with historical income groups; retained because Result 5 uses it to reproduce the same evidence base.",
+    "csv/income_group_threat_composition.csv": "Fractional threat composition within each historical income group.",
+    "csv/high_minus_low_income_bootstrap.csv": "High-income minus low-income threat-share contrasts with bootstrap intervals.",
+    "csv/region_period_standardized_tier_contrast.csv": "Tier contrasts standardized over shared region-period strata.",
+    "csv/sensitivity_summary.csv": "Summary of contrast estimates under alternative analytical choices.",
+    "figures/income_composition.pdf": "Country coverage, income-group threat composition, and extreme-group contrast."
+  }
+}

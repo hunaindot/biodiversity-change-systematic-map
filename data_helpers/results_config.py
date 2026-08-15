@@ -107,6 +107,21 @@ def load_results_config(path: str | Path | None = None) -> dict[str, Any]:
             "biodiversity_evidence_prep retain_eligible_build_cache must be boolean."
         )
 
+    embeddings_prep = config.get("embeddings_prep", {})
+    for key in [
+        "endpoint",
+        "model",
+        "text_prefix",
+        "cache_subdirectory",
+        "output_directory",
+    ]:
+        if not embeddings_prep.get(key):
+            raise ValueError(f"Missing embeddings_prep setting: {key}")
+    for key in ["batch_size", "shard_size", "request_timeout_seconds", "max_retries"]:
+        value = embeddings_prep.get(key)
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            raise ValueError(f"embeddings_prep {key} must be a positive integer.")
+
     screening_results = config.get("screening_results", {})
     for key in ["output_directory", "figure_filename"]:
         if not screening_results.get(key):
@@ -152,7 +167,6 @@ def load_results_config(path: str | Path | None = None) -> dict[str, Any]:
         "figure_subdirectory",
         "composition_figure_filename",
         "classified_assignments_file",
-        "threat_attributions_file",
         "bootstrap_replicates",
         "random_seed",
         "publication_periods",
@@ -195,9 +209,7 @@ def load_results_config(path: str | Path | None = None) -> dict[str, Any]:
         "output_directory",
         "figure_subdirectory",
         "lq_plot_cap",
-        "l1_all_realm_bar_figure_filename",
         "l1_core_realm_bar_figure_filename",
-        "l1_core_nested_figure_filename",
         "pollution_nameability_figure_filename",
     ]:
         if realm.get(key) in (None, "", [], {}):
@@ -264,35 +276,6 @@ def load_results_config(path: str | Path | None = None) -> dict[str, Any]:
             )
     if not 0 < realm["lq_plot_cap"]:
         raise ValueError("Driver-realm lq_plot_cap must be positive.")
-
-    threat_realm = config.get("threat_realm", {})
-    for key in [
-        "label_column",
-        "figure_threats",
-        "out_of_scope_threats",
-        "lq_plot_cap",
-        "figure_filename",
-    ]:
-        if threat_realm.get(key) in (None, "", [], {}):
-            raise ValueError(f"Missing threat_realm setting: {key}")
-    figure_threats = threat_realm["figure_threats"]
-    out_of_scope_threats = threat_realm["out_of_scope_threats"]
-    if len(figure_threats) != len(set(figure_threats)):
-        raise ValueError("Threat-realm figure threats must be unique.")
-    if len(out_of_scope_threats) != len(set(out_of_scope_threats)):
-        raise ValueError("Threat-realm out-of-scope threats must be unique.")
-    if set(figure_threats) & set(out_of_scope_threats):
-        raise ValueError(
-            "Threat-realm figure and out-of-scope threats must be disjoint."
-        )
-    if not set(figure_threats) <= set(labels):
-        raise ValueError("Threat-realm figure threats must be configured threats.")
-    if not set(out_of_scope_threats) <= set(labels):
-        raise ValueError(
-            "Threat-realm out-of-scope threats must be configured threats."
-        )
-    if not 0 < threat_realm["lq_plot_cap"]:
-        raise ValueError("Threat-realm lq_plot_cap must be positive.")
 
     taxa_prep = config.get("taxa_analysis_prep", {})
     for key in [
