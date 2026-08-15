@@ -98,8 +98,8 @@ data_helpers/
 | File | Role |
 | --- | --- |
 | `geography.py` | Maps predicted geography labels onto the IPBES reference: per-polygon counts (`geo_counts`), the Empirical-Bayes Location Quotient (`location_quotient`), and reference loading (`load_crosswalk`, `load_polygons`). Special label values are skipped but always reported in an audit. F1 uses the counts and polygons for study-volume choropleths; F4 reaches the location quotient through `analysis/taxa/geography.py`; the archived `threats_supplementary.ipynb` uses both. |
-| `attention.py` | Builds Result 05's complete IPBES hierarchy, unique publication–country assignments, publication-fractional attention composition, low/zero/no-key states, and geography-resolution audits. |
-| `attention_plotting.py` | Draws Result 05's simplified equal-slot region → country wheel and log-scaled attention bars, including the large all-place reference version. Regions and positive-attention countries read clockwise from 12 o'clock in descending fractional-attention order; zero and no-key leaves finish each region block. |
+| `attention.py` | Builds Result 05's observed-country and IPBES-region publication-fractional attention summaries from the inherited country-complete base. |
+| `attention_plotting.py` | Draws Result 05's equal-slot observed-country wheel and log-scaled attention bars. Regions and countries read clockwise from 12 o'clock in descending fractional-attention order; shares below 0.1% use pale region fills. |
 
 ### `tests/`
 

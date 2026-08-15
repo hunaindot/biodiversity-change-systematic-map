@@ -498,59 +498,25 @@ def load_results_config(path: str | Path | None = None) -> dict[str, Any]:
 
     geography_attention = config.get("geography_attention", {})
     for key in [
-        "direction",
-        "primary_start_year",
-        "primary_end_year",
-        "low_evidence_threshold",
         "low_attention_threshold_pct",
         "highlight_attention_threshold_pct",
         "output_directory",
-        "data_subdirectory",
         "table_subdirectory",
         "figure_subdirectory",
-        "assignments_file",
         "country_attention_file",
-        "hierarchy_attention_file",
-        "coverage_file",
-        "coverage_reasons_file",
-        "status_by_region_file",
-        "gap_inventory_file",
-        "audit_file",
-        "unresolved_tokens_file",
-        "excluded_publications_file",
-        "manifest_filename",
+        "region_attention_file",
         "reference_figure_filename",
         "clockwise_start_angle",
-        "region_ordering",
-        "country_ordering",
-        "visual_levels",
         "region_order",
         "region_colors",
     ]:
         if geography_attention.get(key) in (None, "", [], {}):
             raise ValueError(f"Missing geography_attention setting: {key}")
-    integer_settings = (
-        "primary_start_year",
-        "primary_end_year",
-        "low_evidence_threshold",
-        "clockwise_start_angle",
-    )
-    if any(
-        not isinstance(geography_attention[key], int)
-        or isinstance(geography_attention[key], bool)
-        for key in integer_settings
-    ):
+    if not isinstance(
+        geography_attention["clockwise_start_angle"], int
+    ) or isinstance(geography_attention["clockwise_start_angle"], bool):
         raise ValueError(
-            "Geography-attention years, threshold, and start angle must be integers."
-        )
-    if (
-        geography_attention["primary_start_year"]
-        > geography_attention["primary_end_year"]
-    ):
-        raise ValueError("Geography-attention primary years are invalid.")
-    if geography_attention["low_evidence_threshold"] <= 1:
-        raise ValueError(
-            "Geography-attention low_evidence_threshold must exceed one."
+            "Geography-attention clockwise_start_angle must be an integer."
         )
     low_attention_threshold = geography_attention["low_attention_threshold_pct"]
     if (
@@ -575,25 +541,6 @@ def load_results_config(path: str | Path | None = None) -> dict[str, Any]:
     if not 0 <= geography_attention["clockwise_start_angle"] < 360:
         raise ValueError(
             "Geography-attention clockwise_start_angle must be in [0, 360)."
-        )
-    if (
-        geography_attention["region_ordering"]
-        != "fractional_attention_descending"
-    ):
-        raise ValueError(
-            "Geography-attention region_ordering must be "
-            "fractional_attention_descending."
-        )
-    if (
-        geography_attention["country_ordering"]
-        != "positive_fractional_attention_descending_then_zero_then_no_key"
-    ):
-        raise ValueError(
-            "Geography-attention country_ordering is unsupported."
-        )
-    if geography_attention["visual_levels"] != ["region", "country"]:
-        raise ValueError(
-            "Geography-attention visual_levels must be ['region', 'country']."
         )
     attention_regions = geography_attention["region_order"]
     if len(attention_regions) != len(set(attention_regions)):

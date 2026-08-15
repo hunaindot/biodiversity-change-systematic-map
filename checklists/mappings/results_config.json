@@ -446,49 +446,27 @@
     }
   },
   "geography_attention": {
-    "description": "Result 05 - complete IPBES geography coverage and country-level research attention. The simplified region-country wheel groups displayed places by region, while publication-fractional attention is encoded radially and shares below 0.1% use pale region hues.",
-    "direction": "negative",
-    "primary_start_year": 2000,
-    "primary_end_year": 2025,
-    "low_evidence_threshold": 100,
+    "description": "Result 05 - country and region concentration of publication-fractional biodiversity-loss research attention.",
     "low_attention_threshold_pct": 0.1,
     "highlight_attention_threshold_pct": 1.0,
     "output_directory": "notebooks/results/outputs/05_geography_attention",
-    "data_subdirectory": "data",
     "table_subdirectory": "csv",
     "figure_subdirectory": "figures",
-    "assignments_file": "publication_country_assignments.parquet",
     "country_attention_file": "country_attention.csv",
-    "hierarchy_attention_file": "hierarchy_attention.csv",
-    "coverage_file": "geography_coverage.csv",
-    "coverage_reasons_file": "geography_coverage_reasons.csv",
-    "status_by_region_file": "geography_status_by_region.csv",
-    "gap_inventory_file": "geography_gap_inventory.csv",
-    "audit_file": "geography_attention_audit.csv",
-    "unresolved_tokens_file": "unresolved_country_tokens.csv",
-    "excluded_publications_file": "excluded_unresolved_publications.csv",
-    "manifest_filename": "manifest.json",
+    "region_attention_file": "region_attention.csv",
     "reference_figure_filename": "geography_attention_hierarchy_reference",
     "clockwise_start_angle": 90,
-    "region_ordering": "fractional_attention_descending",
-    "country_ordering": "positive_fractional_attention_descending_then_zero_then_no_key",
-    "visual_levels": [
-      "region",
-      "country"
-    ],
     "region_order": [
+      "Africa",
       "Asia and the Pacific",
       "Americas",
-      "Europe and Central Asia",
-      "Africa",
-      "Antarctica"
+      "Europe and Central Asia"
     ],
     "region_colors": {
       "Africa": "#D9954C",
       "Asia and the Pacific": "#6F91C7",
       "Americas": "#2E7D32",
-      "Europe and Central Asia": "#8C6BB1",
-      "Antarctica": "#CC79A7"
+      "Europe and Central Asia": "#8C6BB1"
     }
   },
   "temporal_development": {
