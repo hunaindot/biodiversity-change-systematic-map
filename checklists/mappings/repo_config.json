@@ -96,13 +96,11 @@
         "columns": [
           "UT",
           "title",
-          "authors",
           "abstract",
           "source",
           "publication_year",
           "wos_categories",
           "doi",
-          "eligibility",
           "s1_r",
           "s2_r",
           "s3_r",

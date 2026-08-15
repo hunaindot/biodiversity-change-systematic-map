@@ -194,9 +194,9 @@
     "output_directory": "notebooks/data_processing/outputs/03_screening_analysis_prep"
   },
   "biodiversity_evidence_prep": {
-    "description": "Integrated one-row-per-eligible-UT corpus with screening, driver, threats, geography, realm, study, and current taxa fields.",
+    "description": "Core one-row-per-eligible-UT dataset with screening, driver, threats, geography, realm, study, and current taxa fields.",
     "retain_eligible_build_cache": false,
-    "output_directory": "notebooks/data_processing/outputs/04_biodiversity_evidence_corpus_prep"
+    "output_directory": "notebooks/data_processing/outputs/04_dataset"
   },
   "screening_results": {
     "description": "Screening-stage summary and exclusion-overlap figure.",
@@ -286,7 +286,7 @@
     ]
   },
   "driver_realm": {
-    "description": "IPBES direct-driver composition across ecosystem realms for 03_realm_composition (manuscript Result 3) and its unchecked companion.",
+    "description": "IPBES direct-driver composition across ecosystem realms for 03_realm_composition (manuscript Result 3).",
     "direction": "negative",
     "primary_start_year": 2000,
     "primary_end_year": 2025,
@@ -334,35 +334,9 @@
     "output_directory": "notebooks/results/outputs/03_realm_composition",
     "figure_subdirectory": "figures",
     "lq_plot_cap": 2.0,
-    "l1_all_realm_bar_figure_filename": "l1_driver_composition_all_realms",
     "l1_core_realm_bar_figure_filename": "l1_driver_composition_core_realms",
-    "l1_core_nested_figure_filename": "l1_driver_with_threat_l0_detail_core_realms",
     "pollution_nameability_figure_filename": "pollution_plastics_exploitation_trends_core_realms",
-    "unchecked_output_directory": "notebooks/results/outputs/03_unchecked_realm_composition",
     "table_subdirectory": "csv"
-  },
-  "threat_realm": {
-    "description": "Supplementary IUCN Threat-L0 research emphasis across ecosystem realms.",
-    "label_column": "pred_threat_l0",
-    "figure_threats": [
-      "Pollution",
-      "Climate Change & Severe Weather",
-      "Natural System Modifications",
-      "Biological Resource Use",
-      "Invasive & Other Problematic Species, Genes & Diseases",
-      "Human Intrusions & Disturbance",
-      "Residential & Commercial Development",
-      "Agriculture & Aquaculture",
-      "Energy Production & Mining",
-      "Transportation & Service Corridors"
-    ],
-    "out_of_scope_threats": [
-      "Geological Events"
-    ],
-    "lq_plot_cap": 2.0,
-    "figure_filename": "threat_l0_lq_by_realm",
-    "all_realm_bar_figure_filename": "threat_l0_composition_all_realms",
-    "core_realm_bar_figure_filename": "threat_l0_composition_core_realms"
   },
   "taxa_analysis_prep": {
     "description": "Canonical one-row-per-UT taxa handoff shared by all taxa results notebooks.",
@@ -403,7 +377,7 @@
       "Vertebrates"
     ],
     "trend_residual_group": "Other",
-    "geography_source": "notebooks/data_processing/outputs/04_biodiversity_evidence_corpus_prep/biodiversity_evidence_corpus.parquet",
+    "geography_source": "notebooks/data_processing/outputs/04_dataset/dataset.parquet",
     "geography_min_support": 100,
     "geography_eb_kappa": 30,
     "threat_gap_group": "Vertebrates",
@@ -517,28 +491,8 @@
       "Antarctica": "#CC79A7"
     }
   },
-  "research_capacity_hotspots": {
-    "description": "Result 06 - descriptive country-level comparison of publication-fractional research attention between biodiversity-hotspot and non-hotspot countries, with current World Bank income groups used only for qualitative contextual comparison.",
-    "output_directory": "notebooks/results/outputs/06_research_capacity_and_hotspots",
-    "table_subdirectory": "csv",
-    "figure_subdirectory": "figures",
-    "hotspot_mapping": "checklists/mappings/biodiversity_hotspots.json",
-    "world_bank_crosswalk_file": "ipbes_world_bank_crosswalk.parquet",
-    "world_bank_current_classification_file": "classifications_current.parquet",
-    "hotspot_exposure_file": "country_hotspot_categorical_and_graded.csv",
-    "world_bank_linkage_file": "country_world_bank_linkage.csv",
-    "analysis_file": "country_research_attention_hotspot_analysis.csv",
-    "name_match_audit_file": "country_name_match_audit.csv",
-    "name_reconciliation_summary_file": "country_name_reconciliation_summary.csv",
-    "descriptive_summary_file": "hotspot_attention_descriptive_summary.csv",
-    "income_descriptive_summary_file": "hotspot_attention_descriptive_by_income_group.csv",
-    "discussion_file": "discussion_summary.csv",
-    "boxplot_figure_filename": "hotspot_attention_boxplot",
-    "income_boxplot_figure_filename": "hotspot_attention_boxplot_by_income_group",
-    "manifest_filename": "manifest.json"
-  },
   "temporal_development": {
-    "description": "Shared parameters, figure annotations, and manuscript claims for 01_evidence_growth (manuscript Result 1) and its unchecked companion.",
+    "description": "Shared parameters and figure annotations for 01_evidence_growth (manuscript Result 1).",
     "output_directory": "notebooks/results/outputs/01_evidence_growth",
     "threat_order": [
       "Residential & Commercial Development",
@@ -557,11 +511,6 @@
     ],
     "analysis_start_year": 2000,
     "analysis_end_year": 2025,
-    "partial_year": 2026,
-    "projection_cagr_window": [
-      2021,
-      2025
-    ],
     "rolling_cagr_years": 5,
     "cagr_periods": [
       {
