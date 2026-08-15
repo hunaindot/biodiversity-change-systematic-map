@@ -5,11 +5,20 @@ This is supplementary methodology, not one of the four main findings.
 
 The shared metric helper is
 `data_helpers/analysis/geo/geography.py`. Live F4 taxonomic analysis consumes its
-location quotient through `data_helpers/analysis/taxa/geography.py`; the archived
-`notebooks/results/threats_supplementary.ipynb` contains the threat-by-place maps.
-The exact same research-emphasis interpretation also applies when the metric is
-used for threat-by-realm comparisons in
-`notebooks/results/03_unchecked_realm_composition.ipynb`.
+location quotient through `data_helpers/analysis/taxa/geography.py`. The exact same
+research-emphasis interpretation also applies when the metric is used for
+threat-by-realm comparisons in `notebooks/results/03_unchecked_realm_composition.ipynb`.
+
+**No longer a consumer (2026-08-15):** the threat-by-place maps described below used to
+live in `notebooks/results/threats_supplementary.ipynb`. That notebook was restructured
+and renamed to `notebooks/results/06_threats_choropleth.ipynb`, and its geography section
+was rebuilt around plain unique-document-count choropleths instead of this metric — see
+the 2026-08-15 decisions-log entry. The "Geographic universe and coverage" section below
+(the 97,926-document population, the 100-document country cutoff, the 17-subregion
+count) describes that now-removed computation specifically; it does **not** describe the
+taxonomic or realm consumers above, which have their own populations. The rest of this
+document (estimand, Empirical-Bayes stabilization, map convention, statistical boundary)
+remains accurate generic methodology for the two live consumers.
 
 ## Question and estimand
 
@@ -86,9 +95,10 @@ stabilizes the displayed cells. Exports retain raw `lq` and `log2_lq` alongside
   research emphasis" and state explicitly that the map does not show threat
   occurrence or severity.
 
-The live notebook writes geographic PDFs and CSVs under
-`notebooks/results/outputs/threats_supplementary/geography/`. Its
-`save_figure_result` routine is notebook-local; it is not a shared helper.
+This layer of PDFs and CSVs (`notebooks/results/outputs/threats_supplementary/geography/`,
+written by a notebook-local `save_figure_result` routine) no longer exists; see the
+"No longer a consumer" note above. The remaining live consumers write their own outputs
+under their own notebooks' output sections.
 
 ## Statistical boundary
 

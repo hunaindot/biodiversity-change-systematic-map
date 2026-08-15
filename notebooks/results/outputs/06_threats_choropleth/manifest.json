@@ -1,0 +1,32 @@
+{
+  "result": "06_threats_choropleth",
+  "method_details": {
+    "geography": {
+      "study_design": "Observational",
+      "n_publications": 116684,
+      "grain": "UT x country x threat",
+      "metric": "unique-document count per country, not location quotient",
+      "count_scale_bins": [
+        1,
+        3,
+        10,
+        30,
+        100,
+        300,
+        1000,
+        3000,
+        10000,
+        30000
+      ],
+      "excluded_threats": [
+        "Other Options",
+        "Unclear"
+      ],
+      "n_threat_files": 10
+    }
+  },
+  "artifacts": {
+    "csv/geo_country_threat_long.csv": "Unique-document counts per country x threat.",
+    "figures/world_map_<threat-slug>.pdf": "One standalone country choropleth per threat, all sharing one count scale."
+  }
+}

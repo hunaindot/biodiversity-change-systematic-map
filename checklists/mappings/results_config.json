@@ -394,7 +394,7 @@
     "threat_gap_group": "Vertebrates",
     "threat_gap_source": "data/world-bank/snapshots/wdi-2026-06-30/curated/ipbes_wdi_latest.parquet",
     "hierarchy_exploration": {
-      "description": "Exploratory Kingdom-Phylum-Class-Order sunburst. Uses the curated extract of the fixed 2023-08-28 GBIF snapshot, records the raw archive metadata for provenance, and retains exact hierarchy paths common to the newer research-match classification and that fixed snapshot.",
+      "description": "Kingdom-Phylum-Class-Order sunburst for Figure taxonomic_hierarchy. Uses the curated extract of the fixed 2023-08-28 GBIF snapshot, records the raw archive metadata for provenance, and retains exact hierarchy paths common to the newer research-match classification and that fixed snapshot.",
       "gbif_source": "data/gbif/curated/gbif_curated.csv",
       "gbif_raw_archive_metadata": "data/gbif/raw-2/eml.xml",
       "sunburst": {
@@ -452,7 +452,7 @@
           "class": 0.52,
           "order": 0.4
         },
-        "figure_filename": "rank_hierarchy_research_attention_sunburst_exploratory"
+        "figure_filename": "taxonomic_hierarchy"
       }
     }
   },
@@ -592,5 +592,14 @@
     "table_subdirectory": "csv",
     "figure_subdirectory": "figures",
     "combined_figure_filename": "combined_time_development"
+  },
+  "threats_choropleth": {
+    "description": "Result 06 (supplementary, not a manuscript finding) - one standalone country-level document-count choropleth per threat, for eligible negative-impact evidence. The annual threat-composition view and the all-threats aggregate map were dropped as redundant with 01_evidence_growth panel b and 02_income_composition's map respectively; the per-threat maps are one file each rather than a combined grid.",
+    "output_directory": "notebooks/results/outputs/06_threats_choropleth",
+    "table_subdirectory": "csv",
+    "figure_subdirectory": "figures",
+    "geo_study_design": "Observational",
+    "geo_excluded_threats": ["Other Options", "Unclear"],
+    "geo_choropleth_filename_prefix": "world_map"
   }
 }
