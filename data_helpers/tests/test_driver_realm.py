@@ -148,14 +148,9 @@ def test_pollution_nameability_uses_text_and_fractional_driver_weights() -> None
         _record("M1", realm=["Marine"], drivers=[LAND]),
     ]
     corpus = pd.DataFrame(records).assign(
-        title=[
-            "Microplastics in rivers",
-            "Phenotypic plasticity under contamination",
-            "Fishing pressure",
-            "Marine debris in lakes",
-            "Habitat conversion",
-        ],
-        abstract=["", "", "", "", ""],
+        # Precomputed at prep time (see test_evidence_corpus_prep.py for the regex itself).
+        text_available=[True, True, True, True, True],
+        plastics_mention=[True, False, False, True, False],
     )
     evidence = dr.prepare_driver_realm_evidence(
         corpus,

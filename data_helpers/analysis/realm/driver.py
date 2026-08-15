@@ -44,13 +44,6 @@ IPBES_DRIVERS = (
     "Pollution",
     "Invasive alien species",
 )
-DEFAULT_PLASTICS_PATTERN = (
-    r"\b(?:micro[\s-]?plastics?|nano[\s-]?plastics?|plastics?|"
-    r"plastic[\s-](?:debris|waste|litter|particles?|fibres?|fibers?|"
-    r"pellets?|fragments?|pollution)|marine[\s-](?:debris|litter)|"
-    r"anthropogenic[\s-]litter)\b"
-)
-
 _DRIVER_CANONICAL = {label.casefold(): label for label in IPBES_DRIVERS}
 _REALM_CANONICAL = {label.casefold(): label for label in CODED_REALMS}
 
@@ -413,7 +406,6 @@ def prepare_pollution_nameability_evidence(
     corpus_df: pd.DataFrame,
     *,
     realm_order: Sequence[str] = CORE_REALMS,
-    plastics_pattern: str = DEFAULT_PLASTICS_PATTERN,
 ) -> pd.DataFrame:
     """Create core-realm records for pollution, plastics, and exploitation trends."""
     _validate_evidence(evidence)
@@ -425,13 +417,11 @@ def prepare_pollution_nameability_evidence(
         raise DriverRealmError(
             f"realm_order contains unconfigured realms: {unexpected_realms}"
         )
-    if not isinstance(plastics_pattern, str) or not plastics_pattern:
-        raise DriverRealmError("plastics_pattern must be a non-empty regex.")
-    required = {"UT", "title", "abstract"}
+    required = {"UT", "text_available", "plastics_mention"}
     missing = sorted(required.difference(corpus_df.columns))
     if missing:
         raise DriverRealmError(
-            f"Corpus is missing text column(s): {missing}"
+            f"Corpus is missing text-feature column(s): {missing}"
         )
     if corpus_df["UT"].isna().any() or not corpus_df["UT"].is_unique:
         raise DriverRealmError(
@@ -463,31 +453,13 @@ def prepare_pollution_nameability_evidence(
         / selected["n_drivers"]
     )
 
-    text_source = corpus_df[["UT", "title", "abstract"]].copy()
+    text_features = corpus_df[["UT", "text_available", "plastics_mention"]].copy()
     selected = selected.merge(
-        text_source,
+        text_features,
         on="UT",
         how="left",
         validate="one_to_one",
     )
-    title = selected["title"].fillna("").astype("string").str.strip()
-    abstract = selected["abstract"].fillna("").astype("string").str.strip()
-    selected["text_available"] = title.ne("") | abstract.ne("")
-    combined_text = title.str.cat(abstract, sep=" ")
-    try:
-        selected["plastics_mention"] = (
-            combined_text.str.contains(
-                plastics_pattern,
-                case=False,
-                regex=True,
-                na=False,
-            )
-            & selected["text_available"]
-        )
-    except Exception as exc:
-        raise DriverRealmError(
-            f"plastics_pattern is not a usable regex: {exc}"
-        ) from exc
     return selected[
         [
             "UT",
@@ -658,7 +630,6 @@ __all__ = [
     "ANALYSIS_REALMS",
     "CODED_REALMS",
     "CORE_REALMS",
-    "DEFAULT_PLASTICS_PATTERN",
     "DriverRealmError",
     "DriverRealmEvidence",
     "IPBES_DRIVERS",
