@@ -194,7 +194,7 @@
     "output_directory": "notebooks/data_processing/outputs/03_screening_analysis_prep"
   },
   "biodiversity_evidence_prep": {
-    "description": "Core one-row-per-eligible-UT dataset with screening, driver, threats, geography, realm, study, and current taxa fields.",
+    "description": "Core one-row-per-eligible-publication dataset with stable numeric id, external UT, screening, driver, threats, geography, realm, study, and current taxa fields.",
     "retain_eligible_build_cache": false,
     "output_directory": "notebooks/data_processing/outputs/04_dataset"
   },
