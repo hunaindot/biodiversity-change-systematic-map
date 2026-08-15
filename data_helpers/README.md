@@ -1,275 +1,329 @@
-# `data_helpers`
+# Data preparation and analysis helpers
 
-`data_helpers` contains repository-support code for preparing labelled datasets,
-building consistency-checking samples, joining shared analysis data, and keeping
-results notebooks reproducible.
+`data_helpers` contains the reusable data code for the Biodiversity Change Systematic Map. It prepares labelled datasets, builds analysis-ready publication tables, maintains external reference data, and provides the calculations and plotting functions used by the results notebooks.
 
-Its main command-line workflow converts the reference screening and coding
-workbooks into per-label CSV files, creates reproducible train/dev/test splits,
-and samples records for manual consistency checking. The remaining modules are
-support libraries used by notebooks and other repository workflows.
+The package sits between the screening and coding outputs and the final analyses:
 
-Raw screening and coding joins belong in `notebooks/data_processing`. Results
-notebooks load the validated prepared stores (or another explicit processing
-artifact) and apply only analysis-specific filters, estimators, plots, and
-exports. This keeps every substantive result on the same one-row-per-eligible-
-`UT` starting corpus.
+```text
+reference workbooks ──> labelled train/dev/test data
+screening and coding outputs ──> validated analysis tables
+validated analysis tables + reference data ──> results and figures
+```
 
-Configuration is stored in
-[`checklists/mappings/repo_config.json`](../checklists/mappings/repo_config.json)
-and
-[`checklists/mappings/results_config.json`](../checklists/mappings/results_config.json).
+The notebooks control the order of an analysis and display its results. The reusable work stays here so that data checks, calculations, and figures can be tested without running a notebook.
 
-## Package layout
+## How the package is organized
 
-Shared core sits at the package root; everything else is grouped by the job it does.
-Modules moved into subpackages keep their public API unchanged.
+| Part | Purpose | Main users |
+| --- | --- | --- |
+| Package root | Shared configuration, label parsing, and figure settings | All workflows |
+| `datasets/` | Builds L0–L6 reference-label files, train/dev/test splits, and manual-review samples | Dataset preparation and consistency checks |
+| `sources/` | Builds reproducible external reference snapshots | World Bank, IPBES, and GBIF analyses |
+| `prep/` | Turns screening and coding outputs into validated handoff files | `notebooks/data_processing/` |
+| `analysis/` | Contains the calculations and plotting code for each result | `notebooks/results/` |
+| `tests/` | Checks data contracts, calculations, plots, and notebook source boundaries | Development and reproducibility checks |
 
 ```text
 data_helpers/
-├── _config.py, results_config.py, visualization.py, labels.py   shared core
-├── datasets/     reference workbooks -> label datasets, splits, CC samples (CLI)
-├── sources/      external reference snapshots (GBIF, World Bank/IPBES)
-├── prep/         handoffs built by notebooks/data_processing
-├── analysis/     results analysis, one module or subpackage per finding
-│   ├── time_development.py        F1 evidence growth
-│   ├── driver_composition.py      F2 national income groups
-│   ├── realm/                     F3 drivers x ecosystem realm
-│   ├── taxa/                      F4 taxonomic attention
-│   └── geo/                       shared geographic aggregation and reference data
+├── __main__.py
+├── _config.py
+├── labels.py
+├── results_config.py
+├── visualization.py
+├── datasets/
+├── sources/
+├── prep/
+├── analysis/
+│   ├── geo/
+│   ├── realm/
+│   └── taxa/
 └── tests/
 ```
 
-### Shared core (package root)
+## Shared modules
 
-| File | Role |
+These files are used across more than one workflow.
+
+| Module | Purpose |
 | --- | --- |
-| `__init__.py` | Marks `data_helpers` as an importable Python package. |
-| `__main__.py` | Command-line entry point for configured train/dev/test splitting. |
-| `_config.py` | Loads and validates dataset paths, labels, split settings, sampling settings, and the merged-corpus contract from `repo_config.json`. |
-| `results_config.py` | Loads and validates shared results semantics, colors, analysis settings, and output paths from `results_config.json`. Also exposes the display/order helpers for Threats L0 and Drivers L1. |
-| `visualization.py` | Repository plotting defaults, semantic colors (`BIODIVERSITY`), and publication-figure export (`save_figure`, PDF by default). |
-| `labels.py` | `parse_list_labels`, the tolerant reader for every list-valued coding column (drivers, threats, realms, taxa, geography). Used by most analysis modules; it only normalises shape, and deciding which label values are meaningful stays with the caller. |
+| `__init__.py` | Exposes `run_from_config` and `SplitError` for programmatic dataset splitting. |
+| `__main__.py` | Provides `python -m data_helpers`, the command for creating train/dev/test splits. |
+| `_config.py` | Reads `dataset_config` from `repo_config.json` and resolves label paths, split ratios, sampling settings, and the merged-corpus contract. |
+| `labels.py` | Provides `parse_list_labels`, a tolerant parser for list-valued fields such as drivers, threats, realms, countries, and taxa. It standardizes the container shape but does not decide whether a label is analytically valid. |
+| `results_config.py` | Reads and validates `results_config.json`. It supplies shared paths, category order, display names, colors, and analysis settings, including helpers for Threat L0 and Driver L1 display order. |
+| `visualization.py` | Applies repository-wide Matplotlib settings, provides semantic color palettes, chooses contrasting text colors, and saves publication figures through `save_figure`. |
 
-### `datasets/` — dataset preparation (command line)
+Configuration is kept outside the Python modules:
 
-| File | Role |
+- [`checklists/mappings/repo_config.json`](../checklists/mappings/repo_config.json) stores dataset preparation, corpus, and path settings.
+- [`checklists/mappings/results_config.json`](../checklists/mappings/results_config.json) stores analysis-specific paths, category order, display labels, colors, and output settings.
+
+## `datasets/`: build reference and consistency-check data
+
+This subpackage prepares the labelled data used to develop and evaluate the screening and coding tasks.
+
+| Module | Purpose |
 | --- | --- |
-| `build_screening.py` | Converts the reference screening workbook into the raw L0 screening CSV. |
-| `build_coding.py` | Converts the reference coding workbook into raw L1-L6 label CSVs. |
-| `splitter.py` | Deduplicates, stratifies, splits, audits, and writes label datasets. |
-| `sample_screening.py` | Draws the configured L0 manual consistency-check sample from the training split. |
-| `sample_coding.py` | Draws configured L1-L6 manual consistency-check samples from the training splits. |
+| `build_screening.py` | Reads the configured screening workbook sheets, keeps the required bibliographic and eligibility fields, removes duplicate record IDs and rows without abstracts, and writes the combined L0 CSV. |
+| `build_coding.py` | Reads the configured coding workbook sheets and writes separate L1–L6 CSV files containing the label columns needed by each task. |
+| `splitter.py` | Deduplicates each label dataset, handles missing and multi-label strata, creates reproducible stratified train/dev/test splits, and writes split audits. |
+| `sample_screening.py` | Draws the configured manual screening sample from the L0 training split while allocating records across source datasets. |
+| `sample_coding.py` | Draws a manual sample from each L1–L6 training split in proportion to the task's configured strata. |
 
-### `sources/` — external reference snapshots
+### Build the L0–L6 label files
 
-| File | Role |
-| --- | --- |
-| `build_gbif.py` | Rebuilds the curated GBIF taxonomic lookup cache used by taxa workflows. |
-| `build_worldbank_data.py` | Builds and validates the versioned World Bank/IPBES data snapshot and public crosswalk. |
+Run commands from the repository root.
 
-### `prep/` — corpus construction (consumed by `notebooks/data_processing`)
-
-| File | Role |
-| --- | --- |
-| `corpus.py` | Builds the one-row-per-publication eligible analysis corpus from either raw screening (`build_merged_corpus`) or a prepared eligible-screening artifact (`build_merged_corpus_from_eligible_screening`), with strict one-to-one coding joins. |
-| `evidence_corpus_prep.py` | Builds and validates the complete-screening handoff and the integrated one-row-per-eligible-UT corpus containing screening, driver, threats, geography, realm, study, and taxa fields. |
-| `taxa_analysis_prep.py` | Builds and validates the canonical one-row-per-UT taxa handoff, compact processing audits, semantic rule fingerprint, and fixed GBIF broad benchmark shared by taxa results. |
-
-### `analysis/` — results analysis
-
-| File | Finding | Role |
-| --- | --- | --- |
-| `time_development.py` | F1 | Annual publication, threat-composition, and growth analyses. |
-| `driver_composition.py` | F2 | Historical-income threat composition, standardization, bootstrap checks, figures, and exports. |
-| `realm/driver.py` | F3 | Exact-single-realm driver evidence base (negative impacts, complete years 2000-2025), realm counts, multi-label driver prevalence, the complementary fractional composition, and the pollution-nameability trend tests. Administrative/aggregate and multi-realm outputs are excluded and audited. |
-| `realm/threat.py` | F3 | Attaches the parallel Threat-L0 taxonomy to the exact publication universe prepared by `realm/driver.py`: counts, summaries, fractional composition, and driver-conditional threat composition. Missing or unusable threat labels stay in the denominator; Geological Events is recognized but excluded as outside this map's coding scope. |
-| `realm/driver_plotting.py` | F3 | Driver location-quotient heatmap, fractional-composition bars, nested driver x threat bars, and pollution-nameability trend figures. |
-| `realm/threat_plotting.py` | F3 | Standalone Threat-L0 location-quotient heatmap and fractional-composition bars by realm. |
-| `taxa/benchmark.py` | F4 | Broad-group mapping loader (`load_broad_group_mapping`) plus the GBIF described-diversity benchmark (`DescribedDiversity`, `build_described_diversity_benchmark`). Article-side broad groups come from the precomputed `broad_taxa_groups` enrichment field. The superseded driver-attention estimator that once lived here was removed; the current estimator is `taxa/driver_conditional.py`. |
-| `taxa/skew.py` | F4 | One-row-per-UT taxonomic-skew evidence table, exclusion and match audits, GBIF comparison, bootstrap intervals, allocation sensitivities, and rebalanced focal-group comparisons such as the animal-only literature check. |
-| `taxa/driver_conditional.py` | F4 | Eight-group driver-conditioned taxonomic-attention analysis, complete-pattern bootstrap, planned contrasts, and sensitivity estimators. |
-| `taxa/skew_plotting.py` | F4 | Connected-dot and representation-ratio figure for taxonomic attention versus described diversity. |
-| `taxa/driver_conditional_plotting.py` | F4 | Resolution audit, specialization heatmap, focal interval plot, and detail-group supplement. |
-| `taxa/clipart.py` | F4 | Caches the PhyloPic taxon silhouettes declared in `taxa_broad_groups.json` under `data/taxa-clipart/` and embeds them into axes, tinted to each group's own color. Assets use public-domain CC0/PDM 1.0 terms; keep `CLIPART_CREDIT` on any published figure that uses them. |
-
-### `analysis/geo/` — shared geographic analysis
-
-| File | Role |
-| --- | --- |
-| `geography.py` | Maps predicted geography labels onto the IPBES reference: per-polygon counts (`geo_counts`), the Empirical-Bayes Location Quotient (`location_quotient`), and reference loading (`load_crosswalk`, `load_polygons`). Special label values are skipped but always reported in an audit. F1 uses the counts and polygons for study-volume choropleths; F4 reaches the location quotient through `analysis/taxa/geography.py`; the archived `threats_supplementary.ipynb` uses both. |
-| `attention.py` | Builds Result 05's observed-country and IPBES-region publication-fractional attention summaries from the inherited country-complete base. |
-| `attention_plotting.py` | Draws Result 05's equal-slot observed-country wheel and log-scaled attention bars. Regions and countries read clockwise from 12 o'clock in descending fractional-attention order; shares below 0.1% use pale region fills. |
-
-### `tests/`
-
-Run with `venv/bin/python -m pytest data_helpers`.
-
-## Which module a results notebook uses
-
-Notebooks import with an alias where the leaf name changed, so the name used in the
-notebook body is stable — for example
-`from data_helpers.analysis.taxa import skew as taxa_skew`.
-
-Every results notebook also imports `results_config` and `visualization`; only the
-analysis-specific modules are listed here.
-
-These are the seven live analysis notebooks under `notebooks/results/` (excluding the
-archived supplementary notebook).
-
-| Notebook | Modules |
-| --- | --- |
-| `00_screening.ipynb` | `prep.evidence_corpus_prep` |
-| `01_evidence_growth.ipynb` | `analysis.time_development`, `analysis.geo.geography`, `prep.evidence_corpus_prep` |
-| `02_income_composition.ipynb` | `analysis.driver_composition`, `prep.evidence_corpus_prep` |
-| `03_realm_composition.ipynb` | `analysis.realm.driver`, `analysis.realm.driver_plotting`, `analysis.realm.claims`, `prep.evidence_corpus_prep` |
-| `03_unchecked_realm_composition.ipynb` | `analysis.realm.driver`, `analysis.realm.driver_plotting`, `analysis.realm.threat`, `analysis.realm.threat_plotting`, `prep.evidence_corpus_prep` |
-| `04_taxonomic_lens.ipynb` | `prep.taxa_analysis_prep`, `analysis.geo.geography`, `analysis.taxa.geography`, `analysis.taxa.skew`, `analysis.taxa.skew_plotting`, `analysis.taxa.driver_conditional`, `analysis.taxa.driver_conditional_plotting`, `analysis.taxa.claims` |
-| `05_geography_attention.ipynb` | `prep.evidence_corpus_prep`, `analysis.geo.attention`, `analysis.geo.attention_plotting` |
-
-Archived notebooks and the modules they still need are documented in
-`notebooks/results/archive/README.md` and
-`notebooks/results/archive/retired-helpers/README.md`. `analysis.realm.threat` and
-`threat_plotting` are live **only** through `03_unchecked_realm_composition.ipynb`; if
-that companion is ever archived, they become archive-only.
-
-The `notebooks/data_processing` notebooks build the artifacts these results read:
-`02_taxa_analysis_prep` (`prep.taxa_analysis_prep`, `prep.corpus`),
-`03_screening_analysis_prep` (`prep.evidence_corpus_prep`), and
-`04_biodiversity_evidence_corpus_prep` (`prep.evidence_corpus_prep`,
-`prep.taxa_analysis_prep`, `prep.corpus`). The retired `01-climate-data-prep` notebook
-and its outputs are kept together under `notebooks/data_processing/archive/`; its helper
-is preserved in `notebooks/results/archive/retired-helpers/`.
-
-`threats_supplementary.ipynb` is archived, not active.
-
-## Build consistency-checking data
-
-Run commands from the repository root. The reference workbooks and all output
-locations are configured under `dataset_config` in `repo_config.json`.
-
-### 1. Build the raw label CSVs
-
-Build the L0 screening dataset:
+Build screening labels:
 
 ```bash
 python -m data_helpers.datasets.build_screening
 ```
 
-Build every coding dataset from L1 through L6:
+Build all coding labels:
 
 ```bash
 python -m data_helpers.datasets.build_coding
 ```
 
-To rebuild only one coding level, pass a matching label fragment:
+Build one coding level by passing a matching label fragment:
 
 ```bash
 python -m data_helpers.datasets.build_coding l2
 ```
 
-The builders:
+The source workbooks, sheet names, bibliographic columns, task columns, and output paths come from `dataset_config.screening_dataset` and `dataset_config.coding_dataset` in [`repo_config.json`](../checklists/mappings/repo_config.json).
 
-- read the configured sheets from the reference screening and coding workbooks;
-- retain rows containing the relevant label data;
-- deduplicate records by `UT (Unique WOS ID)`;
-- remove records without an abstract; and
-- write one raw CSV beneath `data/labels/l0` through `data/labels/l6`.
+The prepared files are written to:
 
-### 2. Create train/dev/test splits
+```text
+data/labels/l0/L0) Screening.csv
+data/labels/l1/L1) driver set.csv
+data/labels/l2/L2) threats set.csv
+data/labels/l3/L3) geography set.csv
+data/labels/l4/L4) ecosystem set.csv
+data/labels/l5/L5) study set.csv
+data/labels/l6/L6) taxa set.csv
+```
 
-Split all configured label datasets:
+These files are already included in the repository. Rebuild them only when reproducing the preparation process or when the reference annotations change.
+
+### Create train, development, and test splits
+
+Split every configured label dataset:
 
 ```bash
 python -m data_helpers
 ```
 
-Run only selected labels or override the configured random seed:
+Split selected levels or override the random seed:
 
 ```bash
 python -m data_helpers --labels l0,l2,l5
 python -m data_helpers --seed 123
 ```
 
-Each label is split independently using its configured stratification column.
-The default split is 60% train, 20% dev, and 20% test with seed 42.
-
-Outputs are written below each configured label directory:
+The default split is 60% training, 20% development, and 20% test with seed 42. Each task is split independently using its configured stratification field.
 
 ```text
-data/labels/<label>/
+data/labels/<level>/
 ├── train/
 ├── dev/
 ├── test/
 └── in-process/
 ```
 
-The `in-process/` directory records relevant audit information such as duplicate
-rows, rows without abstracts, dropped rows, stratum counts, and
-`split_summary.json`.
+`in-process/` records the split audit, including duplicates, missing abstracts, excluded rows, stratum counts, and `split_summary.json`.
 
-### 3. Draw manual consistency-check samples
+### Draw manual consistency-check samples
 
-Sample screening records from the L0 training split:
+Sample 100 screening records from the L0 training split:
 
 ```bash
 python -m data_helpers.datasets.sample_screening
 ```
 
-Sample every coding level from L1 through L6:
+Sample 100 records for every coding level:
 
 ```bash
 python -m data_helpers.datasets.sample_coding
 ```
 
-Sample only one coding level:
+Sample one coding level:
 
 ```bash
 python -m data_helpers.datasets.sample_coding l4
 ```
 
-The default sample size is 100 records per label. L0 is allocated across source
-strata, while coding samples are allocated proportionally across each label’s
-configured stratum. The samplers also write `sample_meta.json` with the seed,
-source file, sample size, and stratum breakdown.
-
-Final manual-review files are written to:
+The sample size, seed, and stratification fields are configured under `dataset_config`. Each sampler writes the selected records and `sample_meta.json`, which records the source file, seed, sample size, and stratum allocation.
 
 ```text
 data/consistency-check-datasets/screening/to-manual-label/
 data/consistency-check-datasets/data-coding/to-manual-label/
 ```
 
-## Relevant configuration
+## `sources/`: build external reference data
 
-The consistency-data workflow reads these settings from `dataset_config` in
-`repo_config.json`:
+This subpackage turns external source data into fixed, auditable inputs for analysis.
 
-- reference workbook paths and sheet names;
-- base bibliographic columns and label-specific columns;
-- raw output paths for L0–L6;
-- label stratification columns;
-- train/dev/test ratios and random seed;
-- label split directories;
-- manual sample size; and
-- manual-review output directories.
+| Module | Purpose |
+| --- | --- |
+| `build_gbif.py` | Streams the configured curated GBIF taxonomy file and builds the canonical-name lookup cache used by taxa preparation and evaluation. |
+| `build_worldbank_data.py` | Downloads or reuses a World Bank WDI snapshot, collects API metadata, builds the IPBES–World Bank country crosswalk, keeps current and historical income classifications separate, validates the outputs, and writes acquisition metadata and checksums. |
 
-The prepared datasets are normally committed or distributed with the project,
-so rerunning this workflow is mainly useful for reproducibility or when the
-reference annotations change.
+Rebuild the GBIF lookup cache:
+
+```bash
+python -m data_helpers.sources.build_gbif
+```
+
+The GBIF source, cache path, chunk size, and taxonomic columns are configured under `dataset_config.gbif` in `repo_config.json`.
+
+Build the World Bank snapshot:
+
+```bash
+python -m data_helpers.sources.build_worldbank_data
+```
+
+For a smaller check that skips the large WDI observation archive:
+
+```bash
+python -m data_helpers.sources.build_worldbank_data --metadata-only
+```
+
+The World Bank command also supports custom output and IPBES paths, snapshot IDs, forced downloads, chunk size, page size, timeouts, and source URLs. Run `python -m data_helpers.sources.build_worldbank_data --help` for the complete option list.
+
+## `prep/`: build analysis-ready handoffs
+
+Preparation modules form the boundary between raw screening/coding outputs and results analysis. They validate keys and schemas, record provenance, and write stable artifacts that results notebooks can load directly.
+
+Results notebooks should not read raw `data/coding-*`, screening partitions, GBIF files, or other upstream sources. This rule prevents different results from silently building different versions of the corpus.
+
+| Module | Purpose |
+| --- | --- |
+| `_provenance.py` | Creates repository-relative source paths and file signatures for portable manifests. |
+| `corpus.py` | Joins eligible screening records to configured coding outputs. It enforces unique publication keys and one-to-one joins through `build_merged_corpus` and `build_merged_corpus_from_eligible_screening`. |
+| `evidence_corpus_prep.py` | Builds the complete-screening handoff and the integrated one-row-per-eligible-publication dataset. It assigns stable numeric `id` values alongside external `UT` identifiers, standardizes list fields, audits screening exclusions and IPBES geography hierarchy, writes manifests, and exports the public dataset workbook. |
+| `taxa_analysis_prep.py` | Builds the one-row-per-publication taxa table, typed taxon-match/lineage Parquet data, inclusion audits, grouping-rule fingerprint, manifest, and fixed GBIF broad-diversity benchmark. |
+| `embeddings_prep.py` | Builds one local embedding per publication from title and abstract through an Ollama endpoint. It writes resumable Parquet shards, records errors, and compacts them into a validated `embeddings.parquet` artifact. |
+
+The preparation notebooks are the normal entry points:
+
+| Notebook | Main helper modules | Output purpose |
+| --- | --- | --- |
+| `notebooks/data_processing/02_taxa_analysis_prep.ipynb` | `prep.corpus`, `prep.taxa_analysis_prep` | Canonical taxa publications, matches, audits, and GBIF benchmark |
+| `notebooks/data_processing/03_screening_analysis_prep.ipynb` | `prep.evidence_corpus_prep` | Complete screening table and exclusion summaries |
+| `notebooks/data_processing/04_dataset.ipynb` | `prep.corpus`, `prep.evidence_corpus_prep`, `prep.taxa_analysis_prep` | Integrated analysis/public dataset and abstract sidecar |
+| `notebooks/data_processing/05_embeddings.ipynb` | `prep.embeddings_prep` | Local publication embeddings and embedding manifest |
+
+Embeddings can also be built from the command line when the local Ollama service and configured model are available:
+
+```bash
+python -m data_helpers.prep.embeddings_prep
+```
+
+Useful options include `--batch-size`, `--shard-size`, `--limit`, `--cache-dir`, `--no-compact`, `--allow-gaps`, and `--no-progress`. Run the command with `--help` for their exact behavior.
+
+## `analysis/`: calculations and figures
+
+Analysis modules receive prepared tables and return validated tables, audit objects, summaries, or Matplotlib figures. They do not prepare the shared corpus.
+
+### General result modules
+
+| Module | Result | Purpose |
+| --- | --- | --- |
+| `time_development.py` | Evidence growth | Selects the biodiversity-loss evidence base, produces annual publication and threat-composition tables, and calculates absolute and compound growth. |
+| `driver_composition.py` | Income composition | Expands publication-country assignments, links historical World Bank income classes, builds fractional threat attributions, calculates composition and direct standardization, runs bootstrap contrasts and sensitivities, and exports manuscript tables and figures. |
+
+### `analysis/geo/`: shared geographic analysis
+
+| Module | Purpose |
+| --- | --- |
+| `geography.py` | Loads the IPBES crosswalk and polygons, maps publication geography onto them, calculates per-polygon document counts and Empirical-Bayes location quotients, and returns an audit of skipped or unresolved labels. |
+| `count_plotting.py` | Builds fixed order-of-magnitude count bins, color scales, and class colorbars for publication-count choropleths. |
+| `attention.py` | Produces publication-fractional observed-country and IPBES-region attention summaries from a country-complete evidence base. |
+| `attention_plotting.py` | Draws the radial country-attention wheel, including region runs, country labels, and log-scaled attention bars. |
+
+### `analysis/realm/`: drivers by ecosystem realm
+
+| Module | Purpose |
+| --- | --- |
+| `driver.py` | Builds the exact-single-realm direct-driver evidence base, audits excluded realm values, calculates realm counts and driver prevalence, and prepares the pollution-nameability time series. |
+| `driver_plotting.py` | Draws fractional driver-composition bars and pollution-nameability trend figures, including low-support annotation. |
+
+### `analysis/taxa/`: taxonomic attention
+
+| Module | Purpose |
+| --- | --- |
+| `benchmark.py` | Loads broad-taxon grouping rules and builds the GBIF described-diversity benchmark used to compare literature attention with known diversity. |
+| `skew.py` | Builds and validates the publication-level taxonomic evidence base, estimates attention versus described diversity, calculates bootstrap intervals and allocation sensitivities, and summarizes temporal trends. |
+| `skew_plotting.py` | Draws the representation and trend figure for literature attention versus described diversity. |
+| `geography.py` | Loads publication-country assignments and calculates country specialization for each broad taxonomic group. |
+| `threat_gap.py` | Compares country-level research evidence with threatened vertebrate counts, summarizes the gap by region, and calculates regional evidence trends. |
+| `threat_gap_plotting.py` | Stores the shared region order and colors used by the threat-gap outputs. |
+| `hierarchy.py` | Builds rank-aligned research and GBIF taxonomic hierarchies, audits exact taxonomic paths, compares rank distributions, and prepares the research-attention sunburst. |
+| `hierarchy_plotting.py` | Calculates hierarchy colors and draws the multi-ring taxonomic research-attention sunburst and legend. |
+| `clipart.py` | Downloads and caches the configured PhyloPic silhouettes, tints them for figures, and adds them to Matplotlib axes. Published figures using these assets should retain `CLIPART_CREDIT`. |
+
+## Which modules the live results notebooks use
+
+Every results notebook also uses `results_config`; most use `visualization`. The table lists the analysis-specific modules.
+
+| Notebook | Main helper modules |
+| --- | --- |
+| `00_screening.ipynb` | `prep.evidence_corpus_prep` |
+| `01_evidence_growth.ipynb` | `analysis.time_development`, `prep.evidence_corpus_prep` |
+| `02_income_composition.ipynb` | `analysis.driver_composition`, `analysis.geo.geography`, `prep.evidence_corpus_prep` |
+| `03_realm_composition.ipynb` | `analysis.realm.driver`, `analysis.realm.driver_plotting`, `prep.evidence_corpus_prep` |
+| `04_taxonomic_lens.ipynb` | `prep.taxa_analysis_prep`, `analysis.taxa.skew`, `skew_plotting`, `geography`, `threat_gap`, `threat_gap_plotting`, `hierarchy`, `hierarchy_plotting`, and `analysis.geo.geography` |
+| `05_geography_attention.ipynb` | `analysis.geo.attention`, `analysis.geo.attention_plotting`, `prep.evidence_corpus_prep` |
+| `06_threats_choropleth.ipynb` | `analysis.geo.geography`, `analysis.geo.count_plotting`, `analysis.driver_composition`, `labels`, `prep.evidence_corpus_prep` |
+
+The module inventory above follows the current package and live notebooks rather than older result designs.
+
+## Main data contracts
+
+Several rules apply across the package:
+
+- `UT` is the external publication identifier used to join screening, coding, and prepared data.
+- The integrated evidence dataset also has a stable numeric `id` used by public dataset artifacts and embeddings.
+- Shared preparation outputs contain one row per publication unless a module explicitly documents a long attribution table.
+- Coding joins must be one-to-one on the publication key; duplicate keys raise an error instead of being silently expanded.
+- List-valued labels are parsed centrally, but each analysis decides how to handle `Unclear`, `Not Applicable`, missing values, and other special labels.
+- Preparation steps write manifests, audits, or source signatures so the origin and exclusions of an artifact can be checked later.
+- Results notebooks load prepared handoffs and apply only result-specific universes, estimators, tables, and figures.
+
+## Configuration
+
+The main dataset settings are under `dataset_config` in [`repo_config.json`](../checklists/mappings/repo_config.json):
+
+- source workbook paths and sheet names
+- required bibliographic and label columns
+- raw L0–L6 output paths
+- label-specific stratification fields
+- train/dev/test ratios and random seed
+- split and manual-review output directories
+- consistency-check sample size
+- GBIF source and cache settings
+- merged screening/coding corpus sources and join columns
+
+Shared result settings are in [`results_config.json`](../checklists/mappings/results_config.json). They include input/output paths, category orders, display names, palettes, analysis periods, bootstrap settings, geography sources, taxonomic groups, and result-specific options.
 
 ## Tests
 
-Tests for this package live in `data_helpers/tests/` and run from the
-repository root:
+Run the package tests from the repository root:
 
 ```bash
 venv/bin/python -m pytest data_helpers
 ```
 
-The analysis and plotting modules are covered module-by-module
-(`test_taxa_skew.py`, `test_driver_realm.py`, and so on).
-`test_results_source_boundaries.py` enforces the source boundary described
-above by scanning `notebooks/results/*.ipynb` for direct raw-source access
-(`build_merged_corpus`, `data/coding-*`, `data/gbif/`, and similar): results
-notebooks must read the prepared stores rather than re-deriving the corpus.
+Tests cover dataset sources, prepared-data contracts, geographic calculations, temporal and income analyses, realm analyses, taxonomic analyses, and plotting functions.
+
+`test_results_source_boundaries.py` also scans live results notebooks. It fails when a results notebook reads raw screening, coding, GBIF, or corpus-building sources directly instead of using the prepared handoffs.
+
+## Related documentation
+
+- [Root README](../README.md) explains the complete repository workflow.
+- [Labelling README](../labelling/README.md) explains how screening and coding outputs are produced.
+- [Evaluation README](../evals_local/README.md) explains how model outputs are compared with the prepared reference labels.
+- [`checklists/repo-readmes/`](../checklists/repo-readmes/) contains execution records and supporting method notes for the repository workflows.
