@@ -1,126 +1,139 @@
-# Labelling Package
+# Labelling package for screening and coding literature
 
-This package runs the LLM screening and coding workflow at the heart of the
-repository. It reads a folder of Web-of-Science (WoS) style export files, sends
-every record through one labelling task (screening, or one of the L1-L6 coding
-tasks), writes the raw model outputs, and — if enabled — evaluates them against
-reference labels.
+This package automates the screening and coding of literature for the Biodiversity Change Systematic Map. It reads the title and abstract of each record and applies the project prompts.
 
-In the normal repo workflow it runs against the prepared splits under
-`data/labels/` (see the [root README](../README.md)). It can also run against
-any other folder of WoS-style files with the same input requirements —
-full corpus partitions, consistency-check samples, or manual-review folders.
+Screening checks whether a record reports biodiversity change, its direction, a direct anthropogenic driver, and a link between the driver and the change. The full criteria and decision rules are in the [screening prompt](../checklists/prompts/screen.md).
 
-## Package layout
+Eligible records can then be coded for:
 
-| Path | Role |
-| --- | --- |
-| `orchestrator.py` | Entry point. Loads an input folder, runs one task, writes outputs, optionally triggers evals. |
-| `src/config.py` | Reads `repo_config.json` and resolves runtime settings + artifact paths. |
-| `src/data_loader.py` | Reads `.xls`/`.xlsx`/`.csv` WoS exports into normalized document JSON, with flexible column matching. |
-| `src/tasks.py` | Every task's prompt assembly, response schema, and output parsing. |
-| `src/batching.py` | Splits documents into request batches. |
-| `src/batch_api.py` | Builds requests, and submits/polls/downloads OpenAI Batch API jobs. |
-| `src/live_api.py` | Sends requests synchronously to the OpenAI Responses API (`submission_mode=live`). |
-| `process_screening.py` | Post-run: turns screening outputs into eligible-record partitions. |
-| `process_coding.py` | Post-run: turns coding outputs into per-partition label tables; also hosts `taxa-with-api`. |
-| `taxa_api.py` | Resolves L6 taxa names against the GBIF species-match API (cached, rate-limited, resumable). |
-| `taxa_groups.py` | Applies the configurable multi-resolution taxon grouping rules. |
-| `tests/` | Tests for `taxa_api.py` / `taxa_groups.py`. Run with `venv/bin/python -m pytest labelling`. |
+- [IPBES direct drivers (L1)](../checklists/prompts/classify_direct_driver.md)
+- [IUCN threats (L2)](../checklists/prompts/classify_threats.md)
+- [geographic scope (L3)](../checklists/prompts/classify_region.md)
+- [Global Ecosystem Typology (L4)](../checklists/prompts/classify_ecosystem_typology.md)
+- [study attributes (L5)](../checklists/prompts/classify_study.md)
+- [taxa (L6)](../checklists/prompts/classify_taxa.md)
 
-## Setup
+These links point to the prompts used by the code. They are also the best place to understand exactly how screening and coding decisions are made.
 
-- Provide `OPENAI_API_KEY` via `.env` or the shell environment.
-- Runtime defaults (model, reasoning effort, batch size, submission mode, eval
-  toggle, artifact paths) all live in
-  [`checklists/mappings/repo_config.json`](../checklists/mappings/repo_config.json)
-  under the `orchestrator` and `evals` keys — nothing else needs editing to run
-  a task.
+## Quick test
 
-## Running a task
-
-Every run is one command from the repo root:
+Run commands from the repository root. After installing the dependencies and adding `OPENAI_API_KEY` to `.env`, try:
 
 ```bash
-python labelling/orchestrator.py <input_dir> <run_name> --task <task>
+python labelling/orchestrator.py data/labels/l1/train l1_train_test --task driver
 ```
 
-- `input_dir` — a folder of `.xls`/`.xlsx`/`.csv` WoS exports. The loader needs
-  a document-ID column (`UT`, `ut`, `UT (Unique WOS ID)`, or `custom_id`) and
-  picks up title/abstract/authors/publisher/year/WoS-categories/DOI by
-  flexible name matching.
-- `run_name` — tags the dataset, batch files, outputs, and eval artifacts for
-  this run. Reuse the same name across the steps of a multi-step task (see L2
-  / L4 below) so later steps can find earlier output.
-- `--task` — one of the task names below. `--model`, `--reasoning`, and
-  `--batch-size` override the config defaults for a single run.
+This command reads the provided L1 training data, codes its records for direct drivers, and saves everything under the run name `l1_train_test`.
 
-Quick-start example, run against the repo's prepared training split:
+## Provided data
 
-```bash
-python labelling/orchestrator.py data/labels/l1/train l1_train_170426_f1 --task driver
+The repository includes [training, development, and test data](../data/labels/) for screening (`l0`) and all six coding tasks (`l1` to `l6`).
+
+For example:
+
+```text
+data/labels/l1/train/
+data/labels/l1/dev/
+data/labels/l1/test/
 ```
 
-## Screening (L0)
+Input folders may contain `.csv`, `.xls`, or `.xlsx` files. To run the pipeline, each record needs these three fields:
 
-```bash
-python labelling/orchestrator.py data/partitions/1 partition_1_l0_f1 --task screen --reasoning medium
+| Required field | Accepted column names | Why it is needed |
+| --- | --- | --- |
+| Record ID | `UT`, `ut`, `UT (Unique WOS ID)`, or `custom_id` | Connects each model response to the original record and removes duplicate records |
+| Article title | `Article Title`, `article_title`, `Title`, or `title` | Passed to the model as part of the article text |
+| Abstract | `Abstract` or `abstract` | Passed to the model as part of the article text |
+
+The title and abstract are the only article text sent to the model. Other fields, such as authors, publisher, publication year, Web of Science categories, and DOI, are optional and are not used to make the labelling decision.
+
+The files under `data/labels/` also contain reference-label columns. These are needed only when evaluating predictions against existing labels; they are not needed when screening or coding new records.
+
+## What a run saves
+
+Every run keeps the intermediate data as well as the model responses. This makes it possible to inspect what was sent and returned for each record.
+
+With the default paths, a run named `l1_train_test` writes:
+
+```text
+data/artifacts/datasets/l1_train_test-dataset.json
+data/artifacts/batches/l1_train_test/
+data/artifacts/batch_outputs/l1_train_test/
 ```
 
-This is a real command from a full-corpus run
-([`checklists/repo-readmes/data-corpus-execution/screening-task-l0.md`](../checklists/repo-readmes/data-corpus-execution/screening-task-l0.md)):
-`data/partitions/1` holds one partition of the WoS export, and the run writes
-eligibility scores/labels for every record in it.
+The dataset file contains the normalized input. The batches folder contains a manifest, the input batches, and the API request files. The batch outputs folder contains the raw model responses. Each request and response keeps the record ID as `custom_id`, so an output can be traced back to its input.
 
-## Coding tasks (L1-L6)
+If evaluations are enabled, results are also written to:
 
-| Label | Task name(s) | Depends on | Typical reasoning |
+```text
+data/labels/eval/l1_train_test/
+```
+
+## Available tasks
+
+The value in the **Run key** column is passed to `--task`.
+
+| Level | What it does | Run key | Prompt |
 | --- | --- | --- | --- |
-| L1 | `driver` | — | `low` |
-| L2 | `threats_l0` → `threats_l1` → `threats_l2` | each previous step | `medium` |
-| L3 | `geography` | — | `low` |
-| L4 | `ecosystems_realm` → `ecosystems_biome` → `ecosystems_efg` | each previous step | `high` |
-| L5 | `study` | — | `low` |
-| L6 | `taxa` | — | `high` |
+| L0 | Decides whether a record meets the screening criteria | `screening` | [Screening](../checklists/prompts/screen.md) |
+| L1 | Assigns broad IPBES direct drivers | `driver` | [Direct drivers](../checklists/prompts/classify_direct_driver.md) |
+| L2 | Assigns the three levels of the IUCN threat hierarchy | `threats_l0`, then `threats_l1`, then `threats_l2` | [Core rules](../checklists/prompts/classify_threats_core.md), [L0](../checklists/prompts/classify_threats.md), [L1](../checklists/prompts/classify_threats_l1.md), [L2](../checklists/prompts/classify_threats_l2.md) |
+| L3 | Extracts country, IPBES sub-region and IPBES region | `geography` | [Geography](../checklists/prompts/classify_region.md) |
+| L4 | Assigns Global Ecosystem Typology realm, biome and ecosystem functional group | `ecosystems_realm`, then `ecosystems_biome`, then `ecosystems_efg` | [Core rules](../checklists/prompts/classify_ecosystem_typology_core.md), [realm](../checklists/prompts/classify_ecosystem_typology_realm.md), [biome](../checklists/prompts/classify_ecosystem_typology_biome.md), [EFG](../checklists/prompts/classify_ecosystem_typology_efg.md) |
+| L5 | Codes study design, methods, comparisons and taxonomic focus | `study` | [Study attributes](../checklists/prompts/classify_study.md) |
+| L6 | Extracts the taxa studied in the record | `taxa` | [Taxa](../checklists/prompts/classify_taxa.md) |
 
-For L2 and L4, run the steps in order with the same `run_name` throughout.
-Example, from the full-corpus L1 and L6 execution logs
-([`coding-task-l1.md`](../checklists/repo-readmes/data-corpus-execution/coding-task-l1.md),
-[`coding-task-l6.md`](../checklists/repo-readmes/data-corpus-execution/coding-task-l6.md)):
+L2 and L4 are hierarchical tasks. Run their three steps in order and use the same run name for every step. A later step reads the earlier output and limits the labels to valid children of the selected parent labels.
+
+For example:
 
 ```bash
-python labelling/orchestrator.py data/screened-partitions/eligible/1 coding_l1_partition_1_f1 --task driver --reasoning low
-python labelling/orchestrator.py data/screened-partitions/eligible/1 coding_l6_partition_1_f1 --task taxa --reasoning high
+python labelling/orchestrator.py data/labels/l2/dev l2_dev_test --task threats_l0
+python labelling/orchestrator.py data/labels/l2/dev l2_dev_test --task threats_l1
+python labelling/orchestrator.py data/labels/l2/dev l2_dev_test --task threats_l2
 ```
 
-`data/screened-partitions/eligible/` is produced by the L0 post-processing
-step below.
+Short aliases such as `screen`, `drivers`, `geo`, and `region` are accepted, but the run keys in the table are clearer for saved commands and logs.
 
-## Batch vs. live submission
+## Running your own data
 
-Submission mode is not a CLI flag — it's the `orchestrator.submission_mode`
-key in `repo_config.json`, set to `batch` or `live`, and it applies to every
-run until changed:
+The general command is:
 
-- **`batch`** (repo default) — submits an OpenAI Batch API job per request
-  file, polls until complete, and downloads the raw response envelopes. Cheaper,
-  but not instant.
-- **`live`** — sends requests synchronously to the Responses API. Simple tasks
-  (`screen`, `driver`, `geography`, `study`, `taxa`) write batch-shaped
-  response envelopes; the multi-step `threats_*`/`ecosystems_*` tasks write
-  normalized per-stage records instead. Useful for small or urgent runs.
+```bash
+python labelling/orchestrator.py <input_dir> <run_name> --task <run_key>
+```
 
-Both modes write to the same place and both are read by the same downstream
-loaders, so switching modes doesn't change anything downstream of the run.
+- `input_dir` is a folder containing the input files.
+- `run_name` identifies the saved dataset, requests, responses, and evaluation.
+- `--task` selects one task from the table above.
 
-## Post-processing model outputs
+Use a new, descriptive run name for a new dataset or experiment. Reuse that name only for the successive stages of L2 or L4.
 
-The orchestrator only writes raw model-response JSONL. Two scripts turn that
-into the tabular partitions `data_helpers` builds the analysis corpus from.
-Both take run names positionally or via `--run-list <json> --run-key <key>`,
-and both support `--print-missing` / `--skip-missing` for incomplete runs.
+## API and run options
 
-**Extract eligible records from screening runs:**
+Non-secret defaults are in [`checklists/mappings/repo_config.json`](../checklists/mappings/repo_config.json), under `orchestrator`. The API key is the exception: set `OPENAI_API_KEY` in `.env` or in the shell environment.
+
+| Option | Current default | Where to set it | Meaning |
+| --- | --- | --- | --- |
+| Model | `gpt-5-nano-2025-08-07` | `orchestrator.model` or `--model` | OpenAI model used for the run |
+| Reasoning effort | `medium` | `orchestrator.reasoning` or `--reasoning` | Reasoning effort sent with each request |
+| Request batch size | `10000` records | `orchestrator.batch_size` or `--batch-size` | Number of records written to each request file |
+| Submission mode | `batch` | `orchestrator.submission_mode` | Use `batch` for the Batch API or `live` for synchronous Responses API calls |
+| Document limit | `null` | `orchestrator.limit_docs` | Limit the records loaded; `null` means all records |
+| Run evaluations | `false` | `orchestrator.run_evals` | Evaluate outputs after a completed run |
+
+`--model`, `--reasoning`, and `--batch-size` change one command only. The values in `repo_config.json` remain the defaults for later runs. `submission_mode`, `limit_docs`, and `run_evals` are config-only options.
+
+Both submission modes use the OpenAI Responses API and produce outputs that the same downstream scripts can read:
+
+- `batch` submits request files through the Batch API, waits for completion, and downloads the responses. This is the repository default.
+- `live` sends the requests synchronously. It is useful for small checks where an immediate response matters more than batch pricing.
+
+The artifact locations can also be changed under `orchestrator.paths` in the same [run configuration](../checklists/mappings/repo_config.json). The defaults are `data/artifacts/datasets`, `data/artifacts/batches`, and `data/artifacts/batch_outputs`. Evaluation label and output paths are under the `evals` section.
+
+## Turning raw responses into tables
+
+The orchestrator saves raw JSONL responses. After screening the full corpus, combine the named runs and write the eligible records with:
 
 ```bash
 python labelling/process_screening.py \
@@ -129,46 +142,20 @@ python labelling/process_screening.py \
   --output-dir screened-partitions
 ```
 
-Combines the named screening runs, fails on duplicate `UT`s across runs, and
-writes into `data/screened-partitions/`: `all/screening_all.csv` (every
-screened record), `eligible/<n>/wos_<n>_<max>-<min>.xlsx` (eligible records,
-partitioned by `--batch-size`, default 400,000), plus `metadata.json` and a
-partition manifest. `eligible/` is the input for the L1-L6 coding runs above.
+This writes all screening decisions to `data/screened-partitions/all/` and the eligible records to `data/screened-partitions/eligible/`. The eligible folders can then be used as input for L1–L6.
 
-**Build a coding task's label table:**
+After a coding run, build its table with:
 
 ```bash
 python labelling/process_coding.py --task driver
 ```
 
-`--task` accepts `driver`, `threats` (folds `threats_l0/l1/l2` into one pass),
-`geography`, `ecosystems` (folds the three ecosystem levels), `study`, `taxa`,
-and `taxa-with-api`. Writes to `data/coding-<task>/`: one file per input
-partition, `all/<task>_all.csv` combined, and `metadata.json`.
+The accepted processing tasks are `driver`, `threats`, `geography`, `ecosystems`, `study`, `taxa`, and `taxa-with-api`. Outputs are written under `data/coding-<task>/`, including one file per input partition, a combined CSV in `all/`, and `metadata.json`.
 
-`taxa-with-api` additionally resolves L6's standardized names against GBIF and
-writes the enriched hierarchy plus broad-group assignments to
-`data/coding-taxa/`. It has its own set of GBIF request/cache flags (workers,
-rate limit, `--cached-only`, `--force`, `--refresh-api-cache`, ...) — see
-`process_coding.py --help` for the full list, and
-[`checklists/repo-readmes/others/taxa-grouping-and-benchmark.md`](../checklists/repo-readmes/others/taxa-grouping-and-benchmark.md)
-for what the grouping rules and benchmark mean.
+`taxa-with-api` additionally checks taxon names against GBIF and assigns broad taxonomic groups. 
 
-## Outputs and evals
+## More detail
 
-Raw run outputs land under `<orchestrator.paths.batch_outputs_dir>/<run_name>/`
-(default `data/artifacts/batch_outputs/`). If `orchestrator.run_evals=true`,
-each run is automatically scored against reference labels afterward, writing
-to `<evals.output_dir>/<run_name>/` (default `data/labels/eval/`). Screening
-evals read truth from `input_dir` directly; other tasks read from
-`evals.labels_dir`. Missing ground truth doesn't block the run — see
-[`evals_local/README.md`](../evals_local/README.md) for the eval workflow
-itself.
-
-## See also
-
-- [Root README](../README.md) — how this package fits into the full project.
-- [`evals_local/README.md`](../evals_local/README.md) — standalone eval usage.
-- [`checklists/repo-readmes/data-corpus-execution/`](../checklists/repo-readmes/data-corpus-execution/) — full execution logs (command history) for every screening/coding level.
-- [`checklists/repo-readmes/others/taxa-grouping-and-benchmark.md`](../checklists/repo-readmes/others/taxa-grouping-and-benchmark.md) — taxon grouping rules and the GBIF benchmark.
-- Run the package tests: `venv/bin/python -m pytest labelling`.
+- [Evaluation README](../evals_local/README.md) explains the metrics and how to run evaluations separately.
+- [Full-corpus execution logs](../checklists/repo-readmes/data-corpus-execution/) record the commands used for the final screening and coding runs.
+- [Systematic mapping protocol](https://doi.org/10.57808/proceed.2026.31) This is registered protocol contain further details on the purpose of these screening and coding tasks for the systematic map.
