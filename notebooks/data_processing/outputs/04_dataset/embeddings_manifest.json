@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-08-15T12:24:22.096528+00:00",
+  "model": "nomic-embed-text",
+  "text_prefix": "search_document: ",
+  "endpoint": "http://localhost:11434/api/embed",
+  "embedding_dim": 768,
+  "grain": "one row per publication id, joinable to dataset.parquet by id or UT",
+  "primary_key": "id",
+  "source_key": "UT",
+  "columns": [
+    "id",
+    "UT",
+    "embedding",
+    "model"
+  ],
+  "rows": {
+    "expected": 605199,
+    "embedded": 605199,
+    "missing": 0
+  },
+  "missing_ids": [],
+  "sources": {
+    "dataset": {
+      "path": "notebooks/data_processing/outputs/04_dataset/dataset.parquet",
+      "size_bytes": 71272710,
+      "mtime_ns": 1786795310563299569
+    },
+    "dataset_abstracts": {
+      "path": "notebooks/data_processing/outputs/04_dataset/dataset_abstracts.parquet",
+      "size_bytes": 381457996,
+      "mtime_ns": 1786795463297653164
+    }
+  }
+}
