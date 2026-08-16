@@ -54,13 +54,9 @@ See [`labelling/README.md`](labelling/README.md) and [`evals_local/README.md`](e
 
 ## Reproducing results
 
-Everything reported in the manuscript is produced by notebooks in `notebooks/`, which holds three workspaces:
+`notebooks/results/` loads the prepared corpus and produces every reported table and figure. The four manuscript findings are `01_evidence_growth.ipynb`, `02_income_composition.ipynb`, `03_realm_composition.ipynb`, and `04_taxonomic_lens.ipynb`; supporting and diagnostic notebooks sit alongside them.
 
-- **`consistency_checks/`** — validates the screening/coding methodology itself against reference and expert labels (the `CC1`/`CC2` experiments). Not a dependency of the other two.
-- **`data_processing/`** — joins the screening and coding outputs into a single validated, one-row-per-publication corpus.
-- **`results/`** — loads that corpus and produces every reported table and figure. The four manuscript findings are `01_evidence_growth.ipynb`, `02_income_composition.ipynb`, `03_realm_composition.ipynb`, and `04_taxonomic_lens.ipynb`; supporting and diagnostic notebooks sit alongside them.
-
-To reproduce the manuscript's numbers, run the `data_processing/` notebooks, then `results/`, in filename order. Each notebook writes its own figures and tables to `outputs/<notebook-name>/` next to it (e.g. `notebooks/results/outputs/01_evidence_growth/`), so you can inspect what a run produced right after running it.
+Run any notebook to reproduce its outputs — each writes its own figures and tables to `outputs/<notebook-name>/` next to it (e.g. `notebooks/results/outputs/01_evidence_growth/`).
 
 All reusable logic behind these notebooks — corpus construction, analysis, and plotting — lives in `data_helpers/`, documented module-by-module in [`data_helpers/README.md`](data_helpers/README.md).
 
