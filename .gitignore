@@ -45,8 +45,6 @@ __pycache__/
 
 # Generated artifacts and transient shard caches for the embeddings build.
 **/_embeddings_cache*/
-/notebooks/data_processing/outputs/04_dataset/embeddings_manifest.json
-/notebooks/data_processing/outputs/04_dataset/embeddings.parquet
 /notebooks/data_processing/outputs/04_dataset/_embeddings_cache/
 /notebooks/data_processing/outputs/04_dataset/_embeddings_cache_pilot/
 /notebooks/data_processing/outputs/04_dataset/dataset_abstracts.parquet
