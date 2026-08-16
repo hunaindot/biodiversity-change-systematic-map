@@ -393,6 +393,7 @@
     "geography_eb_kappa": 30,
     "threat_gap_group": "Vertebrates",
     "threat_gap_source": "data/world-bank/snapshots/wdi-2026-06-30/curated/ipbes_wdi_latest.parquet",
+    "threat_gap_starnes_source": "data/ipbes-species-data/1a_redlist_total_species_ipbes_regions.csv",
     "hierarchy_exploration": {
       "description": "Kingdom-Phylum-Class-Order sunburst for Figure taxonomic_hierarchy. Uses the curated extract of the fixed 2023-08-28 GBIF snapshot, records the raw archive metadata for provenance, and retains exact hierarchy paths common to the newer research-match classification and that fixed snapshot.",
       "gbif_source": "data/gbif/curated/gbif_curated.csv",
