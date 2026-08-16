@@ -7,19 +7,21 @@
   "figures": [
     "04_taxonomic_and_geographic_gap.pdf"
   ],
-  "geography_coverage_pct": 56.2684,
+  "geographic_benchmark_scope": "all IUCN comprehensively-assessed taxa (CR+EN+VU), not birds+mammals-only; evidence stays scoped to the broad Vertebrates group",
+  "geographic_benchmark_source": "Starnes et al. (2026), Zenodo doi:10.5281/zenodo.18348560 -- superseded the World Bank WDI benchmark on 2026-08-16",
+  "geography_coverage_pct": 56.2672,
   "interpretation_boundaries": [
     "Counts are unique publications; a publication naming several groups is split across them, never counted once per group.",
     "Attention share measures what is published, not conservation need, ecological importance, population decline, or undescribed diversity.",
     "The described-diversity benchmark is GBIF accepted species-rank counts \u2014 a described-diversity proxy, not a species inventory. It is weakest for bacteria and archaea, where described counts trail actual diversity by orders of magnitude.",
     "77% of in-scope publications resolved to a benchmarkable group in 2000 and 67% in 2025; later years rest on a smaller share of the corpus.",
-    "The geographic comparison covers 56% of the anchor scope -- the share carrying a mapped study country -- and benchmarks against threatened birds and mammals only, with no reptile or amphibian indicator, so tropical deficits are floors."
+    "The geographic comparison covers 56% of the anchor scope -- the share carrying a mapped study country. Its benchmark (2a-revised; Starnes et al. 2026) is an all-taxa threatened-species count, not birds-and-mammals-only, because no taxon-specific breakdown exists in that release; the evidence side stays scoped to the broad Vertebrates group rather than being narrowed, so neither side claims a taxonomic match the other cannot back. The benchmark also sums Starnes' IPBES subregion counts to each region without a stated (or verifiable) additivity guarantee, so a species ranging across subregions of one region is likely counted more than once there -- see 2a-revised for detail. A legacy WDI-benchmarked, birds+mammals-only version (2a) is retained for comparison but no longer backs the reported figure."
   ],
   "invertebrate_share_pct": 19.706,
   "manuscript_section": "Taxonomic attention is skewed against described diversity, and is not correcting",
-  "manuscript_source": "checklists/overleaf/main/main-32.tex",
+  "manuscript_source": "checklists/overleaf/main/main-51.tex",
   "prepared_grouping_rules_sha256": "c211129eb583ecf57cab705564db4763cb671b1e46c5dde13aae62b164902c8f",
-  "prepared_schema_version": 3,
+  "prepared_schema_version": 4,
   "primary_years": [
     2000,
     2025
@@ -30,14 +32,18 @@
     "04_attention_vs_described_diversity.csv",
     "04_attention_trend_by_year.csv",
     "04_attention_trend_summary.csv",
-    "04_attention_trend_robustness.csv",
     "04_anchor_resolution_by_year.csv",
     "04_taxa_geography_coverage.csv",
+    "04_starnes_threatened_species_by_region.csv",
+    "04_vertebrate_evidence_by_region.csv",
+    "04_evidence_vs_starnes_threatened_by_region.csv",
+    "04_vertebrate_evidence_regional_trend_starnes.csv",
+    "04_vertebrate_evidence_regional_trend_summary_starnes.csv",
+    "04_starnes_threat_sensitivity_by_region.csv",
     "04_vertebrates_evidence_vs_threatened_by_region.csv",
     "04_vertebrates_regional_evidence_trend.csv",
     "04_vertebrates_regional_evidence_trend_summary.csv",
     "04_vertebrates_evidence_by_country.csv",
-    "04_vertebrates_regional_evidence_trend_summary_excl_china.csv",
     "04_vertebrates_evidence_vs_threatened.csv",
     "04_threatened_species_by_country.csv"
   ],

@@ -1,13 +1,13 @@
 {
   "aligned_gbif_species_used_for_display_selection": 2184949,
-  "analysis": "exploratory research-attention taxonomic sunburst",
+  "analysis": "research-attention taxonomic sunburst (Figure taxonomic_hierarchy)",
   "angular_encoding": "article-balanced research attention",
   "comparison_contract": "exact Order-aligned research geometry with an independent complete benchmarkable accepted-GBIF denominator",
   "comparison_gbif_species": 2590832,
   "comparison_publications": 113342,
   "described_species_encoding": "paired percentage through Class in the compact hierarchy, using the complete benchmarkable accepted-GBIF base; complete Order values remain in the exported table",
   "figures": [
-    "04_rank_hierarchy_research_attention_sunburst_exploratory.pdf"
+    "04_taxonomic_hierarchy.pdf"
   ],
   "in_wheel_class_labelled_taxa": [
     "Amphibia",
@@ -105,7 +105,7 @@
     "class_min_within_parent_pct": 2.0,
     "description": "Research-attention angular sunburst with independent denominators: research geometry uses the exact Order-aligned publication subset, while described-species percentages use the complete benchmarkable accepted-GBIF base used by the headline figure. Named taxa receive their full fixed-snapshot GBIF counts and Remaining is the exact local complement under each expanded parent. Remaining aggregates are terminal and continue through unused outer rings as unlabeled parent-coloured tints; the combined top-level Other kingdoms remains neutral. The Nature-sized display keeps Orders in the enlarged outer ring but limits the compact paired-percentage hierarchy below it to Kingdom, Phylum, and Class.",
     "extend_terminal_branches": true,
-    "figure_filename": "rank_hierarchy_research_attention_sunburst_exploratory",
+    "figure_filename": "taxonomic_hierarchy",
     "gbif_root_group_mapping": {
       "Animalia": [
         "Vertebrates",
@@ -157,7 +157,7 @@
     ],
     "terminal_rank": "order"
   },
-  "status": "exploratory; does not back the manuscript result",
+  "status": "manuscript figure -- backs Figure taxonomic_hierarchy and the kingdom/phylum/class stats in the first Results paragraph",
   "tables": [
     "04_rank_hierarchy_order_comparison.csv",
     "04_rank_hierarchy_full_gbif_counts.csv",
