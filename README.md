@@ -85,11 +85,11 @@ Once records have been screened and coded, the analysis stage merges those outpu
 | --- | --- |
 | `02_taxa_analysis_prep.ipynb` | Taxa publications table, typed nested match/lineage artifact, and fixed GBIF described-diversity benchmark |
 | `03_screening_analysis_prep.ipynb` | Complete-screening table and exclusion-criteria overlap |
-| `04_biodiversity_evidence_corpus_prep.ipynb` | 40-column integrated evidence corpus plus a separate `UT`/`abstract` sidecar |
+| `04_dataset.ipynb` | Core 37-column dataset in Parquet and Excel, plus a separate `id`/`UT`/`abstract` sidecar |
 
 The retired climate prep notebook and its two prepared artifacts are preserved together under `notebooks/data_processing/archive/`; only archived climate analyses consume them.
 
-**2. Results** — `notebooks/results/` loads those prepared artifacts and applies only analysis-specific filters, estimators, figures, and exports. `00_screening.ipynb` is the supporting screening audit. The four manuscript findings are implemented by `01_evidence_growth.ipynb`, `02_income_composition.ipynb`, `03_realm_composition.ipynb`, and `04_taxonomic_lens.ipynb`. `05_geography_attention.ipynb` is a supporting extension that summarizes country and IPBES-region concentration using publication-fractional attention and produces the supplementary geographic-attention wheel. `03_unchecked_realm_composition.ipynb` is an explicitly unchecked companion analysis, and `threats_supplementary.ipynb` contains supplementary diagnostics. Superseded notebooks live under `notebooks/results/archive/`. Figures and tables are written to `notebooks/results/outputs/<section>/`.
+**2. Results** — `notebooks/results/` loads those prepared artifacts and applies only analysis-specific filters, estimators, figures, and exports. `00_screening.ipynb` is the supporting screening audit. The four manuscript findings are implemented by `01_evidence_growth.ipynb`, `02_income_composition.ipynb`, `03_realm_composition.ipynb`, and `04_taxonomic_lens.ipynb`. `05_geography_attention.ipynb` is a supporting extension that summarizes country and IPBES-region concentration using publication-fractional attention and produces the supplementary geographic-attention wheel. `03_unchecked_realm_composition.ipynb` is an explicitly unchecked companion analysis, and `threats_supplementary.ipynb` contains supplementary diagnostics (publication-year and geography research-specialization); its realm × threat distribution section was archived on 2026-08-15. Superseded notebooks live under `notebooks/results/archive/`. Figures and tables are written to `notebooks/results/outputs/<section>/`.
 
 Two conventions matter when reading any result:
 

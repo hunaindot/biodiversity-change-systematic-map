@@ -3,6 +3,8 @@
 !/data/taxa-clipart/**
 !/data/ipbes-polygons/
 !/data/ipbes-polygons/**
+!/data/ipbes-species-data/
+!/data/ipbes-species-data/**
 !/data/world-bank/
 !/data/world-bank/**
 !/data/README.md
@@ -33,7 +35,7 @@
 /archive*
 
 checklists/overleaf/results-papers
-checklists/overleaf/main/
+checklists/overleaf
 
 # Repository-wide generated files (keep last so exceptions cannot re-include them).
 __pycache__/
@@ -41,9 +43,15 @@ __pycache__/
 .DS_Store
 *.zip
 
+# Generated artifacts and transient shard caches for the embeddings build.
+**/_embeddings_cache*/
+/notebooks/data_processing/outputs/04_dataset/embeddings_manifest.json
+/notebooks/data_processing/outputs/04_dataset/embeddings.parquet
+/notebooks/data_processing/outputs/04_dataset/_embeddings_cache/
+/notebooks/data_processing/outputs/04_dataset/_embeddings_cache_pilot/
+/notebooks/data_processing/outputs/04_dataset/dataset_abstracts.parquet
+
 /venv
 .claude
 claude.md
 .env
-
-
