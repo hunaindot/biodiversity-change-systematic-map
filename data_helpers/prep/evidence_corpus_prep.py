@@ -30,7 +30,7 @@ from data_helpers.prep._provenance import repository_relative_path, source_signa
 
 
 SCREENING_SCHEMA_VERSION = 2
-EVIDENCE_SCHEMA_VERSION = 17
+EVIDENCE_SCHEMA_VERSION = 18
 DEFAULT_PLASTICS_PATTERN = (
     r"\b(?:micro[\s-]?plastics?|nano[\s-]?plastics?|plastics?|"
     r"plastic[\s-](?:debris|waste|litter|particles?|fibres?|fibers?|"
@@ -67,6 +67,7 @@ EVIDENCE_LIST_COLUMNS = (
     *GEOGRAPHY_AUDIT_LABEL_COLUMNS,
     "locales",
     "realm",
+    "biome",
     "pred_study_design",
     "pred_methods_data_collection",
     "pred_methods_analysis",
@@ -141,6 +142,7 @@ _EVIDENCE_METADATA_AFTER_AUDIT = (
     "locales",
     "locale_coordinates",
     "realm",
+    "biome",
     "pred_study_design",
     "pred_methods_data_collection",
     "pred_methods_analysis",
@@ -170,6 +172,48 @@ EVIDENCE_COLUMNS = (
     "text_available",
     "plastics_mention",
 )
+EVIDENCE_COLUMN_DESCRIPTIONS: dict[str, str] = {
+    "id": "Stable integer primary key: the integer value of the 15-digit WOS UT suffix.",
+    "UT": "External Web of Science record identifier (source key); format WOS:<15 digits>.",
+    "title": "Article title, as retrieved from Web of Science.",
+    "publication_year": "Year of publication, as retrieved from Web of Science.",
+    "doi": "Digital Object Identifier, as retrieved from Web of Science.",
+    "s1_r": "Q1 screening result: biodiversity change reported? 1 = Yes, -1 = Unclear, 0 = No.",
+    "s2_r": "Q2 screening result: direction of change identifiable? 1 = Yes, -1 = Unclear, 0 = No.",
+    "s3_r": "Q3 screening result: direct anthropogenic driver mentioned or plausibly implied? 1 = Yes, -1 = Unclear, 0 = No.",
+    "s4_r": "Q4 screening result: driver-biodiversity linkage reported or plausibly implied? 1 = Yes, -1 = Unclear, 0 = No.",
+    "s1_bio": "Q1 biodiversity change type(s): genetic, species, community, and/or ecosystem change.",
+    "s2_dir": "Q2 direction of biodiversity change: negative, positive, mixed, or unclear (eligible records exclude 'none').",
+    "s3_drivers": "Q3 driver or threat name(s) identified during screening; supports eligibility only, not the final L1/L2 coding (see driver, pred_threat_l0).",
+    "s4_link": "Q4 linkage type(s) describing how the identified driver is linked to the reported biodiversity change.",
+    "driver": "IPBES direct driver category or categories assigned to the record (L1 coding).",
+    "pred_threat_l0": "Broadest IUCN Threats Classification level assigned to the record (L2 coding).",
+    "pred_regions": "IPBES region or regions of study focus, as originally coded (L3).",
+    "pred_subregions": "IPBES sub-region or sub-regions of study focus, as originally coded (L3).",
+    "pred_countries": "Countries of study focus (ISO 3166-1 alpha-3 codes), as originally coded (L3).",
+    "pred_regions_audit": "Reviewed region label(s): equals pred_regions except review-flagged records, which become ['Unclear - Review needed'] per the IPBES hierarchy audit.",
+    "pred_subregions_audit": "Reviewed sub-region label(s); same review-flag convention as pred_regions_audit.",
+    "pred_countries_audit": "Reviewed country label(s); same review-flag convention as pred_regions_audit.",
+    "locales": "Free-text names of sub-national locations mentioned in the title or abstract, such as parks, reserves, cities, or mountain ranges.",
+    "locale_coordinates": "[latitude, longitude] pairs (WGS84, EPSG:4326) for the named locales, where resolvable.",
+    "realm": "Global Ecosystem Typology realm or realms of study focus (L4 coding).",
+    "biome": "Global Ecosystem Typology biome or biomes of study focus (L4 coding).",
+    "pred_study_design": "Study design category: Observational, Experimental, Modelling, Review, or Unclear.",
+    "pred_methods_data_collection": "Data collection method(s) reported in the title or abstract, where applicable.",
+    "pred_methods_analysis": "Analysis method(s) reported in the title or abstract, where applicable.",
+    "pred_has_comparison": "True if the record explicitly states or strongly implies a comparator (e.g. pre/post, control vs. exposed, reference sites); otherwise false.",
+    "pred_comparison_types": "Type or types of comparison identified for the record, populated when pred_has_comparison is true.",
+    "taxa_kingdom_labels": "Kingdom(s) resolved through the GBIF Backbone Taxonomy from the article's LLM-extracted taxa mentions (L6).",
+    "taxa_phylum_labels": "Phylum/phyla resolved through the GBIF Backbone Taxonomy (L6).",
+    "taxa_class_labels": "Class(es) resolved through the GBIF Backbone Taxonomy (L6).",
+    "taxa_order_labels": "Order(s) resolved through the GBIF Backbone Taxonomy (L6).",
+    "taxa_family_labels": "Family/families resolved through the GBIF Backbone Taxonomy lineage of matched taxa; a derived rank, not directly named by the LLM coder (unlike the other taxa_*_labels ranks).",
+    "taxa_genus_labels": "Genus/genera resolved through the GBIF Backbone Taxonomy (L6).",
+    "taxa_species_labels": "Species resolved through the GBIF Backbone Taxonomy (L6).",
+    "taxa_record_status": "Per-publication GBIF-resolution status of the LLM-extracted taxa mentions: resolved, partly_resolved, or unresolved.",
+    "text_available": "True if usable title/abstract text was available for the plastics/marine-debris text-mention check.",
+    "plastics_mention": "True if the title or abstract mentions plastics or marine-debris terminology (see DEFAULT_PLASTICS_PATTERN).",
+}
 GEOGRAPHY_HIERARCHY_AUDIT_COLUMNS = (
     "UT",
     "status",
@@ -1227,6 +1271,10 @@ def build_biodiversity_manifest(
         raise EvidenceCorpusPrepError(
             "Integrated corpus columns do not match the schema contract."
         )
+    if set(EVIDENCE_COLUMN_DESCRIPTIONS) != set(EVIDENCE_COLUMNS):
+        raise EvidenceCorpusPrepError(
+            "Column-description contract does not match the schema contract."
+        )
     if list(abstracts.columns) != ["id", "UT", "abstract"]:
         raise EvidenceCorpusPrepError(
             "Abstract sidecar must contain exactly id, UT, and abstract."
@@ -1276,6 +1324,9 @@ def build_biodiversity_manifest(
             "dataset_abstracts": "dataset_abstracts.parquet",
         },
         "columns": list(EVIDENCE_COLUMNS),
+        "column_descriptions": {
+            column: EVIDENCE_COLUMN_DESCRIPTIONS[column] for column in EVIDENCE_COLUMNS
+        },
         "abstract_columns": ["id", "UT", "abstract"],
         "xlsx_sheet": "dataset",
         "xlsx_list_encoding": "JSON text",
@@ -1568,6 +1619,7 @@ __all__ = [
     "BiodiversityEvidenceStore",
     "DEFAULT_PLASTICS_PATTERN",
     "EVIDENCE_COLUMNS",
+    "EVIDENCE_COLUMN_DESCRIPTIONS",
     "EVIDENCE_LIST_COLUMNS",
     "GEOGRAPHY_AUDIT_LABEL_COLUMNS",
     "GEOGRAPHY_HIERARCHY_AUDIT_COLUMNS",

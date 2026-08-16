@@ -9,6 +9,48 @@
     "dataset_abstracts": "dataset_abstracts.parquet",
     "dataset_xlsx": "dataset.xlsx"
   },
+  "column_descriptions": {
+    "UT": "External Web of Science record identifier (source key); format WOS:<15 digits>.",
+    "biome": "Global Ecosystem Typology biome or biomes of study focus (L4 coding).",
+    "doi": "Digital Object Identifier, as retrieved from Web of Science.",
+    "driver": "IPBES direct driver category or categories assigned to the record (L1 coding).",
+    "id": "Stable integer primary key: the integer value of the 15-digit WOS UT suffix.",
+    "locale_coordinates": "[latitude, longitude] pairs (WGS84, EPSG:4326) for the named locales, where resolvable.",
+    "locales": "Free-text names of sub-national locations mentioned in the title or abstract, such as parks, reserves, cities, or mountain ranges.",
+    "plastics_mention": "True if the title or abstract mentions plastics or marine-debris terminology (see DEFAULT_PLASTICS_PATTERN).",
+    "pred_comparison_types": "Type or types of comparison identified for the record, populated when pred_has_comparison is true.",
+    "pred_countries": "Countries of study focus (ISO 3166-1 alpha-3 codes), as originally coded (L3).",
+    "pred_countries_audit": "Reviewed country label(s); same review-flag convention as pred_regions_audit.",
+    "pred_has_comparison": "True if the record explicitly states or strongly implies a comparator (e.g. pre/post, control vs. exposed, reference sites); otherwise false.",
+    "pred_methods_analysis": "Analysis method(s) reported in the title or abstract, where applicable.",
+    "pred_methods_data_collection": "Data collection method(s) reported in the title or abstract, where applicable.",
+    "pred_regions": "IPBES region or regions of study focus, as originally coded (L3).",
+    "pred_regions_audit": "Reviewed region label(s): equals pred_regions except review-flagged records, which become ['Unclear - Review needed'] per the IPBES hierarchy audit.",
+    "pred_study_design": "Study design category: Observational, Experimental, Modelling, Review, or Unclear.",
+    "pred_subregions": "IPBES sub-region or sub-regions of study focus, as originally coded (L3).",
+    "pred_subregions_audit": "Reviewed sub-region label(s); same review-flag convention as pred_regions_audit.",
+    "pred_threat_l0": "Broadest IUCN Threats Classification level assigned to the record (L2 coding).",
+    "publication_year": "Year of publication, as retrieved from Web of Science.",
+    "realm": "Global Ecosystem Typology realm or realms of study focus (L4 coding).",
+    "s1_bio": "Q1 biodiversity change type(s): genetic, species, community, and/or ecosystem change.",
+    "s1_r": "Q1 screening result: biodiversity change reported? 1 = Yes, -1 = Unclear, 0 = No.",
+    "s2_dir": "Q2 direction of biodiversity change: negative, positive, mixed, or unclear (eligible records exclude 'none').",
+    "s2_r": "Q2 screening result: direction of change identifiable? 1 = Yes, -1 = Unclear, 0 = No.",
+    "s3_drivers": "Q3 driver or threat name(s) identified during screening; supports eligibility only, not the final L1/L2 coding (see driver, pred_threat_l0).",
+    "s3_r": "Q3 screening result: direct anthropogenic driver mentioned or plausibly implied? 1 = Yes, -1 = Unclear, 0 = No.",
+    "s4_link": "Q4 linkage type(s) describing how the identified driver is linked to the reported biodiversity change.",
+    "s4_r": "Q4 screening result: driver-biodiversity linkage reported or plausibly implied? 1 = Yes, -1 = Unclear, 0 = No.",
+    "taxa_class_labels": "Class(es) resolved through the GBIF Backbone Taxonomy (L6).",
+    "taxa_family_labels": "Family/families resolved through the GBIF Backbone Taxonomy lineage of matched taxa; a derived rank, not directly named by the LLM coder (unlike the other taxa_*_labels ranks).",
+    "taxa_genus_labels": "Genus/genera resolved through the GBIF Backbone Taxonomy (L6).",
+    "taxa_kingdom_labels": "Kingdom(s) resolved through the GBIF Backbone Taxonomy from the article's LLM-extracted taxa mentions (L6).",
+    "taxa_order_labels": "Order(s) resolved through the GBIF Backbone Taxonomy (L6).",
+    "taxa_phylum_labels": "Phylum/phyla resolved through the GBIF Backbone Taxonomy (L6).",
+    "taxa_record_status": "Per-publication GBIF-resolution status of the LLM-extracted taxa mentions: resolved, partly_resolved, or unresolved.",
+    "taxa_species_labels": "Species resolved through the GBIF Backbone Taxonomy (L6).",
+    "text_available": "True if usable title/abstract text was available for the plastics/marine-debris text-mention check.",
+    "title": "Article title, as retrieved from Web of Science."
+  },
   "columns": [
     "id",
     "UT",
@@ -34,6 +76,7 @@
     "locales",
     "locale_coordinates",
     "realm",
+    "biome",
     "pred_study_design",
     "pred_methods_data_collection",
     "pred_methods_analysis",
@@ -50,7 +93,7 @@
     "text_available",
     "plastics_mention"
   ],
-  "created_at_utc": "2026-08-15T12:01:47.612502+00:00",
+  "created_at_utc": "2026-08-16T20:50:31.332680+00:00",
   "direction_counts": {
     "mixed": 141267,
     "negative": 253081,
@@ -98,6 +141,7 @@
     "pred_countries_audit",
     "locales",
     "realm",
+    "biome",
     "pred_study_design",
     "pred_methods_data_collection",
     "pred_methods_analysis",
@@ -111,15 +155,15 @@
     "taxa_species_labels"
   ],
   "primary_key": "id",
-  "schema_version": 17,
+  "schema_version": 18,
   "scope": "all screening-eligible publications; direction, year, threat, realm, geography, study, and taxa filters are not applied",
   "source_key": "UT",
   "sources": {
     "coding_driver": {
       "path": "data/coding-driver/all/driver_all.csv"
     },
-    "coding_ecosystems_realm": {
-      "path": "data/coding-ecosystems_realm/all/ecosystems_realm_all.csv"
+    "coding_ecosystems": {
+      "path": "data/coding-ecosystems/all/ecosystems_all.csv"
     },
     "coding_geography": {
       "path": "data/coding-geography/all/geography_all.csv"
