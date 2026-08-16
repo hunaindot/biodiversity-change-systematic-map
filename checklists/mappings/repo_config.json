@@ -138,10 +138,11 @@
           ]
         },
         {
-          "name": "ecosystems_realm",
-          "path": "data/coding-ecosystems_realm/all/ecosystems_realm_all.csv",
+          "name": "ecosystems",
+          "path": "data/coding-ecosystems/all/ecosystems_all.csv",
           "columns": [
-            "realm"
+            "realm",
+            "biome"
           ]
         },
         {
