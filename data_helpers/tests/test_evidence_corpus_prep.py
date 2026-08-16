@@ -173,6 +173,7 @@ def test_integrated_corpus_normalizes_lists_and_preserves_ut(tmp_path: Path) -> 
             "locales": ['["Lake"]', '[]'],
             "locale_coordinates": [None, None],
             "realm": ['["Freshwater"]', '["Terrestrial"]'],
+            "biome": ['["Rivers and streams"]', '["Intensive land-use systems"]'],
             "pred_methods_data_collection": ['["FieldSurvey"]', '[]'],
             "pred_methods_analysis": ['["DiversityMetrics"]', '[]'],
             "pred_has_comparison": [False, True],
@@ -333,13 +334,15 @@ def test_integrated_corpus_normalizes_lists_and_preserves_ut(tmp_path: Path) -> 
     assert "rows" not in loaded.manifest
     assert "upstream" not in loaded.manifest
     assert loaded.manifest["sources"]["fake"] == {"path": "source.txt"}
+    assert set(loaded.manifest["column_descriptions"]) == set(prep.EVIDENCE_COLUMNS)
+    assert loaded.manifest["column_descriptions"]["biome"] == prep.EVIDENCE_COLUMN_DESCRIPTIONS["biome"]
     loaded_abstracts = store.load_abstracts()
     assert loaded_abstracts.loc[0, "abstract"] == "Abstract A"
     assert loaded_abstracts[["id", "UT"]].values.tolist() == [
         [1, WOS_UT_A],
         [2, WOS_UT_B],
     ]
-    assert store.validate_xlsx() == {"sheet": "dataset", "columns": 39}
+    assert store.validate_xlsx() == {"sheet": "dataset", "columns": 40}
     workbook = load_workbook(store.dataset_xlsx_path, read_only=True, data_only=True)
     worksheet = workbook["dataset"]
     rows = list(worksheet.iter_rows(values_only=True))
