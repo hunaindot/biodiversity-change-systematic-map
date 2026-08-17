@@ -1,12 +1,6 @@
 {
-  "abstract_columns": [
-    "id",
-    "UT",
-    "abstract"
-  ],
   "artifacts": {
     "dataset": "dataset.parquet",
-    "dataset_abstracts": "dataset_abstracts.parquet",
     "dataset_xlsx": "dataset.xlsx"
   },
   "column_descriptions": {
