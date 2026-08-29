@@ -107,9 +107,10 @@ def test_bar_view_requires_fractional_shares_to_sum_to_one() -> None:
         )
 
 
-def test_bar_labels_preserve_rounded_total() -> None:
+def test_bar_labels_use_plain_independent_rounding() -> None:
     estimates = _estimates()
     shares = (0.3333, 0.1667, 0.1667, 0.1667, 0.1666)
+    expected_labels = set(np.round(100 * np.array(shares), 1))
     for realm in CORE_REALMS:
         realm_rows = estimates["realm"].eq(realm)
         estimates.loc[realm_rows, "fractional_share"] = shares
@@ -133,10 +134,9 @@ def test_bar_labels_preserve_rounded_total() -> None:
         ]
         for position in range(len(CORE_REALMS))
     }
-    assert all(
-        sum(labels) == pytest.approx(100.0)
-        for labels in labels_by_realm.values()
-    )
+    for labels in labels_by_realm.values():
+        assert set(labels) == expected_labels
+        assert sum(labels) == pytest.approx(100.1)
     plt.close(figure)
 
 

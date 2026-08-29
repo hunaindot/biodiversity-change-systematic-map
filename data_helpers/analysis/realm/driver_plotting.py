@@ -19,25 +19,6 @@ from data_helpers.visualization import BIODIVERSITY, contrasting_text_color
 LOW_SUPPORT_THRESHOLD = 50
 
 
-def _round_percentages_to_total(
-    values: np.ndarray,
-    *,
-    decimals: int,
-) -> np.ndarray:
-    """Round a percentage vector while preserving a displayed total of 100."""
-    scale = 10**decimals
-    target_units = 100 * scale
-    scaled = np.asarray(values, dtype=float)
-    scaled = scaled / scaled.sum() * target_units
-    rounded_units = np.floor(scaled).astype(np.int64)
-    remaining_units = target_units - int(rounded_units.sum())
-    if remaining_units:
-        remainders = scaled - rounded_units
-        recipients = np.argsort(-remainders, kind="stable")[:remaining_units]
-        rounded_units[recipients] += 1
-    return rounded_units.astype(float) / scale
-
-
 def _validate_order(values: Sequence[str], *, name: str) -> tuple[str, ...]:
     if isinstance(values, str):
         raise TypeError(f"{name} must be a sequence, not one string")
@@ -203,10 +184,7 @@ def plot_driver_fractional_bars(
     figure, axis = plt.subplots(figsize=(7.4, height))
     positions = np.arange(len(realms))
     left = np.zeros(len(realms))
-    label_values = np.vstack([
-        _round_percentages_to_total(row, decimals=segment_label_decimals)
-        for row in 100 * fractional.to_numpy()
-    ])
+    label_values = np.round(100 * fractional.to_numpy(), decimals=segment_label_decimals)
     for driver_position, driver in enumerate(drivers):
         values = 100 * fractional[driver].to_numpy()
         axis.barh(
