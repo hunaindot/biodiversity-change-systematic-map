@@ -19,9 +19,11 @@ The source is the **GBIF Backbone Taxonomy** Darwin Core Archive:
 | DOI | [10.15468/39omei](https://doi.org/10.15468/39omei) |
 | Archive location advertised by GBIF | `https://hosted-datasets.gbif.org/datasets/backbone/` |
 
-In the raw data extract, `eml.xml` records the dataset-level citation, snapshot
-date, license, and provenance. `meta.xml` defines the archive layout and the
-mapping between file columns and Darwin Core terms.
+The dataset-level metadata for the raw GBIF extract used here are retained in
+[`metadata-gbif-raw.xml`](../../mappings/metadata-gbif-raw.xml). This file records
+the citation, snapshot date, license, and provenance. In the raw extract,
+`meta.xml` defines the archive layout and the mapping between file columns and
+Darwin Core terms.
 
 The relevant archive tables are:
 
