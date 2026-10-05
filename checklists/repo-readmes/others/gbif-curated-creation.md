@@ -8,66 +8,7 @@ classification table with vernacular names, free-text descriptions, and a
 subset of species-profile attributes retrieved from the GBIF Species API.
 
 The curated file is a fixed project artifact rather than a current view of GBIF
-taxonomy. It preserves the 28 August 2023 classification.
-
-## Example records
-
-The examples below show selected columns from the curated CSV. Empty fields and
-long description text are omitted for readability.
-
-An accepted kingdom record contains its canonical name, status, classification,
-and aggregated vernacular names:
-
-```yaml
-taxonID: 6
-scientificName: Plantae
-canonicalName: Plantae
-taxonRank: kingdom
-taxonomicStatus: accepted
-kingdom: Plantae
-vernaculars_named: Plant (en), Plants (en), planten (nl), 植物界 (ja), ...
-```
-
-An accepted genus record carries its complete available lineage:
-
-```yaml
-taxonID: 2877951
-scientificName: Quercus L.
-canonicalName: Quercus
-taxonRank: genus
-taxonomicStatus: accepted
-kingdom: Plantae
-phylum: Tracheophyta
-class: Magnoliopsida
-order: Fagales
-family: Fagaceae
-genus: Quercus
-vernaculars_named: Acorn (en), Oak (en), Oaks (en), Eiche (de), ...
-```
-
-An accepted species record can additionally contain attributes and source
-provenance returned by the GBIF Species API:
-
-```yaml
-taxonID: 4311678
-scientificName: Tisea grandis Forest & Morgan, 1991
-canonicalName: Tisea grandis
-taxonRank: species
-taxonomicStatus: accepted
-kingdom: Animalia
-phylum: Arthropoda
-class: Malacostraca
-order: Decapoda
-family: Diogenidae
-genus: Tisea
-species_id: 4311678
-marine_curated: true
-source: [World Register of Marine Species, Catalogue of Life]
-```
-
-The full CSV also includes synonym links, authorship, nomenclatural information,
-typed descriptions, and the other optional species-profile fields documented
-below.
+taxonomy. It preserves the 28 August 2023 classification as per GBIF Backbone.
 
 ## Source snapshot
 
