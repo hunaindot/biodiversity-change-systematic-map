@@ -3,7 +3,7 @@
 ## Purpose
 
 `data/gbif/curated/gbif_curated.csv` is an enriched copy of a fixed
-GBIF Backbone Taxonomy snapshot (Not available in git & OSF repo atm. will be added). It combines the backbone's taxonomic name and
+GBIF Backbone Taxonomy snapshot ([see OSF for the file](https://osf.io/xg8yq)). It combines the backbone's taxonomic name and
 classification table with vernacular names, free-text descriptions, and a
 subset of species-profile attributes retrieved from the GBIF Species API.
 
