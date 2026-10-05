@@ -162,7 +162,7 @@ their own explicit filter: case-insensitive `taxonRank == "species"` and
 
 ## Known loss during conversion
 
-The raw-to-curated reconciliation is:
+The curated file contains 52,403 fewer taxon records than `Taxon.tsv`:
 
 | Metric | Records |
 | --- | ---: |
@@ -171,12 +171,9 @@ The raw-to-curated reconciliation is:
 | Raw IDs absent from curated | 52,403 (0.676%) |
 | IDs added by curation | 0 |
 
-The 52,403 absent rows are treated as malformed records lost during parsing,
-not as an intentional biological filter. They occur in contiguous blocks,
-consistent with quote-aware CSV parsing consuming several tab-separated records
-after encountering an unclosed literal quote. The archive declares no field
-enclosure character. Rebuilding therefore uses `quoting=csv.QUOTE_NONE` and
-verifies that all 7,746,724 unique core IDs survive before enrichment.
+The missing records occur in contiguous blocks and are treated as parsing
+losses rather than an intentional filter. The archive declares no field
+enclosure character, so the TSV is read with `quoting=csv.QUOTE_NONE`.
 
 The sources contributing the most absent records are:
 
@@ -189,15 +186,6 @@ The sources contributing the most absent records are:
 | World Register of Marine Species | `2d59e5db-57ad-41ff-97d6-11f5fb264527` | 1,310 |
 | World Checklist of Vascular Plants | `f382f0ce-323a-4091-bb9f-add557f3a9a2` | 874 |
 | TAXREF | `0e61f8fe-7d25-4f81-ada7-d970bbb2c6d6` | 797 |
-
-These counts do not indicate that those datasets were deliberately excluded.
-Catalogue of Life alone supplies 4,766,428 of the raw backbone's names; its
-31,064 absent rows correspond to a 0.652% loss rate, similar to the overall
-0.676% rate.
-
-The absent records include 33,291 species-rank usages and 27,924 accepted
-usages. Analyses requiring the complete backbone use `Taxon.tsv`; the curated
-file is not lossless.
 
 ## Downstream canonical-name lookup cache
 
