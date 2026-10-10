@@ -1,61 +1,157 @@
-# Creation and meaning of the curated GBIF taxonomy
+# Building the curated GBIF taxonomy
 
-`data/gbif/curated/gbif_curated.csv` is an enriched copy of a fixed
-GBIF Backbone Taxonomy snapshot ([see OSF for the file](https://osf.io/xg8yq)). It combines the backbone's taxonomic name and
-classification table with vernacular names, free-text descriptions, and a
-subset of species-profile attributes retrieved from the GBIF Species API.
+`data/gbif/curated/gbif_curated.csv` is the project's fixed, enriched copy of
+the GBIF Backbone Taxonomy. Its grain is **one row per name usage in the raw
+`Taxon.tsv`**, identified by `taxonID`. It is not restricted to accepted taxa or
+to species rank.
 
-The curated file is a fixed project artifact rather than a current view of GBIF
-taxonomy. It preserves the 28 August 2023 classification as per GBIF Backbone.
+A prebuilt curated artifact is available on [OSF](https://osf.io/xg8yq). This
+document describes the current pipeline for building it from the archived raw
+data and saved GBIF Species API responses.
 
-## Source snapshot
+Selected columns from three representative rows illustrate the output:
 
-The source is the **GBIF Backbone Taxonomy** Darwin Core Archive:
+| `taxonID` | `canonicalName` | `taxonRank` | `taxonomicStatus` | classification | example enrichment |
+| ---: | --- | --- | --- | --- | --- |
+| 1 | Animalia | kingdom | accepted | Animalia | vernacular names and descriptions when available |
+| 1348468 | Leioproctus imitatus | species | accepted | Animalia · Arthropoda · Insecta · Hymenoptera | Species API source profile |
+| 12179294 | Pictacollonia pseudotagaroae | species | accepted | Animalia · Mollusca · Gastropoda · Trochida | `marine_curated=True` |
+
+## Pipeline overview
+
+```text
+GBIF Backbone archive (28 August 2023)
+├── Taxon.tsv ─────────────────────────────── core rows ───┐
+├── VernacularName.tsv ── group by taxonID ───────────────┤
+├── Description.tsv ───── group by taxonID ───────────────┤
+├── meta.xml ──────────── archive schema ─────────────────┤
+└── eml.xml ───────────── provenance ─────────────────────┤
+                                                           ├─ gbif_curated.csv
+Saved GBIF Species API responses                           │
+└── species.jsonl ─────── flatten and left-join by ID ────┘
+```
+
+The raw backbone determines the output rows and all 23 core taxonomy fields.
+Vernacular names, descriptions, and species profiles only add values to those
+rows; they never add, remove, filter, or duplicate a core taxon.
+
+## 1. Obtain the raw GBIF Backbone snapshot
+
+This project uses the **28 August 2023** GBIF Backbone Taxonomy Darwin Core
+Archive, not the changing `current` archive.
 
 | Property | Value |
 | --- | --- |
 | Dataset | GBIF Backbone Taxonomy |
-| Snapshot timestamp | 2023-08-28 13:45:33 UTC |
+| Snapshot | 2023-08-28 13:45:33 UTC |
 | DOI | [10.15468/39omei](https://doi.org/10.15468/39omei) |
-| Archive location advertised by GBIF | `https://hosted-datasets.gbif.org/datasets/backbone/` |
+| Fixed archive | [2023-08-28/backbone.zip](https://hosted-datasets.gbif.org/datasets/backbone/2023-08-28/backbone.zip) |
+| Dataset metadata | [`metadata-gbif-raw.xml`](../../mappings/metadata-gbif-raw.xml) |
 
-The dataset-level metadata for the raw GBIF extract used here are retained in
-[`metadata-gbif-raw.xml`](../../mappings/metadata-gbif-raw.xml). This file records
-the citation, snapshot date, license, and provenance. In the raw extract,
-`meta.xml` defines the archive layout and the mapping between file columns and
-Darwin Core terms.
+Download and extract the fixed archive into `data/gbif/raw-2/`. For example:
 
-The relevant archive tables are:
-
-| File | Role in the curation process |
-| --- | --- |
-| `Taxon.tsv` | Core name usage, status, and fixed-rank classification |
-| `VernacularName.tsv` | Common names associated with a core `taxonID` |
-| `Description.tsv` | Typed descriptions associated with a core `taxonID` |
-| `eml.xml` | Snapshot-level provenance and citation |
-| `meta.xml` | Darwin Core Archive schema and field definitions |
-
-Other raw archive extensions, including distributions, references, multimedia,
-and type specimens, are not represented as dedicated columns in
-`gbif_curated.csv`.
-
-## Transformation
-
-```text
-GBIF Backbone Darwin Core Archive (28 August 2023)
-├── Taxon.tsv ───────────────────────────────┐
-├── VernacularName.tsv ── aggregate by ID ──┤
-├── Description.tsv ───── aggregate by ID ──┤
-└── eml.xml + meta.xml (provenance/schema)   │
-                                              ├─> gbif_curated.csv
-GBIF Species API                              │
-└── /v1/species/{usageKey}/speciesProfiles ──┘
+```bash
+mkdir -p data/gbif/raw-2
+curl --fail --location \
+  https://hosted-datasets.gbif.org/datasets/backbone/2023-08-28/backbone.zip \
+  --output /tmp/gbif-backbone-2023-08-28.zip
+unzip /tmp/gbif-backbone-2023-08-28.zip -d data/gbif/raw-2
 ```
 
-### 1. Load the core taxonomy
+The builder uses these extracted files:
 
-`Taxon.tsv` contains 7,746,724 data records and 7,746,724 unique `taxonID`
-values. Its 23 fields form the first 23 named columns of the curated CSV:
+```text
+data/gbif/raw-2/
+├── Taxon.tsv
+├── VernacularName.tsv
+├── Description.tsv
+├── meta.xml
+└── eml.xml
+```
+
+`meta.xml` is executable archive metadata: it declares file names, encodings,
+delimiters, column positions, and Darwin Core terms. `eml.xml` records the
+dataset citation, licence, and snapshot provenance. Other archive extensions
+are not used to create dedicated curated columns.
+
+The required raw record counts are:
+
+| Raw table | Data records |
+| --- | ---: |
+| `Taxon.tsv` | 7,746,724 |
+| `VernacularName.tsv` | 1,500,815 |
+| `Description.tsv` | 1,755,793 |
+
+The build stops if these counts or the relevant `meta.xml` declarations do not
+match the fixed snapshot.
+
+## 2. Provide the saved Species API responses
+
+Species attributes were obtained from the GBIF Species API endpoint:
+
+```text
+GET https://api.gbif.org/v1/species/{usageKey}/speciesProfiles
+```
+
+The `usageKey` is the numeric GBIF `taxonID`. Responses are stored as JSON Lines
+at:
+
+```text
+data/gbif/curated/species.jsonl
+```
+
+Each line contains the queried ID and the complete GBIF response:
+
+```json
+{"species_id":"1348468","record":{"offset":0,"limit":100,"endOfRecords":true,"results":[{"taxonKey":1348468,"extinct":false,"source":"Catalogue of Life","sourceTaxonKey":218152984}]}}
+```
+
+`species.jsonl` is an input snapshot; the curated builder does not make live
+API requests. The current file contains 1,316,131 responses with 1,316,131
+unique IDs. All of those IDs occur at species rank in the raw `Taxon.tsv`. The
+builder reads the entire file, validates every JSON object, and rejects
+duplicate `species_id` values.
+
+## 3. Configure input and output locations
+
+The paths are defined under `dataset_config.gbif_curated` in
+`checklists/mappings/repo_config.json`:
+
+```json
+{
+  "meta": "data/gbif/raw-2/meta.xml",
+  "species_profiles": "data/gbif/curated/species.jsonl",
+  "output": "data/gbif/curated/gbif_curated.csv"
+}
+```
+
+## 4. Build the curated CSV
+
+From the repository root, run:
+
+```bash
+python -m data_helpers.sources.build_gbif_curated
+```
+
+The command writes `data/gbif/curated/gbif_curated.csv`. It first creates an
+adjacent `.part` file, validates the completed result, and only then atomically
+replaces the existing output. At least 6 GiB of free disk space is required so
+the existing and temporary files can coexist safely.
+
+It also writes:
+
+```text
+data/gbif/curated/gbif_curated.manifest.json
+```
+
+The manifest records inputs, record counts, the ordered `taxonID` hash, and the
+hash of all raw core field values.
+
+## 5. How each curated row is created
+
+### Copy the 23 core taxonomy fields
+
+The builder copies every record from `Taxon.tsv`, in source order, including:
 
 ```text
 taxonID, datasetID, parentNameUsageID, acceptedNameUsageID,
@@ -66,247 +162,154 @@ nomenclaturalStatus, taxonRemarks, kingdom, phylum, class, order,
 family, genus
 ```
 
-The TSV is read as UTF-8 with a tab delimiter, no CSV quote processing, and the
-field names defined in `meta.xml` (`quoting=csv.QUOTE_NONE`). See the known-loss
-section below.
+The archive declares tab-separated fields with no enclosure character.
+Consequently, the TSV files are read as UTF-8 with `csv.QUOTE_NONE`; literal
+double quotes are data rather than CSV syntax.
 
-### 2. Aggregate vernacular names
+### Aggregate vernacular names
 
-Records from `VernacularName.tsv` are grouped by `taxonID` and combined into
-`vernaculars_named`. Values include the vernacular name followed by its language
-code, for example `Plant (en)`, and multiple values are joined into one string.
-The output can contain repeated names.
+`VernacularName.tsv` records are grouped by `taxonID`. The language code is
+appended when present, such as `Plant (en)`. Values are retained in source
+order, including repeats, joined with `, `, and stored in
+`vernaculars_named`.
 
-`vernaculars_named` is non-empty for 222,092 curated taxa (2.89%).
+### Aggregate descriptions
 
-### 3. Aggregate descriptions
+`Description.tsv` records are grouped by `taxonID`. HTML markup is converted
+to text, every value is prefixed with its Darwin Core description type, and
+multiple values are joined with newlines in `curated_description`.
 
-Records from `Description.tsv` are grouped by `taxonID`. Each description is
-prefixed with its Darwin Core description type and the values are joined with
-newlines, producing content such as:
+Because descriptions can contain embedded newlines, record counts for the
+curated CSV must be calculated with a CSV parser rather than `wc -l`.
 
-```text
-description: ...
-discussion: ...
-type_taxon: ...
-```
+### Flatten and join Species API profiles
 
-The combined value was stored in `curated_description`. It is non-empty for
-545,413 curated taxa (7.09%). Some values are very large and contain embedded
-newlines, so the curated file must be read with a real CSV parser; physical line
-counts from `wc -l` are not record counts.
+Every `species.jsonl` response is flattened and left-joined where the raw
+`taxonID` equals `species_id`.
 
-### 4. Add GBIF species profiles
+The output retains the complete `results` list and ordered `source` and
+`sourceTaxonKey` lists. Text values are deduplicated, sorted, and joined with
+semicolons. Comma-separated habitat values are split before this reduction.
+Boolean fields contain `True` when at least one returned profile is true and
+are otherwise empty.
 
-Species-profile attributes come from the GBIF Species API endpoint:
-
-```text
-GET https://api.gbif.org/v1/species/{usageKey}/speciesProfiles
-```
-
-The endpoint is queried with the GBIF `taxonID`/usage key from the backbone.
-GBIF returns zero, one, or several profiles because profile information can be
-contributed by multiple source checklists. The returned profiles are
-consolidated by usage key and left-joined to the taxonomy, preserving one
-curated row per retained backbone name usage. Taxa without a returned profile
-remain in the curated table with empty profile fields.
-
-When several profiles exist, `results` retains the complete result list, while
-fields such as `source` and `sourceTaxonKey` contain parallel lists. The
-following API values are added to the curated taxonomy:
-
-| Species-profile field | Curated column | Non-empty curated rows |
+| API content | Curated column | Non-empty rows |
 | --- | --- | ---: |
-| queried usage key | `species_id` | 879,087 |
-| complete profile-result list | `results` | 879,087 |
-| `livingPeriod` | `livingPeriod_curated` | 49,787 |
-| `lifeForm` | `lifeForm_curated` | 37,691 |
-| `habitat` | `habitat_curated` | 25,130 |
-| `marine` | `marine_curated` | 117,264 |
-| `freshwater` | `freshwater_curated` | 30,142 |
-| `terrestrial` | `terrestrial_curated` | 168,945 |
-| `extinct` | `extinct_curated` | 91,538 |
-| `hybrid` | `hybrid_curated` | 135 |
-| `source` | `source` | 879,087 |
-| `sourceTaxonKey` | `sourceTaxonKey` | 879,087 |
+| queried usage key | `species_id` | 1,316,131 |
+| complete result list | `results` | 1,316,131 |
+| `livingPeriod` | `livingPeriod_curated` | 74,387 |
+| `lifeForm` | `lifeForm_curated` | 56,542 |
+| `habitat` | `habitat_curated` | 37,832 |
+| `marine` | `marine_curated` | 175,801 |
+| `freshwater` | `freshwater_curated` | 45,079 |
+| `terrestrial` | `terrestrial_curated` | 253,268 |
+| `extinct` | `extinct_curated` | 137,327 |
+| `hybrid` | `hybrid_curated` | 198 |
+| source list | `source` | 1,316,131 |
+| source taxon-key list | `sourceTaxonKey` | 1,316,131 |
 
-The output also contains `ageInDays_curated`, `sizeInMillimeter_curated`, and
-`massInGram_curated`, but all three are empty and are not populated by the
-retained species-profile responses.
+`ageInDays_curated`, `sizeInMillimeter_curated`, and `massInGram_curated` are
+part of the stable output schema but are empty for this saved response set.
+Taxa without a saved response remain in the output with empty profile fields.
 
-### 5. Export the curated CSV
+## 6. Raw-to-curated reconciliation
 
-The final file contains 7,694,321 parsed records and the same number of unique
-`taxonID` values. No taxon IDs occur in the curated file that are absent from
-the raw core. In addition to the 23 core columns and the enrichment columns,
-the CSV has one unnamed column. It is empty except in one malformed record and
-is a parsing/export artifact rather than a data field.
+The build preserves the raw core grain exactly:
 
-## What one curated row represents
+| Check | Raw `Taxon.tsv` | Curated CSV | Difference |
+| --- | ---: | ---: | ---: |
+| Records | 7,746,724 | 7,746,724 | 0 |
+| Unique `taxonID` values | 7,746,724 | 7,746,724 | 0 |
+| Columns defining the core taxonomy | 23 | same 23 values | 0 |
+| Duplicate `taxonID` values | 0 | 0 | 0 |
 
-A row represents one GBIF **name usage** from the fixed 2023 backbone, not
-necessarily an accepted biological species. The file includes accepted names,
-synonyms, doubtful usages, ranks above and below species, and unranked records.
-Therefore:
+Additional structural results are:
 
-- `taxonID` identifies the backbone name usage;
-- `taxonomicStatus` determines whether it is accepted, doubtful, or a synonym;
-- `acceptedNameUsageID` links a synonym to an accepted usage when supplied;
-- the rank columns describe the 2023 backbone classification;
-- vernaculars and descriptions are optional archive extensions;
-- species-profile fields are optional attributes contributed by underlying
-  checklist sources and retrieved later through the API.
-
-The file is not an occurrence dataset, a complete species inventory, or a table
-containing only accepted species. Downstream described-diversity analyses apply
-their own explicit filter: case-insensitive `taxonRank == "species"` and
-`taxonomicStatus == "accepted"`.
-
-## Known loss during conversion
-
-The curated file contains 52,403 fewer taxon records than `Taxon.tsv`:
-
-| Metric | Records |
+| Check | Result |
 | --- | ---: |
-| Raw `Taxon.tsv` | 7,746,724 |
-| Curated CSV | 7,694,321 |
-| Raw IDs absent from curated | 52,403 (0.676%) |
-| IDs added by curation | 0 |
+| Curated columns | 40 |
+| Raw IDs absent from curated | 0 |
+| Curated IDs absent from raw | 0 |
+| Saved species responses read | 1,316,131 |
+| Saved species IDs matched to raw taxa | 1,316,131 |
 
-The missing records occur in contiguous blocks and are treated as parsing
-losses rather than an intentional filter. The archive declares no field
-enclosure character, so the TSV is read with `quoting=csv.QUOTE_NONE`.
+The validated hashes for the current build are:
 
-The sources contributing the most absent records are:
+```text
+ordered taxonID SHA-256
+6560d9ba055f40635430c174b60bf254b4ad12177e5577ed5b09df5f770c9968
 
-| Source dataset | Dataset UUID | Absent rows |
-| --- | --- | ---: |
-| Catalogue of Life Checklist | `7ddf754f-d193-4cc9-b351-99906754a03b` | 31,064 |
-| iBOL Barcode Index Numbers | `4cec8fef-f129-4966-89b7-4f8439aba058` | 6,531 |
-| UNITE fungal species hypotheses | `61a5f178-b5fb-4484-b6d8-9b129739e59d` | 2,537 |
-| Paleobiology Database | `c33ce2f2-c3cc-43a5-a380-fe4526d63650` | 1,870 |
-| World Register of Marine Species | `2d59e5db-57ad-41ff-97d6-11f5fb264527` | 1,310 |
-| World Checklist of Vascular Plants | `f382f0ce-323a-4091-bb9f-add557f3a9a2` | 874 |
-| TAXREF | `0e61f8fe-7d25-4f81-ada7-d970bbb2c6d6` | 797 |
+all 23 ordered core fields SHA-256
+db9ef1ef7f89585ec5a2e30f70d18a50272e218a0a8681895e28d830cf9a9a70
+```
 
-## Downstream canonical-name lookup cache
+These checks demonstrate that enrichment changes neither the row grain nor the
+raw taxonomy values.
 
-`checklists/mappings/gbif_lookup_cache.pkl` is built directly from
-`data/gbif/curated/gbif_curated.csv`. It is a compact lookup used by the
-taxa evaluation workflow; it is not another source of GBIF data and it does not
-add taxa that are absent from the curated CSV.
+The rank and status distributions are therefore also identical. For the most
+common ranks:
 
-Build it with:
+| `taxonRank` | Raw and curated rows |
+| --- | ---: |
+| species | 4,994,322 |
+| unranked | 1,275,874 |
+| genus | 547,518 |
+| variety | 421,934 |
+| subspecies | 380,481 |
+| form | 87,936 |
+| family | 34,356 |
+| order | 3,092 |
+| class | 845 |
+| phylum | 347 |
+| kingdom | 19 |
+
+The status distribution is likewise preserved:
+
+| `taxonomicStatus` | Raw and curated rows |
+| --- | ---: |
+| accepted | 4,152,023 |
+| synonym | 2,933,225 |
+| doubtful | 300,247 |
+| homotypic synonym | 190,684 |
+| heterotypic synonym | 151,999 |
+| proparte synonym | 18,546 |
+
+## 7. What the curated data represent
+
+Each row is a GBIF **name usage**, not necessarily an accepted biological
+species. The file includes accepted names, synonyms, doubtful usages, ranks
+above and below species, and unranked records.
+
+- `taxonID` identifies the name usage.
+- `taxonomicStatus` records whether it is accepted, doubtful, or a synonym.
+- `acceptedNameUsageID` links a synonym to its accepted usage when supplied.
+- Classification fields preserve the fixed 2023 backbone.
+- Vernacular, description, and profile fields are optional enrichments.
+
+The file is not an occurrence dataset or a table containing only accepted
+species. Analyses needing accepted species must apply that filter explicitly.
+
+## 8. Build the downstream lookup cache
+
+After rebuilding the curated CSV, rebuild the lookup used by taxa evaluation:
 
 ```bash
 python -m data_helpers.sources.build_gbif
 ```
 
-The paths and build settings are defined under `dataset_config.gbif` in
-`checklists/mappings/repo_config.json`:
+This creates `checklists/mappings/gbif_lookup_cache.pkl`. The lookup builder
+reads only `canonicalName`, `taxonomicStatus`, `kingdom`, `phylum`, `class`,
+`order`, and `genus`. Species-profile, vernacular, and description fields do
+not affect it, so profile enrichment cannot change its grain or taxonomy.
 
-```json
-{
-  "source": "data/gbif/curated/gbif_curated.csv",
-  "cache": "checklists/mappings/gbif_lookup_cache.pkl",
-  "chunksize": 200000,
-  "taxonomic_columns": ["kingdom", "phylum", "class", "order", "genus"]
-}
-```
+The resulting dictionary maps each normalized canonical name to its available
+lineage, preferring an accepted usage over a non-accepted usage with the same
+name. The corrected cache contains 5,917,325 normalized names.
 
-`data_helpers/sources/build_gbif.py` streams the curated CSV in chunks and reads
-only `canonicalName`, `taxonomicStatus`, `kingdom`, `phylum`, `class`, `order`,
-and `genus`. Vernacular names, descriptions, species-profile attributes, and
-the other curated columns do not affect this cache.
+## Related live-API workflow
 
-For each usable row, the builder:
-
-1. removes rows whose `canonicalName` is missing;
-2. strips and lowercases the canonical name to form the dictionary key;
-3. removes rows whose five stored lineage fields are all missing;
-4. keeps the first occurrence of each normalized name within the accepted and
-   non-accepted groups; and
-5. overlays accepted records on the fallback records, so an accepted usage has
-   priority over a non-accepted usage with the same normalized name.
-
-The serialized Python dictionary has this shape:
-
-```python
-{
-    "felis catus": {
-        "kingdom": "Animalia",
-        "phylum": "Chordata",
-        "class": "Mammalia",
-        "order": "Carnivora",
-        "genus": "Felis",
-    }
-}
-```
-
-The artifact contains 5,879,221 normalized canonical-name entries.
-
-Because the builder uses the curated CSV, the cache inherits its known parsing
-losses. A missing `taxonID` does not necessarily remove a lookup entry, since a
-different retained row can have the same normalized canonical name. It matters
-when no retained row supplies that name, or when the missing row would have
-provided the preferred accepted lineage. Names with several accepted rows are
-also resolved by input order: the first accepted occurrence wins.
-
-### Use in taxa evaluation
-
-`evals_local/loaders.py` loads this pickle lazily when evaluating the `taxa`
-task. For every LLM-produced pair of `taxon_rank` and `canonical_name`, it adds
-the canonical name to the prediction column for the stated rank and uses the
-cache to fill the other available lineage levels. For example:
-
-```json
-{"taxon_rank": "species", "canonical_name": "Felis catus"}
-```
-
-is expanded to the equivalent of:
-
-```text
-pred_species = ["Felis catus"]
-pred_genus   = ["Felis"]
-pred_order   = ["Carnivora"]
-pred_class   = ["Mammalia"]
-pred_phylum  = ["Chordata"]
-pred_kingdom = ["Animalia"]
-```
-
-This permits a species prediction to be checked against reference labels at
-kingdom, phylum, class, order, genus, and species levels. Missing lineage values
-are represented as `Not Applicable`; the special predictions `Not Applicable`
-and `Unclear` bypass the lookup. Values are deduplicated within each evaluated
-publication.
-
-The cache is therefore required to reproduce the taxa evaluation. If it is
-absent, `evals_local` stops the taxa evaluation and directs the user to download
-the supplementary artifact.
-
-## Alternative live GBIF API workflow
-
-The `taxa-with-api` labelling task provides a separate way to obtain taxonomic
-details without using `gbif_curated.csv` or `gbif_lookup_cache.pkl`. It sends
-the taxon names extracted during labelling to GBIF's Species Match API:
-
-```text
-https://api.gbif.org/v2/species/match
-```
-
-The API resolves each supplied name against the configured GBIF checklist and
-returns the matched usage, match status, taxonomic status, and classification.
-The workflow converts accepted matches into rank-specific lineages and applies
-the project's broad taxonomic grouping rules.
-
-Responses are stored in a separate SQLite cache so repeated names do not
-require repeated API requests. The output metadata records the GBIF checklist
-and taxonomy-build identity used for the run, and cached-only execution can
-reproduce a completed run without contacting the API.
-
-The two approaches serve different purposes:
-
-| Approach | Taxonomy source | Use |
-| --- | --- | --- |
-| Curated CSV and `gbif_lookup_cache.pkl` | Fixed 28 August 2023 backbone snapshot | Expand canonical names into lineage fields during taxa evaluation |
-| `taxa-with-api` | GBIF Species Match API and the taxonomy build recorded for the run | Resolve extracted taxon names and attach accepted classifications during labelling |
+The separate `taxa-with-api` labelling workflow resolves supplied names through
+GBIF's live Species Match endpoint (`/v2/species/match`) and keeps its own
+SQLite response cache. It does not use `gbif_curated.csv`, `species.jsonl`, or
+`gbif_lookup_cache.pkl`, and is not part of the fixed-snapshot build described
+here.

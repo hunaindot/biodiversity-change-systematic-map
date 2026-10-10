@@ -256,6 +256,11 @@
       ],
       "manual_sample_output_dir": "data/consistency-check-datasets/data-coding/to-manual-label"
     },
+    "gbif_curated": {
+      "meta": "data/gbif/raw-2/meta.xml",
+      "species_profiles": "data/gbif/curated/species.jsonl",
+      "output": "data/gbif/curated/gbif_curated.csv"
+    },
     "gbif": {
       "source": "data/gbif/curated/gbif_curated.csv",
       "cache": "checklists/mappings/gbif_lookup_cache.pkl",
