@@ -1,9 +1,9 @@
 {
-  "aligned_gbif_species_used_for_display_selection": 2184949,
+  "aligned_gbif_species_used_for_display_selection": 2199000,
   "analysis": "research-attention taxonomic sunburst (Figure taxonomic_hierarchy)",
   "angular_encoding": "article-balanced research attention",
   "comparison_contract": "exact Order-aligned research geometry with an independent complete benchmarkable accepted-GBIF denominator",
-  "comparison_gbif_species": 2590832,
+  "comparison_gbif_species": 2607214,
   "comparison_publications": 113342,
   "described_species_encoding": "paired percentage through Class in the compact hierarchy, using the complete benchmarkable accepted-GBIF base; complete Order values remain in the exported table",
   "figures": [
