@@ -757,15 +757,15 @@
   "benchmark_audit": [
     {
       "metric": "GBIF backbone rows scanned",
-      "value": 7694321
+      "value": 7746724
     },
     {
       "metric": "Species-rank rows",
-      "value": 4961031
+      "value": 4994322
     },
     {
       "metric": "Accepted species-rank rows",
-      "value": 2598208
+      "value": 2614593
     },
     {
       "metric": "Accepted species rows missing taxonID",
@@ -773,7 +773,7 @@
     },
     {
       "metric": "Broad-group benchmark total",
-      "value": 2598208
+      "value": 2614593
     }
   ],
   "broad_inclusion_counts": {
@@ -785,7 +785,7 @@
     "Excluded: reported taxon but no accepted benchmarkable match": 31949,
     "Included: at least one benchmarkable broad group": 444800
   },
-  "created_at_utc": "2026-08-15T00:28:25.124105+00:00",
+  "created_at_utc": "2026-10-10T12:30:50.991615+00:00",
   "group_schemes": {
     "analysis": {
       "group_order": [
@@ -858,14 +858,14 @@
   "schema_version": 4,
   "sources": {
     "corpus_config": {
-      "mtime_ns": 1786751999007877259,
+      "mtime_ns": 1791635078790345088,
       "path": "checklists/mappings/repo_config.json",
-      "size_bytes": 7091
+      "size_bytes": 7279
     },
     "gbif": {
-      "mtime_ns": 1756135354000000000,
+      "mtime_ns": 1791498001610547927,
       "path": "data/gbif/curated/gbif_curated.csv",
-      "size_bytes": 3673279014
+      "size_bytes": 3803448782
     },
     "gbif_eml": {
       "mtime_ns": 1755641390000000000,
