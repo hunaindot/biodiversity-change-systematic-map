@@ -48,6 +48,8 @@ __pycache__/
 /notebooks/data_processing/outputs/04_dataset/_embeddings_cache/
 /notebooks/data_processing/outputs/04_dataset/_embeddings_cache_pilot/
 /notebooks/data_processing/outputs/04_dataset/dataset_abstracts.parquet
+/notebooks/data_processing/outputs/06_dataset_for_db/dataset_for_db.parquet
+/notebooks/data_processing/outputs/06_dataset_for_db/dataset_for_db.csv
 
 /venv
 .claude

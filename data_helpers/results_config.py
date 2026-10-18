@@ -107,6 +107,10 @@ def load_results_config(path: str | Path | None = None) -> dict[str, Any]:
             "biodiversity_evidence_prep retain_eligible_build_cache must be boolean."
         )
 
+    db_dataset_prep = config.get("db_dataset_prep", {})
+    if not db_dataset_prep.get("output_directory"):
+        raise ValueError("Missing db_dataset_prep setting: output_directory")
+
     embeddings_prep = config.get("embeddings_prep", {})
     for key in [
         "endpoint",

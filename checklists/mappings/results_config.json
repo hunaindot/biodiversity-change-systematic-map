@@ -198,6 +198,10 @@
     "retain_eligible_build_cache": false,
     "output_directory": "notebooks/data_processing/outputs/04_dataset"
   },
+  "db_dataset_prep": {
+    "description": "Database-ready variant of the core dataset: abstracts joined in, Not Applicable blanked, country names instead of ISO3, audit/derived-flag columns dropped, id re-issued 1..N.",
+    "output_directory": "notebooks/data_processing/outputs/06_dataset_for_db"
+  },
   "embeddings_prep": {
     "description": "One embedding vector per publication (title + abstract) via a local Ollama nomic-embed-text endpoint.",
     "endpoint": "http://localhost:11434/api/embed",
