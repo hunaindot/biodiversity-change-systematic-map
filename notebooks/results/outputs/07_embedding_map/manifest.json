@@ -1,0 +1,64 @@
+{
+  "result": "07_embedding_map",
+  "method_details": {
+    "n_articles": 253081,
+    "n_corpus": 605199,
+    "filter": "s2_dir == 'negative' (biodiversity change direction)",
+    "embedding_model": "nomic-embed-text (768-d), UMAP computed in the web-app pipeline",
+    "taxa_top_n": 11,
+    "colour_rule": "most frequent label (by unique-document count) wins for multi-label articles",
+    "legend_share": "share of the records drawn in that map (its n) naming the label; may sum to more than 100%",
+    "taxa_scope": "phylum/class/order maps draw only articles with a taxon at that rank",
+    "skipped_labels": [
+      "Not Applicable",
+      "empty list",
+      "Unclear (IUCN-threat mode only)"
+    ],
+    "modes": {
+      "direct_drivers": {
+        "column": "driver",
+        "n_articles": 253081,
+        "n_unplotted": 0
+      },
+      "iucn_threats": {
+        "column": "pred_threat_l0",
+        "n_articles": 253081,
+        "n_unplotted": 14340
+      },
+      "realm": {
+        "column": "realm",
+        "n_articles": 253081,
+        "n_unplotted": 12240
+      },
+      "phylum": {
+        "column": "taxa_phylum_labels",
+        "n_articles": 166501,
+        "n_unplotted": 0
+      },
+      "class": {
+        "column": "taxa_class_labels",
+        "n_articles": 163227,
+        "n_unplotted": 0
+      },
+      "order": {
+        "column": "taxa_order_labels",
+        "n_articles": 154401,
+        "n_unplotted": 0
+      }
+    }
+  },
+  "artifacts": {
+    "figures/umap_direct_drivers_253_081.pdf": "UMAP scatter coloured by direct_drivers.",
+    "figures/umap_iucn_threats_253_081.pdf": "UMAP scatter coloured by iucn_threats.",
+    "figures/umap_realm_253_081.pdf": "UMAP scatter coloured by realm.",
+    "figures/umap_phylum_166_501.pdf": "UMAP scatter coloured by phylum.",
+    "figures/umap_class_163_227.pdf": "UMAP scatter coloured by class.",
+    "figures/umap_order_154_401.pdf": "UMAP scatter coloured by order.",
+    "csv/umap_direct_drivers_distribution.csv": "Label distribution for direct_drivers.",
+    "csv/umap_iucn_threats_distribution.csv": "Label distribution for iucn_threats.",
+    "csv/umap_realm_distribution.csv": "Label distribution for realm.",
+    "csv/umap_phylum_distribution.csv": "Label distribution for phylum.",
+    "csv/umap_class_distribution.csv": "Label distribution for class.",
+    "csv/umap_order_distribution.csv": "Label distribution for order."
+  }
+}

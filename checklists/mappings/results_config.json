@@ -461,6 +461,38 @@
       }
     }
   },
+  "embedding_map": {
+    "description": "Supplementary UMAP scatter of the corpus embeddings (07_embedding_map); colours copied from the web app's config/ui_groups.json so the maps match it.",
+    "dataset_source": "notebooks/data_processing/outputs/04_dataset/dataset.parquet",
+    "umap_source": "notebooks/data_processing/outputs/04_dataset/umap_coordinates.parquet",
+    "output_directory": "notebooks/results/outputs/07_embedding_map",
+    "table_subdirectory": "csv",
+    "figure_subdirectory": "figures",
+    "direction": "negative",
+    "point_size": 0.5,
+    "alpha": 1.0,
+    "driver_colors": {
+      "Land/sea use change": "#35a936",
+      "Direct Exploitation and Resource Extraction": "#c76528",
+      "Climate Change": "#2698c2",
+      "Pollution": "#6657b8",
+      "Invasive alien species": "#d62478"
+    },
+    "ranked_palette": [
+      "#2f7d44",
+      "#c56527",
+      "#2a91bb",
+      "#6657b8",
+      "#d42a77",
+      "#8b6f47",
+      "#5c8f2b",
+      "#8f4f98",
+      "#247d78",
+      "#b7463c",
+      "#51657d",
+      "#777777"
+    ]
+  },
   "geography_attention": {
     "description": "Result 05 - country and region concentration of publication-fractional biodiversity-loss research attention.",
     "low_attention_threshold_pct": 0.1,
@@ -604,7 +636,10 @@
     "table_subdirectory": "csv",
     "figure_subdirectory": "figures",
     "geo_study_design": "Observational",
-    "geo_excluded_threats": ["Other Options", "Unclear"],
+    "geo_excluded_threats": [
+      "Other Options",
+      "Unclear"
+    ],
     "geo_choropleth_filename_prefix": "world_map"
   }
 }

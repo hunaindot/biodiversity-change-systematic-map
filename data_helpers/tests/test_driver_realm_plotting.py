@@ -77,7 +77,9 @@ def test_horizontal_bar_views_accept_all_and_core_realms(
     assert figure.get_figheight() == pytest.approx(height)
     assert len(axis.patches) == len(realm_order) * len(DRIVERS)
     assert axis.get_xlim() == pytest.approx((0, 100))
-    assert axis.get_xlabel() == "IPBES Direct Driver"
+    assert axis.get_xlabel() == ""
+    assert len(axis.get_xticks()) == 0
+    assert not axis.spines["bottom"].get_visible()
     assert all(
         patch.get_height() == pytest.approx(0.50)
         for patch in axis.patches

@@ -20,7 +20,7 @@
       "fractional_weight_formula": "w_i,t = 1 / k_i, where k_i is the number of distinct threats assigned to publication i; sum_t(w_i,t) = 1",
       "share_formula": "share_t,y (%) = 100 * sum_i(w_i,t,y) / N_y, where N_y is the number of unique publications in year y"
     },
-    "panel_c": {
+    "rolling_cagr_table": {
       "analysis_n_publications": 245168,
       "n_plotted_threat_classes": 10,
       "n_rolling_windows": 21,

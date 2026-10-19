@@ -116,6 +116,9 @@ def _validate_common_inputs(
     return drivers, realms
 
 
+BAR_LEFT, BAR_RIGHT = 0.30, 0.985
+
+
 def plot_driver_fractional_bars(
     estimates: pd.DataFrame,
     *,
@@ -219,7 +222,7 @@ def plot_driver_fractional_bars(
     axis.set(
         xlim=(0, 100),
         ylim=(len(realms) - 0.5, -0.5),
-        xticks=[0, 25, 50, 75, 100],
+        xticks=[],
         yticks=positions,
         yticklabels=[
             _support_label(
@@ -230,17 +233,13 @@ def plot_driver_fractional_bars(
             for realm in realms
         ],
     )
-    axis.set_xlabel("IPBES Direct Driver", fontsize=8.5)
     axis.tick_params(
         length=0,
         colors=BIODIVERSITY["ink"],
         labelsize=7.5,
     )
     axis.grid(False)
-    axis.spines[["top", "right", "left"]].set_visible(False)
-    axis.spines["bottom"].set_bounds(0, 100)
-    axis.spines["bottom"].set_color(BIODIVERSITY["neutral"])
-    axis.spines["bottom"].set_linewidth(0.6)
+    axis.spines[["top", "right", "left", "bottom"]].set_visible(False)
 
     footer = (
         f"† Realm support < {LOW_SUPPORT_THRESHOLD} publications"
@@ -259,7 +258,7 @@ def plot_driver_fractional_bars(
         ],
         loc="lower center",
         ncol=len(drivers),
-        bbox_to_anchor=(0.5, 0.035 if footer else 0.025),
+        bbox_to_anchor=(0.5 * (BAR_LEFT + BAR_RIGHT), 0.035 if footer else 0.025),
         frameon=False,
         fontsize=6.8,
         handlelength=1.1,
@@ -275,10 +274,10 @@ def plot_driver_fractional_bars(
             color=BIODIVERSITY["ink"],
         )
     figure.subplots_adjust(
-        left=0.30,
-        right=0.985,
+        left=BAR_LEFT,
+        right=BAR_RIGHT,
         top=0.98,
-        bottom=0.22 if not footer else 0.14,
+        bottom=0.14 if not footer else 0.16,
     )
     return figure
 

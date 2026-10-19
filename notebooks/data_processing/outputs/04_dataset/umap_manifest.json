@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "created_at_utc": "2026-10-18T18:16:48.386516+00:00",
+  "grain": "one row per publication, joinable to dataset.parquet and embeddings.parquet on UT",
+  "primary_key": "UT",
+  "columns": [
+    "id",
+    "UT",
+    "umap_x",
+    "umap_y"
+  ],
+  "rows": 605199,
+  "sha256": "7fb59fcda398ebaa27a7dc97e736a7c089fac1bbb3e431b3d5b9a551eb05ca60",
+  "size_bytes": 9204108,
+  "derived_from": {
+    "embeddings": "notebooks/data_processing/outputs/04_dataset/embeddings.parquet",
+    "model": "nomic-embed-text",
+    "text_prefix": "search_document: ",
+    "embedding_dim": 768,
+    "status": "assumed, not recorded by the producer; consistent with a consistency check (see embedding_consistency_check)"
+  },
+  "provenance": "Copied unchanged from archive/biodiversity-literature-app/data/umap_coordinates.parquet (the web app's layout). The UMAP library version, hyperparameters, random seed and the script that produced it were NOT recorded; the layout cannot be regenerated from this repo.",
+  "umap_parameters": null,
+  "embedding_consistency_check": {
+    "date": "2026-10-19",
+    "method": "20,000 random articles; share of each article's 10 nearest neighbours in the 768-d embedding space (cosine) that are also among its 10 nearest in the 2-d UMAP space",
+    "overlap_at_10": 0.136,
+    "shuffled_baseline": 0.0005,
+    "reading": "about 270x above chance, so the layout is clearly built from embeddings like these. It cannot distinguish these exact vectors from another embedding model run on the same title+abstract text."
+  }
+}
